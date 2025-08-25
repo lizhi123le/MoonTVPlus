@@ -8,7 +8,6 @@ import { Radio, Tv } from 'lucide-react';
 import { Suspense, useEffect, useRef, useState } from 'react';
 
 import { parseCustomTimeFormat } from '@/lib/time';
-import { processImageUrl } from '@/lib/utils';
 
 import EpgScrollableRow from '@/components/EpgScrollableRow';
 import PageLayout from '@/components/PageLayout';
@@ -1132,9 +1131,10 @@ function LivePageClient() {
                                 <div className='w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden'>
                                   {channel.logo ? (
                                     <img
-                                      src={processImageUrl(channel.logo)}
+                                      src={`/api/proxy/logo?url=${encodeURIComponent(channel.logo)}&source=${currentSource?.key || ''}`}
                                       alt={channel.name}
                                       className='w-full h-full rounded object-contain'
+                                      loading="lazy"
                                     />
                                   ) : (
                                     <Tv className='w-5 h-5 text-gray-500' />
@@ -1239,9 +1239,10 @@ function LivePageClient() {
                   <div className='w-20 h-20 bg-gray-300 dark:bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden'>
                     {currentChannel.logo ? (
                       <img
-                        src={processImageUrl(currentChannel.logo)}
+                        src={`/api/proxy/logo?url=${encodeURIComponent(currentChannel.logo)}&source=${currentSource?.key || ''}`}
                         alt={currentChannel.name}
                         className='w-full h-full rounded object-contain'
+                        loading="lazy"
                       />
                     ) : (
                       <Tv className='w-10 h-10 text-gray-500' />
