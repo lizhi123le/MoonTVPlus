@@ -180,26 +180,20 @@ jobs:
 
       - name: Run D1 Database Migrations
         run: |
-          # Determine database ID and name: prefer secrets, fallback to wrangler.toml
+          # Use D1_DATABASE_ID from secrets or wrangler.toml
           if [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
-            # Use values from GitHub Secrets
             DATABASE_ID="${{ secrets.D1_DATABASE_ID }}"
-            DATABASE_NAME="${{ secrets.D1_DATABASE_NAME }}"
           else
-            # Fallback to wrangler.toml values
             DATABASE_ID=$(grep 'database_id' wrangler.toml | sed 's/.*=\s*"\([^"]*\)"/\1/' | head -1)
-            DATABASE_NAME=$(grep 'database_name' wrangler.toml | sed 's/.*=\s*"\([^"]*\)"/\1/' | head -1)
-
-            # Check if database_id is still a placeholder
-            if [ "$DATABASE_ID" = "REPLACE_WITH_YOUR_D1_DATABASE_ID" ]; then
-              echo "D1_DATABASE_ID not set and wrangler.toml contains placeholder, skipping migrations"
-              exit 0
-            fi
           fi
 
-          echo "Using database: $DATABASE_NAME (ID: $DATABASE_ID)"
+          # Skip if no valid ID
+          if [ -z "$DATABASE_ID" ] || [ "$DATABASE_ID" = "REPLACE_WITH_YOUR_D1_DATABASE_ID" ]; then
+            echo "D1_DATABASE_ID not configured, skipping migrations"
+            exit 0
+          fi
 
-          echo "Running D1 database migrations..."
+          echo "Running D1 database migrations on ID: $DATABASE_ID"
 
           for migration_file in ./migrations/*.sql; do
             if [ -f "$migration_file" ]; then
