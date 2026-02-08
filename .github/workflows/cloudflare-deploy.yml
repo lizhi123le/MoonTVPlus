@@ -31,14 +31,28 @@ jobs:
 
       - name: Install dependencies
         run: |
+          echo "Installing dependencies..."
           pnpm install --frozen-lockfile
-          echo "Dependencies installed successfully"
+          echo "Dependencies installed"
+
+      - name: Generate manifest
+        run: |
+          echo "Running gen:manifest..."
+          pnpm run gen:manifest || echo "gen:manifest failed"
 
       - name: Build for Cloudflare
+        id: build
         run: |
           echo "Starting Cloudflare build..."
-          pnpm run build:cloudflare 2>&1 || echo "Build failed, exit code: $?"
-          echo "Build completed"
+          echo "Running: BUILD_TARGET=cloudflare npx @opennextjs/cloudflare build"
+          BUILD_TARGET=cloudflare npx @opennextjs/cloudflare build 2>&1
+          BUILD_EXIT=$?
+          echo "Build exit code: $BUILD_EXIT"
+          if [ $BUILD_EXIT -ne 0 ]; then
+            echo "Build failed with exit code $BUILD_EXIT"
+            exit $BUILD_EXIT
+          fi
+          echo "Build completed successfully"
 
       - name: Install Wrangler
         run: pnpm add -g wrangler@4.60.0
