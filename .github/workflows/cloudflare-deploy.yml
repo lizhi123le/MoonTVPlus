@@ -29,9 +29,6 @@ jobs:
           node-version: '24'
           cache: 'pnpm'
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Set environment variables
         run: |
           echo "BUILD_TARGET=cloudflare" >> $GITHUB_ENV
@@ -72,6 +69,13 @@ jobs:
           echo "D1_DATABASE_ID=${{ secrets.D1_DATABASE_ID }}" >> $GITHUB_ENV
           echo "PROJECT_NAME=${{ secrets.PROJECT_NAME }}" >> $GITHUB_ENV
           echo "D1_DATABASE_NAME=${{ secrets.D1_DATABASE_NAME }}" >> $GITHUB_ENV
+
+      - name: Install dependencies
+        run: |
+          echo "Installing dependencies..."
+          pnpm install --frozen-lockfile
+          echo "Dependencies installed"
+
       - name: Replace project name and database name in wrangler.toml
         run: |
           # Replace name if PROJECT_NAME secret is set
@@ -81,6 +85,7 @@ jobs:
           else
             echo "PROJECT_NAME secret not set, keeping default name"
           fi
+
           # Replace database_name if D1_DATABASE_NAME secret is set
           if [ -n "${{ secrets.D1_DATABASE_NAME }}" ]; then
             sed -i 's/database_name = ".*"/database_name = "${{ secrets.D1_DATABASE_NAME }}"/' wrangler.toml
@@ -88,8 +93,10 @@ jobs:
           else
             echo "D1_DATABASE_NAME secret not set, keeping default database name"
           fi
+
           echo "Updated wrangler.toml:"
           cat wrangler.toml
+
       - name: Replace D1 Database ID in wrangler.toml
         run: |
           if [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
@@ -98,6 +105,7 @@ jobs:
           else
             echo "D1_DATABASE_ID secret not set, skipping replacement"
           fi
+
       - name: Update wrangler.toml with environment variables
         run: |
           # Function to append variable to wrangler.toml if it has a value
@@ -108,6 +116,7 @@ jobs:
               echo "$var_name = \"$var_value\"" >> wrangler.toml
             fi
           }
+
           # Append all environment variables to wrangler.toml
           append_var "NEXT_PUBLIC_STORAGE_TYPE" "${{ secrets.NEXT_PUBLIC_STORAGE_TYPE }}"
           append_var "NEXT_PUBLIC_SITE_NAME" "${{ secrets.NEXT_PUBLIC_SITE_NAME }}"
@@ -143,10 +152,28 @@ jobs:
           append_var "TVBOX_SUBSCRIBE_TOKEN" "${{ secrets.TVBOX_SUBSCRIBE_TOKEN }}"
           append_var "TVBOX_BLOCKED_SOURCES" "${{ secrets.TVBOX_BLOCKED_SOURCES }}"
           append_var "D1_DATABASE_ID" "${{ secrets.D1_DATABASE_ID }}"
+
           echo "Updated wrangler.toml:"
           cat wrangler.toml
+
+      - name: Generate manifest
+        run: |
+          echo "Running gen:manifest..."
+          pnpm run gen:manifest || echo "gen:manifest failed"
+
       - name: Build for Cloudflare
-        run: pnpm run build:cloudflare
+        id: build
+        run: |
+          echo "Starting Cloudflare build..."
+          echo "Running: BUILD_TARGET=cloudflare npx @opennextjs/cloudflare build"
+          BUILD_TARGET=cloudflare npx @opennextjs/cloudflare build 2>&1
+          BUILD_EXIT=$?
+          echo "Build exit code: $BUILD_EXIT"
+          if [ $BUILD_EXIT -ne 0 ]; then
+            echo "Build failed with exit code $BUILD_EXIT"
+            exit $BUILD_EXIT
+          fi
+          echo "Build completed successfully"
 
       - name: Install Wrangler
         run: pnpm add -g wrangler@4.60.0
@@ -157,16 +184,20 @@ jobs:
             echo "D1_DATABASE_ID not set, skipping migrations"
             exit 0
           fi
+
           # Get database name from wrangler.toml
           DATABASE_NAME=$(grep "^name\s*=" wrangler.toml | sed 's/.*=\s*"\([^"]*\)"/\1/')
           echo "Using database: $DATABASE_NAME"
+
           echo "Running D1 database migrations..."
+
           for migration_file in ./migrations/*.sql; do
             if [ -f "$migration_file" ]; then
               echo "Executing migration: $(basename $migration_file)"
               wrangler d1 execute "$DATABASE_NAME" --remote --file="$migration_file" || echo "⚠️ Migration may have been skipped (already applied)"
             fi
           done
+
           echo "✅ Migrations completed"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -179,19 +210,24 @@ jobs:
             echo "USERNAME or PASSWORD not set, skipping owner user creation"
             exit 0
           fi
+
           echo "Creating initial owner user..."
+
           # Get database name from wrangler.toml
           DATABASE_NAME=$(grep "^name\s*=" wrangler.toml | sed 's/.*=\s*"\([^"]*\)"/\1/')
           echo "Using database: $DATABASE_NAME"
+
           # Calculate SHA-256 hash of password
-          PASSWORD_HASH=$(echo -n "${{ secrets.PASSWORD }}" | sha256sum | awk '{print $1}')
+          PASSWORD_HASH=$(echo -n "$PASSWORD" | sha256sum | awk '{print $1}')
           echo "Password hash calculated"
+
           # Insert owner user (use ON CONFLICT to handle re-runs)
           wrangler d1 execute "$DATABASE_NAME" --remote --command="
             INSERT INTO users (username, password_hash, role, banned, tags, oidc_sub, enabled_apis, created_at, playrecord_migrated, favorite_migrated, skip_migrated)
-            VALUES ('${{ secrets.USERNAME }}', '$PASSWORD_HASH', 'owner', 0, NULL, NULL, NULL, \$(date +%s), 1, 1, 1)
+            VALUES ('$USERNAME', '$PASSWORD_HASH', 'owner', 0, NULL, NULL, NULL, \$(date +%s), 1, 1, 1)
             ON CONFLICT(username) DO UPDATE SET password_hash = '$PASSWORD_HASH', role = 'owner';
           " || echo "⚠️ Owner user creation may have been skipped (already exists)"
+
           echo "✅ Initial owner user created/updated"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
