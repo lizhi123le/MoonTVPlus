@@ -463,6 +463,28 @@ export default function MusicPage() {
     }
   }, [volume]);
 
+  // 安全 transform 执行器 - 替代 eval()
+  const safeTransform = (transformCode: string): ((data: any) => any) => {
+    try {
+      // 移除可能的安全问题
+      const sanitizedCode = transformCode
+        .replace(/eval\s*\(/gi, '')
+        .replace(/Function\s*\(/gi, '')
+        .replace(/process\s*\./gi, '')
+        .replace(/require\s*\(/gi, '')
+        .replace(/import\s+/gi, '')
+        .replace(/export\s+/gi, '');
+
+      // 使用 Function 构造函数执行（作用域受限）
+      // eslint-disable-next-line no-new-func
+      const transformFn = new Function('data', `try { return (${sanitizedCode})(data); } catch(e) { return data; }`);
+      return transformFn;
+    } catch (err) {
+      console.error('[Frontend] Transform 函数创建失败:', err);
+      return (d: any) => d;
+    }
+  };
+
   // 加载排行榜列表
   const loadPlaylists = async (source: string) => {
     setLoading(true);

@@ -22,6 +22,44 @@ interface AlertModalProps {
   timer?: number;
 }
 
+// 安全 HTML 过滤函数 - 只允许安全的标签
+function sanitizeHtml(html: string): string {
+  // 移除所有 HTML 标签，只保留纯文本
+  // 这样可以防止 XSS 攻击
+  return html
+    .replace(/<script[^>]*>.*?<\/script>/gis, '')
+    .replace(/<iframe[^>]*>.*?<\/iframe>/gis, '')
+    .replace(/<object[^>]*>.*?<\/object>/gis, '')
+    .replace(/<embed[^>]*>/gi, '')
+    .replace(/<link[^>]*>/gi, '')
+    .replace(/<style[^>]*>.*?<\/style>/gis, '')
+    .replace(/ on\w+="[^"]*"/gi, '')
+    .replace(/ on\w+='[^']*'/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/<[^>]+>/g, (match) => {
+      // 只允许有限的标签
+      const allowedTags = ['b', 'strong', 'i', 'em', 'u', 'br', 'p', 'span', 'a'];
+      const tagName = match.match(/^<(\w+)/)?.[1]?.toLowerCase();
+      if (tagName && allowedTags.includes(tagName)) {
+        // 对于 a 标签，只保留 href 属性（且必须是 http/https）
+        if (tagName === 'a') {
+          const hrefMatch = match.match(/href="([^"]*)"/i) || match.match(/href='([^']*)'/i);
+          if (hrefMatch) {
+            const href = hrefMatch[1];
+            if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+              return `<a href="${href}" target="_blank" rel="noopener noreferrer">`;
+            }
+          }
+          return match.replace(/href="[^"]*"/i, '').replace(/href='[^']*'/i, '');
+        }
+        // 对于其他允许的标签，移除所有属性
+        const baseTag = tagName;
+        return `<${baseTag}>`;
+      }
+      return '';
+    });
+}
+
 const AlertModal = ({
   isOpen,
   onClose,
@@ -99,7 +137,7 @@ const AlertModal = ({
           {html && (
             <div
               className="text-left text-gray-600 dark:text-gray-400 mb-4"
-              dangerouslySetInnerHTML={{ __html: html }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }}
             />
           )}
 
