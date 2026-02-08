@@ -114,8 +114,11 @@ Cloudflare Workers 提供免费的边缘计算服务，通过 GitHub Actions 可
 - 点击右上角头像 > My Profile > API Tokens
 - 点击 "Create Token"，选择 "Edit Cloudflare Workers" 模板
 - 或使用自定义 Token，需要以下权限：
-  - Account - Cloudflare Workers Scripts - Edit
-  - Account - Cloudflare Workers KV Storage - Edit
+  - **Account - Cloudflare Workers Scripts - Edit**
+  - **Account - Cloudflare Workers KV Storage - Edit**
+  - **Account - D1 - Edit**（如需使用 D1 数据库）
+  - **User - User Details - Read**
+  - **User - Memberships - Read**
 - 创建后复制生成的 API Token
 - 在 Dashboard 首页右侧可以看到你的 Account ID
 
