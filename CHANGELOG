@@ -1,3 +1,11 @@
+## [212.1.0] - 2026-02-08
+### Added
+- 新增 Vercel Postgres 数据库支持
+
+### Changed
+- 自动创建站长账号，避免外键约束导致无法操作关联表
+- 即将上映恢复长按菜单，上映天数改为点击显示
+
 ## [212.0.0] - 2026-02-07
 ### Added
 - 接入Tunehub实现音乐播放
@@ -11,17 +19,6 @@
 - openlist根路径主动移除bom防止获取根目录失效
 - webgpu缓冲区大小调整
 - 设备管理可识别OrionTv
-
-### Security Fixed
-- 修复 eval() 代码执行漏洞（音乐 transform 功能）
-- 修复默认密码安全问题（数据库初始化）
-- 修复 Cron API 密码暴露问题（改用请求头传递）
-- 修复 dangerouslySetInnerHTML XSS 风险（HTML 过滤）
-
-### Breaking Changes
-- **Cron 任务调用方式变更**：密码不再通过 URL 路径传递，改为使用请求头 `Authorization: Bearer <password>` 或 `X-Cron-Password: <password>`
-- **CRON_PASSWORD 环境变量必填**：不再有默认值，必须设置才能使用 Cron 功能
-- **数据库初始化必填环境变量**：USERNAME 和 PASSWORD 环境变量必须设置，不再有默认值
 
 ### Fixed
 - 修复与upstash合并数据源时丢失的用户缓存信息
