@@ -299,9 +299,13 @@ jobs:
             exit 0
           fi
 
-          echo "Using database: $DATABASE_NAME (ID: $DATABASE_ID)"
+          # Skip if no valid ID
+          if [ -z "$DATABASE_ID" ] || [ "$DATABASE_ID" = "REPLACE_WITH_YOUR_D1_DATABASE_ID" ]; then
+            echo "D1_DATABASE_ID not configured, skipping migrations"
+            exit 0
+          fi
 
-          echo "Running D1 database migrations..."
+          echo "Running D1 database migrations on ID: $DATABASE_ID"
 
           for migration_file in ./migrations/*.sql; do
             if [ -f "$migration_file" ]; then
