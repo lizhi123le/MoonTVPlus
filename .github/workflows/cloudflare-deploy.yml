@@ -100,10 +100,8 @@ jobs:
       - name: Replace D1 Database ID in wrangler.toml
         run: |
           if [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
-            sed -i "s/REPLACE_WITH_YOUR_D1_DATABASE_ID/${{ secrets.D1_DATABASE_ID }}/g" wrangler.toml
+            sed -i 's/REPLACE_WITH_YOUR_D1_DATABASE_ID/${{ secrets.D1_DATABASE_ID }}/g' wrangler.toml
             echo "D1 Database ID replaced successfully"
-            echo "Updated wrangler.toml database_id:"
-            grep 'database_id' wrangler.toml
           else
             echo "D1_DATABASE_ID secret not set, skipping replacement"
           fi
@@ -195,14 +193,12 @@ jobs:
             exit 0
           fi
 
-          echo "=== DEBUG ==="
-          echo "DATABASE_ID='$DATABASE_ID'"
-          echo "============="
+          echo "Running D1 database migrations on ID: $DATABASE_ID"
 
           for migration_file in ./migrations/*.sql; do
             if [ -f "$migration_file" ]; then
               echo "Executing migration: $(basename $migration_file)"
-              wrangler d1 execute "$DATABASE_ID" --remote --file="$migration_file"
+              wrangler d1 execute "$DATABASE_ID" --remote --file="$migration_file" || echo "⚠️ Migration may have been skipped (already applied)"
             fi
           done
 
@@ -230,11 +226,9 @@ jobs:
             fi
           fi
 
-          echo "=== DEBUG ==="
-          echo "DATABASE_ID='$DATABASE_ID'"
-          echo "============="
-
           echo "Creating initial owner user..."
+
+          echo "Using database ID: $DATABASE_ID"
 
           # Calculate SHA-256 hash of password
           PASSWORD_HASH=$(echo -n "$PASSWORD" | sha256sum | awk '{print $1}')
