@@ -120,4 +120,4 @@ async function diagnose() {
   console.log('4. 检查环境变量 NEXT_PUBLIC_STORAGE_TYPE 是否正确设置');
 }
 
-diagnate();
+diagnose();
