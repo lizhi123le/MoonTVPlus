@@ -128,14 +128,15 @@ Cloudflare Workers 提供免费的边缘计算服务，通过 GitHub Actions 可
 | Secret 名称                | 说明                  | 示例值                   |
 | -------------------------- | --------------------- | ------------------------ |
 | `CLOUDFLARE_API_TOKEN`     | Cloudflare API Token  | `your_api_token_here`    |
-| `CLOUDFLARE_ACCOUNT_ID`    | Cloudflare Account ID | `abc123def456`           |
+| `CLOUDFLARE_ACCOUNT_ID`     | Cloudflare Account ID | `abc123def456`           |
 | `USERNAME`                 | 站长账号              | `admin`                  |
-| `PASSWORD`                 | 站长密码              | `your_secure_password`   |
-| `NEXT_PUBLIC_STORAGE_TYPE` | 存储类型              | `upstash`                |
+| `PASSWORD`                 | 站长密码（至少8字符） | `your_secure_password`   |
+| `CRON_PASSWORD`            | 定时任务访问密码      | `your_cron_secret`       |
+| `NEXT_PUBLIC_STORAGE_TYPE`  | 存储类型              | `upstash`                |
 | `UPSTASH_URL`              | Upstash Redis URL     | `https://xxx.upstash.io` |
 | `UPSTASH_TOKEN`            | Upstash Redis Token   | `your_upstash_token`     |
-| `PROJECT_NAME`            | 自定义项目名称（用于 wrangler.toml） | `moontv-plus`          |
-| `D1_DATABASE_NAME`        | 自定义 D1 数据库名称（用于 wrangler.toml） | `moontvplus`           |
+| `PROJECT_NAME`            | 自定义项目名称        | `moontv-plus`          |
+| `D1_DATABASE_NAME`        | D1 数据库名称        | `moontvplus`           |
 
 **3. 触发部署**
 
@@ -186,7 +187,18 @@ on:
 
 **7. 配置外部定时任务（可选）**
 
-可使用外部定时请求/api/cron/mtvpls端点以触发定时任务，或新建一个workers请求触发，推荐每小时请求一次。
+可使用外部定时请求 `/api/cron` 端点以触发定时任务，或新建一个 workers 请求触发，推荐每小时请求一次。
+
+> ⚠️ **安全注意**：Cron 密码必须通过请求头传递，不再支持 URL 路径传递。
+>
+> **调用方式**（必须设置 `CRON_PASSWORD` 环境变量）：
+> ```bash
+> # 方式一：使用 Authorization 请求头
+> curl -H "Authorization: Bearer YOUR_CRON_PASSWORD" https://your-domain/api/cron
+>
+> # 方式二：使用 X-Cron-Password 请求头
+> curl -H "X-Cron-Password: YOUR_CRON_PASSWORD" https://your-domain/api/cron
+> ```
 
 ---
 
@@ -205,6 +217,7 @@ services:
     environment:
       - USERNAME=admin
       - PASSWORD=admin_password
+      - CRON_PASSWORD=your_cron_secret
       - NEXT_PUBLIC_STORAGE_TYPE=kvrocks
       - KVROCKS_URL=redis://moontv-kvrocks:6666
     networks:
@@ -239,6 +252,7 @@ services:
     environment:
       - USERNAME=admin
       - PASSWORD=admin_password
+      - CRON_PASSWORD=your_cron_secret
       - NEXT_PUBLIC_STORAGE_TYPE=redis
       - REDIS_URL=redis://moontv-redis:6379
     networks:
@@ -276,6 +290,7 @@ services:
     environment:
       - USERNAME=admin
       - PASSWORD=admin_password
+      - CRON_PASSWORD=your_cron_secret
       - NEXT_PUBLIC_STORAGE_TYPE=upstash
       - UPSTASH_URL=上面 https 开头的 HTTPS ENDPOINT
       - UPSTASH_TOKEN=上面的 TOKEN
@@ -338,9 +353,9 @@ dockge/komodo 等 docker compose UI 也有自动更新功能
 
 | 变量                                     | 说明                                                         | 可选值                      | 默认值                                                       |
 | ---------------------------------------- | ------------------------------------------------------------ | --------------------------- | ------------------------------------------------------------ |
-| USERNAME                                 | 站长账号                                                     | 任意字符串                  | 无默认，必填字段                                             |
-| PASSWORD                                 | 站长密码                                                     | 任意字符串                  | 无默认，必填字段                                             |
-| CRON_PASSWORD                            | 定时任务 API 访问密码（用于保护 /api/cron 端点）             | 任意字符串                  | mtvpls                                                       |
+| USERNAME                                 | 站长账号                                                     | 任意字符串                  | **无默认，必填字段**                                         |
+| PASSWORD                                 | 站长密码                                                     | 任意字符串（至少8字符）     | **无默认，必填字段**                                         |
+| CRON_PASSWORD                            | 定时任务 API 访问密码（用于保护 /api/cron 端点）             | 任意字符串                  | **无默认，必须设置**（原默认值 mtvpls 已废弃）                |
 | SITE_BASE                                | 站点 url                                                     | 形如 https://example.com    | 空                                                           |
 | NEXT_PUBLIC_SITE_NAME                    | 站点名称                                                     | 任意字符串                  | MoonTV                                                       |
 | ANNOUNCEMENT                             | 站点公告                                                     | 任意字符串                  | 本网站仅提供影视信息搜索服务，所有内容均来自第三方网站。本站不存储任何视频资源，不对任何内容的准确性、合法性、完整性负责。 |

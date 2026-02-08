@@ -35,9 +35,24 @@ try {
   db.exec(sql);
   console.log('✅ Database schema created successfully!');
 
-  // 创建默认管理员用户（可选）
-  const username = process.env.USERNAME || 'admin';
-  const password = process.env.PASSWORD || '123456789';
+  // 创建默认管理员用户（必须配置环境变量）
+  const username = process.env.USERNAME;
+  const password = process.env.PASSWORD;
+
+  if (!username || !password) {
+    console.error('❌ Error: USERNAME and PASSWORD environment variables must be set!');
+    console.error('   Please set these variables before initializing the database.');
+    console.error('   Example:');
+    console.error('   USERNAME=admin PASSWORD=your_strong_password npm run init:sqlite');
+    process.exit(1);
+  }
+
+  // 验证密码强度
+  if (password.length < 8) {
+    console.error('❌ Error: Password must be at least 8 characters long!');
+    process.exit(1);
+  }
+
   const passwordHash = hashPassword(password);
 
   const stmt = db.prepare(`

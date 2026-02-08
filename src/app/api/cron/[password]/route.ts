@@ -13,14 +13,47 @@ import { SearchResult } from '@/lib/types';
 
 export const runtime = 'nodejs';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { password: string } }
-) {
-  console.log(request.url);
+// Cron 认证助手函数
+function getCronPasswordFromRequest(request: NextRequest): string | null {
+  // 优先从 Authorization 头获取
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.slice(7);
+  }
+  
+  // 其次从 X-Cron-Password 头获取
+  const cronPasswordHeader = request.headers.get('X-Cron-Password');
+  if (cronPasswordHeader) {
+    return cronPasswordHeader;
+  }
+  
+  return null;
+}
 
-  const cronPassword = process.env.CRON_PASSWORD || 'mtvpls';
-  if (params.password !== cronPassword) {
+export async function GET(request: NextRequest) {
+  // 获取密码（从请求头中，避免暴露在 URL 中）
+  const providedPassword = getCronPasswordFromRequest(request);
+
+  // 验证必须提供密码
+  if (!providedPassword) {
+    return NextResponse.json(
+      { success: false, message: 'Missing cron password. Provide it via Authorization: Bearer <password> or X-Cron-Password: <password> header.' },
+      { status: 401 }
+    );
+  }
+
+  const cronPassword = process.env.CRON_PASSWORD;
+  
+  // 如果环境变量中未设置 CRON_PASSWORD，不允许执行
+  if (!cronPassword) {
+    console.error('Cron job attempted but CRON_PASSWORD environment variable is not set');
+    return NextResponse.json(
+      { success: false, message: 'Cron authentication not configured on server' },
+      { status: 500 }
+    );
+  }
+
+  if (providedPassword !== cronPassword) {
     return NextResponse.json(
       { success: false, message: 'Unauthorized' },
       { status: 401 }

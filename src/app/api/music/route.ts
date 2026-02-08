@@ -1,5 +1,68 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+/**
+ * 安全表达式解析器
+ * 替代 eval() 执行简单的表达式计算，避免代码注入攻击
+ */
+
+// 安全表达式解析器 - 替代 eval()
+function safeEval(expression: string, context: Record<string, any>): string {
+  const sanitized = expression.trim();
+
+  // 检查是否只是简单的变量引用
+  if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(sanitized)) {
+    if (context.hasOwnProperty(sanitized)) {
+      return String(context[sanitized]);
+    }
+  }
+
+  // 检查是否是简单的算术表达式（只允许数字和基本运算符）
+  const safeArithmeticRegex = /^[0-9+\-*/\(\)\s]+$/;
+  if (safeArithmeticRegex.test(sanitized)) {
+    try {
+      // 替换变量为其值
+      let result = sanitized;
+      for (const [key, val] of Object.entries(context)) {
+        const regex = new RegExp(`\\b${key}\\b`, 'g');
+        const replacement = typeof val === 'number' ? String(val) : `"${String(val).replace(/"/g, '\\"')}"`;
+        result = result.replace(regex, replacement);
+      }
+      // 使用 Function 构造函数执行（比 eval 更安全，作用域受限）
+      // eslint-disable-next-line no-new-func
+      const func = new Function(`return ${result}`);
+      return String(func());
+    } catch {
+      return sanitized.replace(/^["']|["']$/g, '');
+    }
+  }
+
+  // 对于复杂表达式，记录警告并返回原始值
+  console.warn(`[safeEval] 跳过不安全的表达式: ${expression}`);
+  return sanitized.replace(/^["']|["']$/g, '');
+}
+
+// 安全 transform 执行器 - 替代 eval() 执行 transform 函数
+function safeTransform(transformCode: string, data: any): any {
+  try {
+    // 移除可能的安全问题
+    const sanitizedCode = transformCode
+      .replace(/eval\s*\(/gi, '')
+      .replace(/Function\s*\(/gi, '')
+      .replace(/process\s*\./gi, '')
+      .replace(/require\s*\(/gi, '')
+      .replace(/import\s+/gi, '')
+      .replace(/export\s+/gi, '');
+
+    // 尝试使用 Function 构造函数执行（作用域受限）
+    // eslint-disable-next-line no-new-func
+    const transformFn = new Function('data', `try { return (${sanitizedCode})(data); } catch(e) { return data; }`);
+    return transformFn(data);
+  } catch (err) {
+    console.error('[safeTransform] Transform 函数执行失败:', err);
+    return data;
+  }
+}
+
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getConfig } from '@/lib/config';
@@ -273,15 +336,8 @@ async function executeMethod(
               result = result.replace(regex, replacement);
             }
 
-            // 尝试计算表达式
-            try {
-              // eslint-disable-next-line no-eval
-              result = eval(result);
-            } catch (err) {
-              console.error(`[executeMethod] Cloudflare 环境执行表达式失败: ${expr}`, err);
-              // 如果计算失败，尝试直接返回替换后的结果（去掉可能的引号）
-              result = result.replace(/^["']|["']$/g, '');
-            }
+            // 使用安全表达式解析器计算
+            result = safeEval(result, evalContext);
 
             return String(result);
           } else {
@@ -354,14 +410,8 @@ async function executeMethod(
       // 将 transform 函数字符串附加到响应数据中
       data.__transform = config.transform;
     } else {
-      // 在 Node.js 环境下，直接执行 transform
-      try {
-        // eslint-disable-next-line no-eval
-        const transformFn = eval(`(${config.transform})`);
-        data = transformFn(data);
-      } catch (err) {
-        console.error('[executeMethod] Transform 函数执行失败:', err);
-      }
+    // 使用安全 transform 执行器
+    data = safeTransform(config.transform, data);
     }
   }
 

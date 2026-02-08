@@ -525,16 +525,19 @@ export class DbManager {
                 password = storedPassword;
                 console.log(`用户 ${user.username} 使用旧密码迁移`);
               } else {
-                // 没有旧密码，使用默认密码
-                password = 'defaultPassword123';
-                console.log(`用户 ${user.username} 没有旧密码，使用默认密码`);
+                // 没有旧密码，生成强随机密码
+                password = crypto.randomBytes(32).toString('hex');
+                console.log(`用户 ${user.username} 没有旧密码，生成随机密码（密码登录将不可用，请使用 OIDC 或重置密码）`);
               }
             } else {
-              password = 'defaultPassword123';
+              // 没有旧存储，生成强随机密码
+              password = crypto.randomBytes(32).toString('hex');
+              console.log(`用户 ${user.username} 没有旧存储，生成随机密码（密码登录将不可用，请使用 OIDC 或重置密码）`);
             }
           } catch (err) {
-            console.error(`获取用户 ${user.username} 的密码失败，使用默认密码`, err);
-            password = 'defaultPassword123';
+            // 获取密码失败，生成强随机密码
+            password = crypto.randomBytes(32).toString('hex');
+            console.log(`用户 ${user.username} 获取密码失败，生成随机密码（密码登录将不可用，请使用 OIDC 或重置密码）`);
           }
         }
 
