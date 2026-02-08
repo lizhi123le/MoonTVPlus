@@ -185,20 +185,14 @@ jobs:
             exit 0
           fi
 
-          # Get database name from wrangler.toml (use database_name, not name)
-          DATABASE_NAME=$(grep -A5 '\[\[d1_databases\]\]' wrangler.toml | grep 'database_name' | sed 's/.*=\s*"\([^"]*\)"/\1/')
-          if [ -z "$DATABASE_NAME" ]; then
-            # Fallback: try to extract from [[d1_databases]] section
-            DATABASE_NAME=$(grep 'database_name' wrangler.toml | head -1 | sed 's/.*=\s*"\([^"]*\)"/\1/')
-          fi
-          echo "Using database: $DATABASE_NAME"
+          echo "Using database: ${{ secrets.D1_DATABASE_NAME }} (ID: ${{ secrets.D1_DATABASE_ID }})"
 
           echo "Running D1 database migrations..."
 
           for migration_file in ./migrations/*.sql; do
             if [ -f "$migration_file" ]; then
               echo "Executing migration: $(basename $migration_file)"
-              wrangler d1 execute "$DATABASE_NAME" --remote --file="$migration_file" || echo "⚠️ Migration may have been skipped (already applied)"
+              wrangler d1 execute "$D1_DATABASE_ID" --remote --file="$migration_file" || echo "⚠️ Migration may have been skipped (already applied)"
             fi
           done
 
@@ -217,20 +211,14 @@ jobs:
 
           echo "Creating initial owner user..."
 
-          # Get database name from wrangler.toml (use database_name, not name)
-          DATABASE_NAME=$(grep -A5 '\[\[d1_databases\]\]' wrangler.toml | grep 'database_name' | sed 's/.*=\s*"\([^"]*\)"/\1/')
-          if [ -z "$DATABASE_NAME" ]; then
-            # Fallback: try to extract from [[d1_databases]] section
-            DATABASE_NAME=$(grep 'database_name' wrangler.toml | head -1 | sed 's/.*=\s*"\([^"]*\)"/\1/')
-          fi
-          echo "Using database: $DATABASE_NAME"
+          echo "Using database ID: $D1_DATABASE_ID"
 
           # Calculate SHA-256 hash of password
           PASSWORD_HASH=$(echo -n "$PASSWORD" | sha256sum | awk '{print $1}')
           echo "Password hash calculated"
 
           # Insert owner user (use ON CONFLICT to handle re-runs)
-          wrangler d1 execute "$DATABASE_NAME" --remote --command="
+          wrangler d1 execute "$D1_DATABASE_ID" --remote --command="
             INSERT INTO users (username, password_hash, role, banned, tags, oidc_sub, enabled_apis, created_at, playrecord_migrated, favorite_migrated, skip_migrated)
             VALUES ('$USERNAME', '$PASSWORD_HASH', 'owner', 0, NULL, NULL, NULL, \$(date +%s), 1, 1, 1)
             ON CONFLICT(username) DO UPDATE SET password_hash = '$PASSWORD_HASH', role = 'owner';
