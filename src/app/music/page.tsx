@@ -402,7 +402,7 @@ export default function MusicPage() {
 
       // 使用 Function 构造函数执行（作用域受限）
       // eslint-disable-next-line no-new-func
-      const transformFn = new Function('data', `try { return (${sanitizedCode})(data); } catch(e) { return data; }`);
+      const transformFn = new Function('data', `try { return (${sanitizedCode})(data); } catch(e) { return data; }`) as (data: any) => any;
       return transformFn;
     } catch (err) {
       console.error('[Frontend] Transform 函数创建失败:', err);
