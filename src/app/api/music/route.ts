@@ -44,14 +44,26 @@ function safeEval(expression: string, context: Record<string, any>): string {
 // 安全 transform 执行器 - 替代 eval() 执行 transform 函数
 function safeTransform(transformCode: string, data: any): any {
   try {
-    // 移除可能的安全问题
+    // 精确过滤危险关键字（只过滤顶层的危险调用，保留方法调用）
     const sanitizedCode = transformCode
-      .replace(/eval\s*\(/gi, '')
-      .replace(/Function\s*\(/gi, '')
-      .replace(/process\s*\./gi, '')
-      .replace(/require\s*\(/gi, '')
-      .replace(/import\s+/gi, '')
-      .replace(/export\s+/gi, '');
+      // 移除 eval( 和 eval ( 
+      .replace(/\beval\s*\(/gi, 'dangerousEval(')
+      // 移除 Function( 和 Function (
+      .replace(/\bFunction\s*\(/gi, 'dangerousFunction(')
+      // 移除 process. (顶级的 process 属性访问)
+      .replace(/\bprocess\.(stdout|stderr|stdin|cwd|env|exit)\b/g, 'dangerousProcess')
+      // 移除 require( 和 require (
+      .replace(/\brequire\s*\(/gi, 'dangerousRequire(')
+      // 移除 import 语句（保留 .import() 方法）
+      .replace(/\bimport\s+(['"`])/g, 'dangerousImport$1')
+      // 移除 export 语句（保留 .export() 方法）
+      .replace(/\bexport\s+({|\s)/g, 'dangerousExport$1')
+      // 移除 prototype 属性访问
+      .replace(/\bprototype\b/g, 'dangerousPrototype')
+      // 移除 __proto__ 属性访问
+      .replace(/__proto__/g, 'dangerousProto')
+      // 移除 constructor 属性
+      .replace(/\bconstructor\b/g, 'dangerousConstructor');
 
     // 尝试使用 Function 构造函数执行（作用域受限）
     // eslint-disable-next-line no-new-func
