@@ -185,8 +185,12 @@ jobs:
             exit 0
           fi
 
-          # Get database name from wrangler.toml
-          DATABASE_NAME=$(grep "^name\s*=" wrangler.toml | sed 's/.*=\s*"\([^"]*\)"/\1/')
+          # Get database name from wrangler.toml (use database_name, not name)
+          DATABASE_NAME=$(grep -A1 '\[d1_databases\]' wrangler.toml | grep 'database_name' | sed 's/.*=\s*"\([^"]*\)"/\1/')
+          if [ -z "$DATABASE_NAME" ]; then
+            # Fallback: try to extract from [[d1_databases]] section
+            DATABASE_NAME=$(grep 'database_name' wrangler.toml | head -1 | sed 's/.*=\s*"\([^"]*\)"/\1/')
+          fi
           echo "Using database: $DATABASE_NAME"
 
           echo "Running D1 database migrations..."
@@ -213,8 +217,12 @@ jobs:
 
           echo "Creating initial owner user..."
 
-          # Get database name from wrangler.toml
-          DATABASE_NAME=$(grep "^name\s*=" wrangler.toml | sed 's/.*=\s*"\([^"]*\)"/\1/')
+          # Get database name from wrangler.toml (use database_name, not name)
+          DATABASE_NAME=$(grep -A1 '\[d1_databases\]' wrangler.toml | grep 'database_name' | sed 's/.*=\s*"\([^"]*\)"/\1/')
+          if [ -z "$DATABASE_NAME" ]; then
+            # Fallback: try to extract from [[d1_databases]] section
+            DATABASE_NAME=$(grep 'database_name' wrangler.toml | head -1 | sed 's/.*=\s*"\([^"]*\)"/\1/')
+          fi
           echo "Using database: $DATABASE_NAME"
 
           # Calculate SHA-256 hash of password
