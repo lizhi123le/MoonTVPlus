@@ -100,8 +100,10 @@ jobs:
       - name: Replace D1 Database ID in wrangler.toml
         run: |
           if [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
-            sed -i 's/REPLACE_WITH_YOUR_D1_DATABASE_ID/${{ secrets.D1_DATABASE_ID }}/g' wrangler.toml
+            sed -i "s/REPLACE_WITH_YOUR_D1_DATABASE_ID/${{ secrets.D1_DATABASE_ID }}/g" wrangler.toml
             echo "D1 Database ID replaced successfully"
+            echo "Updated wrangler.toml database_id:"
+            grep 'database_id' wrangler.toml
           else
             echo "D1_DATABASE_ID secret not set, skipping replacement"
           fi
