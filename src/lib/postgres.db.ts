@@ -61,8 +61,13 @@ export class PostgresStorage implements IStorage {
   }
 
   async setPlayRecord(userName: string, key: string, record: PlayRecord): Promise<void> {
+    // 验证必填字段
+    if (!record.title || !record.source_name || record.index < 1) {
+      throw new Error('Invalid play record data: missing required fields');
+    }
+
     try {
-      await this.db
+      const result = await this.db
         .prepare(`
           INSERT INTO play_records (
             username, key, title, source_name, cover, year,
@@ -97,6 +102,10 @@ export class PostgresStorage implements IStorage {
           record.search_title || ''
         )
         .run();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save play record');
+      }
     } catch (err) {
       console.error('PostgresStorage.setPlayRecord error:', err);
       throw err;
@@ -126,10 +135,14 @@ export class PostgresStorage implements IStorage {
 
   async deletePlayRecord(userName: string, key: string): Promise<void> {
     try {
-      await this.db
+      const result = await this.db
         .prepare('DELETE FROM play_records WHERE username = $1 AND key = $2')
         .bind(userName, key)
         .run();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete play record');
+      }
     } catch (err) {
       console.error('PostgresStorage.deletePlayRecord error:', err);
       throw err;
@@ -151,7 +164,7 @@ export class PostgresStorage implements IStorage {
       if (count <= threshold) return;
 
       // 删除超出限制的旧记录
-      await this.db
+      const deleteResult = await this.db
         .prepare(`
           DELETE FROM play_records
           WHERE username = $1
@@ -165,6 +178,10 @@ export class PostgresStorage implements IStorage {
         .bind(userName, maxRecords)
         .run();
 
+      if (!deleteResult.success) {
+        throw new Error(deleteResult.error || 'Failed to cleanup old play records');
+      }
+
       console.log(`PostgresStorage: Cleaned up old play records for user ${userName}`);
     } catch (err) {
       console.error('PostgresStorage.cleanupOldPlayRecords error:', err);
@@ -174,10 +191,14 @@ export class PostgresStorage implements IStorage {
 
   async migratePlayRecords(userName: string): Promise<void> {
     try {
-      await this.db
+      const result = await this.db
         .prepare('UPDATE users SET playrecord_migrated = 1 WHERE username = $1')
         .bind(userName)
         .run();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to migrate play records');
+      }
     } catch (err) {
       console.error('PostgresStorage.migratePlayRecords error:', err);
     }
@@ -202,7 +223,7 @@ export class PostgresStorage implements IStorage {
 
   async setFavorite(userName: string, key: string, favorite: Favorite): Promise<void> {
     try {
-      await this.db
+      const result = await this.db
         .prepare(`
           INSERT INTO favorites (
             username, key, source_name, total_episodes, title,
@@ -237,6 +258,10 @@ export class PostgresStorage implements IStorage {
           favorite.vod_remarks || null
         )
         .run();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save favorite');
+      }
     } catch (err) {
       console.error('PostgresStorage.setFavorite error:', err);
       throw err;

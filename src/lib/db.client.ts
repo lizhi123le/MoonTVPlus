@@ -98,11 +98,12 @@ const CACHE_VERSION = '1.0.0';
 const CACHE_EXPIRE_TIME = 60 * 60 * 1000; // 一小时缓存过期
 
 // ---- 环境变量 ----
+// 注意：NEXT_PUBLIC_STORAGE_TYPE 在构建时通过 next.config.js 的 env 配置内嵌到客户端
 const STORAGE_TYPE = (() => {
   const raw =
     (typeof window !== 'undefined' &&
       (window as any).RUNTIME_CONFIG?.STORAGE_TYPE) ||
-    (process.env.STORAGE_TYPE as
+    (process.env.NEXT_PUBLIC_STORAGE_TYPE as
       | 'localstorage'
       | 'redis'
       | 'upstash'
