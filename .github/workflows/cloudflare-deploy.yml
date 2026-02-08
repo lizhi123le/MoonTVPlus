@@ -68,8 +68,31 @@ jobs:
           echo "CONFIG_SUBSCRIPTION_URL=${{ secrets.CONFIG_SUBSCRIPTION_URL }}" >> $GITHUB_ENV
           echo "ENABLE_TVBOX_SUBSCRIBE=${{ secrets.ENABLE_TVBOX_SUBSCRIBE }}" >> $GITHUB_ENV
           echo "TVBOX_SUBSCRIBE_TOKEN=${{ secrets.TVBOX_SUBSCRIBE_TOKEN }}" >> $GITHUB_ENV
-           echo "TVBOX_BLOCKED_SOURCES=${{ secrets.TVBOX_BLOCKED_SOURCES }}" >> $GITHUB_ENV
-           echo "D1_DATABASE_ID=${{ secrets.D1_DATABASE_ID }}" >> $GITHUB_ENV
+          echo "TVBOX_BLOCKED_SOURCES=${{ secrets.TVBOX_BLOCKED_SOURCES }}" >> $GITHUB_ENV
+          echo "D1_DATABASE_ID=${{ secrets.D1_DATABASE_ID }}" >> $GITHUB_ENV
+          echo "PROJECT_NAME=${{ secrets.PROJECT_NAME }}" >> $GITHUB_ENV
+          echo "D1_DATABASE_NAME=${{ secrets.D1_DATABASE_NAME }}" >> $GITHUB_ENV
+
+      - name: Replace project name and database name in wrangler.toml
+        run: |
+          # Replace name if PROJECT_NAME secret is set
+          if [ -n "${{ secrets.PROJECT_NAME }}" ]; then
+            sed -i 's/^name = ".*"/name = "${{ secrets.PROJECT_NAME }}"/' wrangler.toml
+            echo "Project name replaced with: ${{ secrets.PROJECT_NAME }}"
+          else
+            echo "PROJECT_NAME secret not set, keeping default name"
+          fi
+
+          # Replace database_name if D1_DATABASE_NAME secret is set
+          if [ -n "${{ secrets.D1_DATABASE_NAME }}" ]; then
+            sed -i 's/database_name = ".*"/database_name = "${{ secrets.D1_DATABASE_NAME }}"/' wrangler.toml
+            echo "Database name replaced with: ${{ secrets.D1_DATABASE_NAME }}"
+          else
+            echo "D1_DATABASE_NAME secret not set, keeping default database name"
+          fi
+
+          echo "Updated wrangler.toml:"
+          cat wrangler.toml
 
       - name: Replace D1 Database ID in wrangler.toml
         run: |
