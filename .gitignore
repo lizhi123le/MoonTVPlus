@@ -41,6 +41,7 @@ wrangler.toml.bak
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+worker-configuration.d.ts
 
 # next-sitemap
 sitemap.xml
