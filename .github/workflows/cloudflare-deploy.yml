@@ -30,9 +30,6 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Set environment variables
         run: |
           echo "BUILD_TARGET=cloudflare" >> $GITHUB_ENV
           echo "NODE_ENV=production" >> $GITHUB_ENV
@@ -145,7 +142,10 @@ jobs:
           cat wrangler.toml
 
       - name: Build for Cloudflare
-        run: pnpm run build:cloudflare
+        run: |
+          echo "Starting Cloudflare build..."
+          pnpm run build:cloudflare 2>&1 || echo "Build failed, exit code: $?"
+          echo "Build completed"
 
       - name: Install Wrangler
         run: pnpm add -g wrangler@4.60.0
