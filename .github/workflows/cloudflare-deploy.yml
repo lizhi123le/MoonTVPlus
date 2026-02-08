@@ -193,12 +193,14 @@ jobs:
             exit 0
           fi
 
-          echo "Running D1 database migrations on ID: $DATABASE_ID"
+          echo "=== DEBUG ==="
+          echo "DATABASE_ID='$DATABASE_ID'"
+          echo "============="
 
           for migration_file in ./migrations/*.sql; do
             if [ -f "$migration_file" ]; then
               echo "Executing migration: $(basename $migration_file)"
-              wrangler d1 execute "$DATABASE_ID" --remote --file="$migration_file" || echo "⚠️ Migration may have been skipped (already applied)"
+              wrangler d1 execute "$DATABASE_ID" --remote --file="$migration_file"
             fi
           done
 
@@ -226,9 +228,11 @@ jobs:
             fi
           fi
 
-          echo "Creating initial owner user..."
+          echo "=== DEBUG ==="
+          echo "DATABASE_ID='$DATABASE_ID'"
+          echo "============="
 
-          echo "Using database ID: $DATABASE_ID"
+          echo "Creating initial owner user..."
 
           # Calculate SHA-256 hash of password
           PASSWORD_HASH=$(echo -n "$PASSWORD" | sha256sum | awk '{print $1}')
