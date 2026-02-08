@@ -1,5 +1,54 @@
 /* eslint-disable no-console, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 
+// 跨平台随机字节生成器（兼容 Node.js 和 Cloudflare）
+function getRandomBytes(length: number): Uint8Array {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    // Cloudflare Workers / 现代浏览器
+    return crypto.getRandomValues(new Uint8Array(length));
+  } else if (typeof require !== 'undefined') {
+    // Node.js
+    try {
+      const nodeCrypto = require('crypto');
+      return nodeCrypto.randomBytes(length);
+    } catch {
+      // 回退方案
+      const bytes = new Uint8Array(length);
+      for (let i = 0; i < length; i++) {
+        bytes[i] = Math.floor(Math.random() * 256);
+      }
+      return bytes;
+    }
+  } else {
+    // 回退方案
+    const bytes = new Uint8Array(length);
+    for (let i = 0; i < length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+    return bytes;
+  }
+}
+
+// 生成随机密码
+function generateRandomPassword(length: number = 32): string {
+  const bytes = getRandomBytes(length);
+  let result = '';
+  for (let i = 0; i < bytes.length; i++) {
+    result += bytes[i].toString(16).padStart(2, '0');
+  }
+  return result;
+}
+
+// 生成随机 UUID
+function generateRandomUUID(): string {
+  const bytes = getRandomBytes(16);
+  // 设置版本位
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+  const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0'));
+  return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10, 16).join('')}`;
+}
+
 import { AdminConfig } from './admin.types';
 import { MusicPlayRecord } from './db.client';
 import { KvrocksStorage } from './kvrocks.db';
@@ -513,7 +562,7 @@ export class DbManager {
 
         // 如果是OIDC用户，生成随机密码（OIDC用户不需要密码登录）
         if ((user as any).oidcSub) {
-          password = crypto.randomUUID();
+          password = generateRandomUUID();
           console.log(`用户 ${user.username} (OIDC用户) 使用随机密码迁移`);
         }
         // 尝试从旧的存储中获取密码
@@ -526,17 +575,17 @@ export class DbManager {
                 console.log(`用户 ${user.username} 使用旧密码迁移`);
               } else {
                 // 没有旧密码，生成强随机密码
-                password = crypto.randomBytes(32).toString('hex');
+                password = generateRandomPassword(32);
                 console.log(`用户 ${user.username} 没有旧密码，生成随机密码（密码登录将不可用，请使用 OIDC 或重置密码）`);
               }
             } else {
               // 没有旧存储，生成强随机密码
-              password = crypto.randomBytes(32).toString('hex');
+              password = generateRandomPassword(32);
               console.log(`用户 ${user.username} 没有旧存储，生成随机密码（密码登录将不可用，请使用 OIDC 或重置密码）`);
             }
           } catch (err) {
             // 获取密码失败，生成强随机密码
-            password = crypto.randomBytes(32).toString('hex');
+            password = generateRandomPassword(32);
             console.log(`用户 ${user.username} 获取密码失败，生成随机密码（密码登录将不可用，请使用 OIDC 或重置密码）`);
           }
         }
