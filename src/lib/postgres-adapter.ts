@@ -94,12 +94,12 @@ class PostgresPreparedStatement implements D1PreparedStatement {
   }
 
   /**
-   * 执行查询并返回结果
-   */
+    * 执行查询并返回结果
+    */
   async run<T = any>(): Promise<D1Result<T>> {
-    try {
-      const convertedQuery = this.convertQuery(this.query);
+    const convertedQuery = this.convertQuery(this.query);
 
+    try {
       const result = await sql.query(convertedQuery, this.params);
 
       return {
@@ -112,10 +112,8 @@ class PostgresPreparedStatement implements D1PreparedStatement {
       };
     } catch (err: any) {
       console.error('Postgres run() error:', err);
-      return {
-        success: false,
-        error: err.message,
-      };
+      // 抛出异常让调用方感知失败
+      throw new Error(`Postgres query failed: ${err.message}`);
     }
   }
 

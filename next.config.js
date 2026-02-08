@@ -16,6 +16,11 @@ const nextConfig = {
   reactStrictMode: false,
   swcMinify: true,
 
+  // 内嵌环境变量到客户端构建
+  env: {
+    NEXT_PUBLIC_STORAGE_TYPE: process.env.NEXT_PUBLIC_STORAGE_TYPE || 'localstorage',
+  },
+
   experimental: {
     instrumentationHook: process.env.NODE_ENV === 'production' && !isCloudflare,
   },
