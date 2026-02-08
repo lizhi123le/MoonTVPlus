@@ -186,7 +186,7 @@ jobs:
           fi
 
           # Get database name from wrangler.toml (use database_name, not name)
-          DATABASE_NAME=$(grep -A1 '\[d1_databases\]' wrangler.toml | grep 'database_name' | sed 's/.*=\s*"\([^"]*\)"/\1/')
+          DATABASE_NAME=$(grep -A5 '\[\[d1_databases\]\]' wrangler.toml | grep 'database_name' | sed 's/.*=\s*"\([^"]*\)"/\1/')
           if [ -z "$DATABASE_NAME" ]; then
             # Fallback: try to extract from [[d1_databases]] section
             DATABASE_NAME=$(grep 'database_name' wrangler.toml | head -1 | sed 's/.*=\s*"\([^"]*\)"/\1/')
@@ -218,7 +218,7 @@ jobs:
           echo "Creating initial owner user..."
 
           # Get database name from wrangler.toml (use database_name, not name)
-          DATABASE_NAME=$(grep -A1 '\[d1_databases\]' wrangler.toml | grep 'database_name' | sed 's/.*=\s*"\([^"]*\)"/\1/')
+          DATABASE_NAME=$(grep -A5 '\[\[d1_databases\]\]' wrangler.toml | grep 'database_name' | sed 's/.*=\s*"\([^"]*\)"/\1/')
           if [ -z "$DATABASE_NAME" ]; then
             # Fallback: try to extract from [[d1_databases]] section
             DATABASE_NAME=$(grep 'database_name' wrangler.toml | head -1 | sed 's/.*=\s*"\([^"]*\)"/\1/')
