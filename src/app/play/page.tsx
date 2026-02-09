@@ -3439,14 +3439,14 @@ function PlayPageClient() {
         let config = await getSkipConfig(currentSource, currentId);
 
         // 如果当前源没有配置，尝试从跨来源配置中获取同名视频的配置
-        if (!config && currentTitle) {
-          const crossSourceConfig = getCrossSourceSkipConfig(currentTitle);
+        if (!config && videoTitle) {
+          const crossSourceConfig = getCrossSourceSkipConfig(videoTitle);
           if (crossSourceConfig) {
             config = {
               enable: true,
               ...crossSourceConfig,
             };
-            console.log(`[跳过配置] 使用跨来源配置: ${currentTitle}`, config);
+            console.log(`[跳过配置] 使用跨来源配置: ${videoTitle}`, config);
           }
         }
 
@@ -3459,7 +3459,7 @@ function PlayPageClient() {
     };
 
     initSkipConfig();
-  }, [currentSource, currentId, currentTitle]);
+  }, [currentSource, currentId, videoTitle]);
 
   // 监听 URL 参数变化，处理换源和换视频（用于房员跟随房主操作）
   useEffect(() => {
