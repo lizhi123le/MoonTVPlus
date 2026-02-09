@@ -23,7 +23,7 @@ function getDoubanProxyConfig(): {
   proxyType: 'direct' | 'cors-proxy-zwei' | 'cmliussss-cdn-tencent' | 'cmliussss-cdn-ali' | 'cors-anywhere' | 'custom';
   proxyUrl: string;
 } {
-  const proxyType = process.env.NEXT_PUBLIC_DOUBAN_PROXY_TYPE || 'cmliussss-cdn-tencent';
+  const proxyType = (process.env.NEXT_PUBLIC_DOUBAN_PROXY_TYPE || 'cmliussss-cdn-tencent') as 'direct' | 'cors-proxy-zwei' | 'cmliussss-cdn-tencent' | 'cmliussss-cdn-ali' | 'cors-anywhere' | 'custom';
   const proxyUrl = process.env.NEXT_PUBLIC_DOUBAN_PROXY || '';
   return { proxyType, proxyUrl };
 }
