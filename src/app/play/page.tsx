@@ -327,6 +327,14 @@ function PlayPageClient() {
     anime4kScaleRef.current = anime4kScale;
   }, [anime4kEnabled, anime4kMode, anime4kScale]);
 
+  // 初始化播放设置从本地缓存
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      lastVolumeRef.current = loadPlayerVolume();
+      lastPlaybackRateRef.current = loadPlayerPlaybackRate();
+    }
+  }, []);
+
   // 检测WebGPU支持
   useEffect(() => {
     const checkWebGPUSupport = async () => {
@@ -1245,19 +1253,9 @@ function PlayPageClient() {
   // 用于记录是否需要在播放器 ready 后跳转到指定进度
   const resumeTimeRef = useRef<number | null>(null);
   // 上次使用的音量，默认从本地缓存读取
-  const lastVolumeRef = useRef<number>(() => {
-    if (typeof window !== 'undefined') {
-      return loadPlayerVolume();
-    }
-    return 0.7;
-  });
+  const lastVolumeRef = useRef<number>(0.7);
   // 上次使用的播放速率，默认从本地缓存读取
-  const lastPlaybackRateRef = useRef<number>(() => {
-    if (typeof window !== 'undefined') {
-      return loadPlayerPlaybackRate();
-    }
-    return 1.0;
-  });
+  const lastPlaybackRateRef = useRef<number>(1.0);
 
   // 换源相关状态
   const [availableSources, setAvailableSources] = useState<SearchResult[]>([]);
