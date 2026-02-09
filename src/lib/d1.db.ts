@@ -1982,6 +1982,173 @@ export class D1Storage implements IStorage {
       throw err;
     }
   }
+
+  // ==================== 播放器设置（支持匿名用户） ====================
+
+  /**
+   * 获取播放器设置（支持匿名用户）
+   * userId 可以是 'anonymous' 或用户名
+   */
+  async getPlayerSettings(userId: string): Promise<string | null> {
+    try {
+      const result = await this.db
+        .prepare('SELECT settings FROM player_settings WHERE user_id = ?')
+        .bind(userId)
+        .first();
+
+      return result ? (result.settings as string) : null;
+    } catch (err) {
+      console.error('D1Storage.getPlayerSettings error:', err);
+      return null;
+    }
+  }
+
+  /**
+   * 保存播放器设置（支持匿名用户）
+   */
+  async setPlayerSettings(userId: string, settings: string): Promise<void> {
+    try {
+      await this.db
+        .prepare(`
+          INSERT INTO player_settings (user_id, settings, updated_at)
+          VALUES (?, ?, ?)
+          ON CONFLICT(user_id) DO UPDATE SET settings = excluded.settings, updated_at = excluded.updated_at
+        `)
+        .bind(userId, settings, Date.now())
+        .run();
+    } catch (err) {
+      console.error('D1Storage.setPlayerSettings error:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 删除播放器设置
+   */
+  async deletePlayerSettings(userId: string): Promise<void> {
+    try {
+      await this.db
+        .prepare('DELETE FROM player_settings WHERE user_id = ?')
+        .bind(userId)
+        .run();
+    } catch (err) {
+      console.error('D1Storage.deletePlayerSettings error:', err);
+      throw err;
+    }
+  }
+
+  // ==================== 跨来源跳过时间（全局共享） ====================
+
+  /**
+   * 获取跳过时间（跨来源共享）
+   */
+  async getSkipTime(titleNormalized: string): Promise<{ intro_time: number; outro_time: number; updated_at: number } | null> {
+    try {
+      const result = await this.db
+        .prepare('SELECT * FROM skip_times WHERE title_normalized = ?')
+        .bind(titleNormalized)
+        .first();
+
+      if (!result) return null;
+      return {
+        intro_time: result.intro_time as number,
+        outro_time: result.outro_time as number,
+        updated_at: result.updated_at as number,
+      };
+    } catch (err) {
+      console.error('D1Storage.getSkipTime error:', err);
+      return null;
+    }
+  }
+
+  /**
+   * 保存跳过时间（跨来源共享）
+   */
+  async setSkipTime(titleNormalized: string, intro_time: number, outro_time: number): Promise<void> {
+    try {
+      await this.db
+        .prepare(`
+          INSERT INTO skip_times (title_normalized, intro_time, outro_time, updated_at)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(title_normalized) DO UPDATE SET
+            intro_time = excluded.intro_time,
+            outro_time = excluded.outro_time,
+            updated_at = excluded.updated_at
+        `)
+        .bind(titleNormalized, intro_time, outro_time, Date.now())
+        .run();
+    } catch (err) {
+      console.error('D1Storage.setSkipTime error:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 获取所有跳过时间（用于同步到本地）
+   */
+  async getAllSkipTimes(): Promise<Array<{ title_normalized: string; intro_time: number; outro_time: number; updated_at: number }>> {
+    try {
+      const results = await this.db
+        .prepare('SELECT * FROM skip_times ORDER BY updated_at DESC')
+        .all();
+
+      if (!results.results) return [];
+      return results.results.map((row) => ({
+        title_normalized: row.title_normalized as string,
+        intro_time: row.intro_time as number,
+        outro_time: row.outro_time as number,
+        updated_at: row.updated_at as number,
+      }));
+    } catch (err) {
+      console.error('D1Storage.getAllSkipTimes error:', err);
+      return [];
+    }
+  }
+
+  /**
+   * 批量保存跳过时间（用于从本地同步到 D1）
+   */
+  async bulkSetSkipTimes(skipTimes: Array<{ title_normalized: string; intro_time: number; outro_time: number; updated_at: number }>): Promise<void> {
+    if (skipTimes.length === 0) return;
+    if (!this.db) return;
+
+    try {
+      const statements = skipTimes.map((skip) =>
+        this.db!
+          .prepare(`
+            INSERT INTO skip_times (title_normalized, intro_time, outro_time, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(title_normalized) DO UPDATE SET
+              intro_time = excluded.intro_time,
+              outro_time = excluded.outro_time,
+              updated_at = excluded.updated_at
+          `)
+          .bind(skip.title_normalized, skip.intro_time, skip.outro_time, skip.updated_at)
+      );
+
+      if (this.db.batch) {
+        await this.db.batch(statements);
+      }
+    } catch (err) {
+      console.error('D1Storage.bulkSetSkipTimes error:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 删除跳过时间
+   */
+  async deleteSkipTime(titleNormalized: string): Promise<void> {
+    try {
+      await this.db
+        .prepare('DELETE FROM skip_times WHERE title_normalized = ?')
+        .bind(titleNormalized)
+        .run();
+    } catch (err) {
+      console.error('D1Storage.deleteSkipTime error:', err);
+      throw err;
+    }
+  }
 }
 
 /**

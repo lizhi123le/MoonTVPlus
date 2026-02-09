@@ -21,8 +21,10 @@ import {
   loadPlayerAutoPlay,
   loadPlayerDanmakuEnabled,
   loadPlayerPlaybackRate,
+  loadPlayerSettings,
   loadPlayerTheaterMode,
   loadPlayerVolume,
+  loadSkipTime,
   saveDanmakuDisplayState,
   saveDanmakuSettings,
   savePlayerAnime4kEnabled,
@@ -31,6 +33,7 @@ import {
   savePlayerAutoPlay,
   savePlayerDanmakuEnabled,
   savePlayerPlaybackRate,
+  savePlayerSettings,
   savePlayerTheaterMode,
   savePlayerVolume,
   saveSkipTime,
@@ -355,6 +358,164 @@ function PlayPageClient() {
       lastVolumeRef.current = loadPlayerVolume();
       lastPlaybackRateRef.current = loadPlayerPlaybackRate();
     }
+  }, []);
+
+  // ==================== D1 双向同步 ====================
+
+  // 生成标准化的标题（用于跨来源跳过时间）
+  function normalizeTitle(title: string): string {
+    return title.trim().toLowerCase()
+      .replace(/[\s\-_]+/g, '')  // 移除空格、连字符、下划线
+      .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');  // 只保留字母数字和中文
+  }
+
+  // 同步播放器设置到 D1
+  async function syncSettingsToD1(partialSettings?: Partial<{
+    volume: number;
+    playbackRate: number;
+    autoPlay: boolean;
+    danmakuEnabled: boolean;
+    theaterMode: boolean;
+    anime4kEnabled: boolean;
+    anime4kMode: string;
+    anime4kScale: number;
+  }>) {
+    try {
+      const authInfo = getAuthInfoFromBrowserCookie();
+      const userId = authInfo?.username || 'anonymous';
+
+      // 获取当前设置
+      const currentSettings = loadPlayerSettings();
+      const settingsToSave = partialSettings || currentSettings;
+
+      // 添加更新时间戳
+      const settingsWithTimestamp = {
+        ...settingsToSave,
+        _updated_at: Date.now(),
+      };
+
+      // 保存到本地（带时间戳）
+      savePlayerSettings(settingsToSave);
+      localStorage.setItem('player_settings_updated_at', String(Date.now()));
+
+      // 同步到 D1
+      try {
+        await fetch('/api/player-settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            settings: settingsWithTimestamp,
+          }),
+        });
+        console.log('[D1同步] 播放器设置已同步到云端');
+      } catch (err) {
+        console.error('[D1同步] 同步播放器设置失败:', err);
+      }
+    } catch (err) {
+      console.error('[D1同步] 保存设置失败:', err);
+    }
+  }
+
+  // 同步跳过时间到 D1
+  async function syncSkipTimeToD1(title: string, intro_time: number, outro_time: number) {
+    try {
+      const titleNormalized = normalizeTitle(title);
+
+      // 保存到本地
+      saveSkipTime(title, intro_time, outro_time);
+
+      // 同步到 D1
+      try {
+        await fetch('/api/skip-times', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: titleNormalized,
+            intro_time,
+            outro_time,
+          }),
+        });
+        console.log(`[D1同步] 跳过时间已同步到云端: ${title}`);
+      } catch (err) {
+        console.error('[D1同步] 同步跳过时间失败:', err);
+      }
+    } catch (err) {
+      console.error('[D1同步] 保存跳过时间失败:', err);
+    }
+  }
+
+  // D1 同步：页面加载时从 D1 获取设置并与本地合并
+  useEffect(() => {
+    const syncD1Settings = async () => {
+      if (typeof window === 'undefined') return;
+
+      try {
+        // 获取当前用户信息
+        const authInfo = getAuthInfoFromBrowserCookie();
+        const userId = authInfo?.username || 'anonymous';
+
+        // 1. 同步播放器设置
+        try {
+          const response = await fetch(`/api/player-settings?userId=${encodeURIComponent(userId)}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.settings) {
+              const d1Settings = JSON.parse(data.settings);
+              const localSettings = loadPlayerSettings();
+
+              // 合并设置，D1 和本地都有的字段取更新时间最新的
+              // 如果 D1 的更新，则更新本地
+              const localUpdatedAt = parseInt(localStorage.getItem('player_settings_updated_at') || '0', 10);
+              const d1UpdatedAt = d1Settings._updated_at || 0;
+
+              if (d1UpdatedAt > localUpdatedAt) {
+                // 过滤掉内部字段
+                const { _updated_at, ...cleanSettings } = d1Settings;
+                savePlayerSettings(cleanSettings);
+                localStorage.setItem('player_settings_updated_at', String(d1UpdatedAt));
+                console.log('[D1同步] 已从云端同步播放器设置:', cleanSettings);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('[D1同步] 获取播放器设置失败:', err);
+        }
+
+        // 2. 同步跳过时间
+        try {
+          const skipResponse = await fetch('/api/skip-times?all=true');
+          if (skipResponse.ok) {
+            const skipData = await skipResponse.json();
+            if (skipData.skipTimes && Array.isArray(skipData.skipTimes)) {
+              const now = Date.now();
+              for (const skip of skipData.skipTimes) {
+                const localSkip = loadSkipTime(skip.title_normalized);
+                if (!localSkip || (skip.updated_at > localSkip.updated_at)) {
+                  // D1 有更新或本地没有，保存到本地
+                  const key = `skip_time:${skip.title_normalized}`;
+                  const skipDataLocal = {
+                    intro_time: skip.intro_time,
+                    outro_time: skip.outro_time,
+                    updated_at: skip.updated_at,
+                  };
+                  localStorage.setItem(key, JSON.stringify(skipDataLocal));
+                }
+              }
+              console.log(`[D1同步] 已同步 ${skipData.skipTimes.length} 条跳过时间配置`);
+            }
+          }
+        } catch (err) {
+          console.error('[D1同步] 获取跳过时间失败:', err);
+        }
+      } catch (err) {
+        console.error('[D1同步] 同步失败:', err);
+      }
+    };
+
+    // 延迟执行，确保本地设置已加载
+    const timer = setTimeout(syncD1Settings, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   // 检测WebGPU支持
@@ -2554,6 +2715,9 @@ function PlayPageClient() {
       }
       setAnime4kEnabled(enabled);
       savePlayerAnime4kEnabled(enabled);
+
+      // 同步到 D1
+      syncSettingsToD1({ anime4kEnabled: enabled });
     } catch (err) {
       console.error('切换超分状态失败:', err);
     }
@@ -2564,6 +2728,9 @@ function PlayPageClient() {
     try {
       setAnime4kMode(mode);
       savePlayerAnime4kMode(mode);
+
+      // 同步到 D1
+      syncSettingsToD1({ anime4kMode: mode });
 
       if (anime4kEnabledRef.current) {
         await cleanupAnime4K();
@@ -2579,6 +2746,9 @@ function PlayPageClient() {
     try {
       setAnime4kScale(scale);
       savePlayerAnime4kScale(scale);
+
+      // 同步到 D1
+      syncSettingsToD1({ anime4kScale: scale });
 
       if (anime4kEnabledRef.current) {
         await cleanupAnime4K();
@@ -2714,9 +2884,11 @@ function PlayPageClient() {
           currentIdRef.current,
           newConfig
         );
-        // 同时保存跨来源配置
+        // 同时保存跨来源配置并同步到 D1
         if (currentTitleRef.current && newConfig.intro_time > 0) {
           saveSkipTime(currentTitleRef.current, newConfig.intro_time, newConfig.outro_time);
+          // 异步同步到 D1
+          syncSkipTimeToD1(currentTitleRef.current, newConfig.intro_time, newConfig.outro_time);
         }
       }
       console.log('跳过片头片尾配置已保存:', newConfig);
@@ -6139,11 +6311,13 @@ function PlayPageClient() {
         const volume = artPlayerRef.current.volume;
         lastVolumeRef.current = volume;
         savePlayerVolume(volume); // 保存音量到本地缓存
+        syncSettingsToD1({ volume }); // 同步到 D1
       });
       artPlayerRef.current.on('video:ratechange', () => {
         const rate = artPlayerRef.current.playbackRate;
         lastPlaybackRateRef.current = rate;
         savePlayerPlaybackRate(rate); // 保存播放速率到本地缓存
+        syncSettingsToD1({ playbackRate: rate }); // 同步到 D1
       });
 
       // 监听网页全屏事件，控制导航栏显示隐藏

@@ -219,6 +219,26 @@ CREATE TABLE IF NOT EXISTS music_playlist_songs (
 CREATE INDEX IF NOT EXISTS idx_music_playlist_songs_playlist ON music_playlist_songs(playlist_id, sort_order);
 
 -- ============================================
+-- 播放器相关表
+-- ============================================
+
+-- 16. 播放器设置表（支持匿名用户和登录用户）
+CREATE TABLE IF NOT EXISTS player_settings (
+  user_id TEXT PRIMARY KEY,  -- 'anonymous' 或用户名
+  settings TEXT NOT NULL,    -- JSON blob
+  updated_at INTEGER NOT NULL
+);
+
+-- 17. 跳过时间表（跨来源共享，使用标准化标题）
+CREATE TABLE IF NOT EXISTS skip_times (
+  title_normalized TEXT PRIMARY KEY,
+  intro_time INTEGER NOT NULL DEFAULT 0,
+  outro_time INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_skip_times_updated ON skip_times(updated_at DESC);
+
+-- ============================================
 -- 初始数据
 -- ============================================
 
@@ -230,4 +250,4 @@ VALUES (1, '{"title":"MoonTVPlus","subtitle":"","description":"","keywords":"","
 INSERT OR IGNORE INTO global_config (key, value, updated_at)
 VALUES ('video.metainfo', '{"version":"1.0","lastUpdate":1704067200000,"sources":[]}', 1704067200000);
 
-SELECT '✅ 数据库初始化完成！共创建 15 个表' as result;
+SELECT '✅ 数据库初始化完成！共创建 17 个表' as result;
