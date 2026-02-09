@@ -15,6 +15,9 @@ import {
   initDanmakuModule,
   loadDanmakuDisplayState,
   loadDanmakuSettings,
+  loadPlayerAnime4kEnabled,
+  loadPlayerAnime4kMode,
+  loadPlayerAnime4kScale,
   loadPlayerAutoPlay,
   loadPlayerDanmakuEnabled,
   loadPlayerPlaybackRate,
@@ -22,11 +25,15 @@ import {
   loadPlayerVolume,
   saveDanmakuDisplayState,
   saveDanmakuSettings,
+  savePlayerAnime4kEnabled,
+  savePlayerAnime4kMode,
+  savePlayerAnime4kScale,
   savePlayerAutoPlay,
   savePlayerDanmakuEnabled,
   savePlayerPlaybackRate,
   savePlayerTheaterMode,
   savePlayerVolume,
+  saveSkipTime,
   searchAnime,
 } from '@/lib/danmaku/api';
 import {
@@ -302,18 +309,33 @@ function PlayPageClient() {
 
   // Anime4K超分相关状态
   const [webGPUSupported, setWebGPUSupported] = useState<boolean>(false);
-  const [anime4kEnabled, setAnime4kEnabled] = useState<boolean>(false);
+  const [anime4kEnabled, setAnime4kEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const v = localStorage.getItem('player_settings');
+      if (v) {
+        try {
+          const settings = JSON.parse(v);
+          if (typeof settings.anime4kEnabled === 'boolean') {
+            return settings.anime4kEnabled;
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+    return false;
+  });
   const [anime4kMode, setAnime4kMode] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      const v = localStorage.getItem('anime4k_mode');
-      if (v !== null) return v;
+      const settings = loadPlayerAnime4kMode();
+      if (settings) return settings;
     }
     return 'ModeA';
   });
   const [anime4kScale, setAnime4kScale] = useState<number>(() => {
     if (typeof window !== 'undefined') {
-      const v = localStorage.getItem('anime4k_scale');
-      if (v !== null) return parseFloat(v);
+      const scale = loadPlayerAnime4kScale();
+      if (typeof scale === 'number') return scale;
     }
     return 2.0;
   });
@@ -2531,7 +2553,7 @@ function PlayPageClient() {
         await cleanupAnime4K();
       }
       setAnime4kEnabled(enabled);
-      localStorage.setItem('enable_anime4k', String(enabled));
+      savePlayerAnime4kEnabled(enabled);
     } catch (err) {
       console.error('切换超分状态失败:', err);
     }
@@ -2541,7 +2563,7 @@ function PlayPageClient() {
   const changeAnime4KMode = async (mode: string) => {
     try {
       setAnime4kMode(mode);
-      localStorage.setItem('anime4k_mode', mode);
+      savePlayerAnime4kMode(mode);
 
       if (anime4kEnabledRef.current) {
         await cleanupAnime4K();
@@ -2556,7 +2578,7 @@ function PlayPageClient() {
   const changeAnime4KScale = async (scale: number) => {
     try {
       setAnime4kScale(scale);
-      localStorage.setItem('anime4k_scale', scale.toString());
+      savePlayerAnime4kScale(scale);
 
       if (anime4kEnabledRef.current) {
         await cleanupAnime4K();
@@ -2692,6 +2714,10 @@ function PlayPageClient() {
           currentIdRef.current,
           newConfig
         );
+        // 同时保存跨来源配置
+        if (currentTitleRef.current && newConfig.intro_time > 0) {
+          saveSkipTime(currentTitleRef.current, newConfig.intro_time, newConfig.outro_time);
+        }
       }
       console.log('跳过片头片尾配置已保存:', newConfig);
     } catch (err) {
@@ -3237,7 +3263,21 @@ function PlayPageClient() {
       if (!currentSource || !currentId) return;
 
       try {
-        const config = await getSkipConfig(currentSource, currentId);
+        // 先尝试获取当前源的配置
+        let config = await getSkipConfig(currentSource, currentId);
+
+        // 如果当前源没有配置，尝试从跨来源配置中获取同名视频的配置
+        if (!config && currentTitle) {
+          const crossSourceConfig = getCrossSourceSkipConfig(currentTitle);
+          if (crossSourceConfig) {
+            config = {
+              enable: true,
+              ...crossSourceConfig,
+            };
+            console.log(`[跳过配置] 使用跨来源配置: ${currentTitle}`, config);
+          }
+        }
+
         if (config) {
           setSkipConfig(config);
         }
@@ -3247,7 +3287,7 @@ function PlayPageClient() {
     };
 
     initSkipConfig();
-  }, []);
+  }, [currentSource, currentId, currentTitle]);
 
   // 监听 URL 参数变化，处理换源和换视频（用于房员跟随房主操作）
   useEffect(() => {

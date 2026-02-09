@@ -402,31 +402,37 @@ export function loadDanmakuMemory(
 // ---------------- 播放器设置本地缓存 ----------------
 
 // 播放器设置接口
-export interface PlayerSettings {
+export interface playerSettings {
   volume: number;           // 音量 (0-1)
   playbackRate: number;     // 播放速率
   autoPlay: boolean;        // 自动播放
   danmakuEnabled: boolean;   // 弹幕开关
   theaterMode: boolean;     // 影院模式
+  anime4kEnabled: boolean;    // Anime4K超分开关
+  anime4kMode: string;       // Anime4K超分模式
+  anime4kScale: number;       // Anime4K超分倍数
 }
 
 // 默认播放器设置
-const defaultPlayerSettings: PlayerSettings = {
+const defaultPlayerSettings: playerSettings = {
   volume: 0.7,
   playbackRate: 1.0,
   autoPlay: false,
   danmakuEnabled: true,
   theaterMode: false,
+  anime4kEnabled: false,
+  anime4kMode: 'ModeA',
+  anime4kScale: 2.0,
 };
 
 // 保存播放器设置到 localStorage
-export function savePlayerSettings(settings: Partial<PlayerSettings>): void {
+export function savePlayerSettings(settings: Partial<playerSettings>): void {
   if (typeof window === 'undefined') return;
 
   try {
     // 读取现有设置
     const saved = localStorage.getItem('player_settings');
-    const currentSettings: PlayerSettings = saved
+    const currentSettings: playerSettings = saved
       ? { ...defaultPlayerSettings, ...JSON.parse(saved) }
       : { ...defaultPlayerSettings };
 
@@ -441,7 +447,7 @@ export function savePlayerSettings(settings: Partial<PlayerSettings>): void {
 }
 
 // 从 localStorage 读取播放器设置
-export function loadPlayerSettings(): PlayerSettings {
+export function loadPlayerSettings(): playerSettings {
   if (typeof window === 'undefined') return { ...defaultPlayerSettings };
 
   try {
@@ -515,4 +521,115 @@ export function savePlayerTheaterMode(enabled: boolean): void {
 export function loadPlayerTheaterMode(): boolean {
   if (typeof window === 'undefined') return false;
   return loadPlayerSettings().theaterMode;
+}
+
+// 保存 Anime4K 超分开关状态
+export function savePlayerAnime4kEnabled(enabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  savePlayerSettings({ anime4kEnabled: enabled });
+}
+
+// 读取 Anime4K 超分开关状态
+export function loadPlayerAnime4kEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  return loadPlayerSettings().anime4kEnabled;
+}
+
+// 保存 Anime4K 超分模式
+export function savePlayerAnime4kMode(mode: string): void {
+  if (typeof window === 'undefined') return;
+  savePlayerSettings({ anime4kMode: mode });
+}
+
+// 读取 Anime4K 超分模式
+export function loadPlayerAnime4kMode(): string {
+  if (typeof window === 'undefined') return 'ModeA';
+  return loadPlayerSettings().anime4kMode || 'ModeA';
+}
+
+// 保存 Anime4K 超分倍数
+export function savePlayerAnime4kScale(scale: number): void {
+  if (typeof window === 'undefined') return;
+  savePlayerSettings({ anime4kScale: scale });
+}
+
+// 读取 Anime4K 超分倍数
+export function loadPlayerAnime4kScale(): number {
+  if (typeof window === 'undefined') return 2.0;
+  return loadPlayerSettings().anime4kScale || 2.0;
+}
+
+// ---------------- 跳过片头片尾时间跨来源共享 ----------------
+
+// 跳过片头片尾时间接口
+export interface SkipTimeSettings {
+  intro_time: number;  // 片头跳过时间（秒）
+  outro_time: number;  // 片尾跳过时间（秒，为负数表示从结尾向前计算）
+  updated_at: number;   // 更新时间戳
+}
+
+// 生成跨来源共享的跳过配置 key（使用视频标题）
+function getSkipTimeKey(title: string): string {
+  // 清理标题，移除特殊字符，统一格式
+  const normalizedTitle = title.trim().toLowerCase()
+    .replace(/[\s\-_]+/g, '')  // 移除空格、连字符、下划线
+    .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');  // 只保留字母数字和中文
+  return `skip_time:${normalizedTitle}`;
+}
+
+// 保存跳过片头片尾时间（跨来源共享）
+export function saveSkipTime(title: string, intro_time: number, outro_time: number): void {
+  if (typeof window === 'undefined') return;
+  if (!title.trim()) return;
+
+  try {
+    const key = getSkipTimeKey(title);
+    const skipData: SkipTimeSettings = {
+      intro_time,
+      outro_time,
+      updated_at: Date.now(),
+    };
+    localStorage.setItem(key, JSON.stringify(skipData));
+    console.log(`[跳过配置] 已保存跨来源跳过配置: ${title}`, skipData);
+  } catch (error) {
+    console.error('保存跳过配置失败:', error);
+  }
+}
+
+// 读取跳过片头片尾时间（跨来源共享）
+export function loadSkipTime(title: string): SkipTimeSettings | null {
+  if (typeof window === 'undefined') return null;
+  if (!title.trim()) return null;
+
+  try {
+    const key = getSkipTimeKey(title);
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      const parsed = JSON.parse(saved) as SkipTimeSettings;
+      // 检查配置是否过期（30天）
+      const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+      if (Date.now() - parsed.updated_at > thirtyDays) {
+        localStorage.removeItem(key);
+        return null;
+      }
+      console.log(`[跳过配置] 已加载跨来源跳过配置: ${title}`, parsed);
+      return parsed;
+    }
+  } catch (error) {
+    console.error('读取跳过配置失败:', error);
+  }
+
+  return null;
+}
+
+// 从视频标题获取跨来源跳过配置（用于同名视频不同来源）
+export function getCrossSourceSkipConfig(title: string): { intro_time: number; outro_time: number } | null {
+  const skipData = loadSkipTime(title);
+  if (skipData) {
+    return {
+      intro_time: skipData.intro_time,
+      outro_time: skipData.outro_time,
+    };
+  }
+  return null;
 }
