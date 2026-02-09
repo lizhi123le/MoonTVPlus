@@ -6615,12 +6615,8 @@ function PlayPageClient() {
 
         setTimeout(() => {
           // 从本地缓存获取保存的设置
-          const savedVolume = typeof lastVolumeRef.current === 'function'
-            ? lastVolumeRef.current()
-            : lastVolumeRef.current;
-          const savedRate = typeof lastPlaybackRateRef.current === 'function'
-            ? lastPlaybackRateRef.current()
-            : lastPlaybackRateRef.current;
+          const savedVolume = lastVolumeRef.current;
+          const savedRate = lastPlaybackRateRef.current;
 
           if (
             Math.abs(artPlayerRef.current.volume - savedVolume) > 0.01
