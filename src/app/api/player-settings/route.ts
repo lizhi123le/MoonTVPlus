@@ -1,6 +1,6 @@
 // 播放器设置 API（支持匿名用户和登录用户双向同步）
 import { NextRequest, NextResponse } from 'next/server';
-import { getDB } from '@/lib/db';
+import { db } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,7 +11,6 @@ export async function GET(request: NextRequest) {
     const username = searchParams.get('username');
     const effectiveUserId = username || userId;
 
-    const db = await getDB();
     const settings = await db.getPlayerSettings(effectiveUserId);
 
     if (settings === null) {
@@ -34,7 +33,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '缺少 settings 参数' }, { status: 400 });
     }
 
-    const db = await getDB();
     await db.setPlayerSettings(userId, JSON.stringify(settings));
 
     return NextResponse.json({ success: true });
