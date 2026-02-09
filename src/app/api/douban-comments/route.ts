@@ -5,33 +5,6 @@ import { fetchDoubanWithVerification } from '@/lib/douban-anti-crawler';
 
 export const runtime = 'nodejs';
 
-// 获取代理配置
-function getProxyUrl(): string | null {
-  return process.env.DOUBAN_PROXY_URL || process.env.https_proxy || process.env.HTTPS_PROXY || null;
-}
-
-// 使用代理获取页面
-async function fetchWithProxy(url: string, headers: Record<string, string>): Promise<Response> {
-  const proxyUrl = getProxyUrl();
-  
-  if (proxyUrl) {
-    console.log('Using proxy:', proxyUrl);
-    return fetch(proxyUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url,
-        headers,
-      }),
-    });
-  }
-  
-  // 没有代理，使用原始方法
-  return fetchDoubanWithVerification(url, { headers });
-}
-
 interface DoubanComment {
   id: string;
   userName: string;
@@ -41,6 +14,78 @@ interface DoubanComment {
   content: string;
   time: string;
   votes: number;
+}
+
+/**
+ * 获取豆瓣代理配置（服务端版本）
+ */
+function getDoubanProxyConfig(): {
+  proxyType: 'direct' | 'cors-proxy-zwei' | 'cmliussss-cdn-tencent' | 'cmliussss-cdn-ali' | 'cors-anywhere' | 'custom';
+  proxyUrl: string;
+} {
+  const proxyType = process.env.NEXT_PUBLIC_DOUBAN_PROXY_TYPE || 'cmliussss-cdn-tencent';
+  const proxyUrl = process.env.NEXT_PUBLIC_DOUBAN_PROXY || '';
+  return { proxyType, proxyUrl };
+}
+
+/**
+ * 使用代理获取页面
+ */
+async function fetchWithDoubanProxy(
+  url: string,
+  headers: Record<string, string>
+): Promise<Response> {
+  const { proxyType, proxyUrl } = getDoubanProxyConfig();
+
+  switch (proxyType) {
+    case 'cmliussss-cdn-tencent': {
+      // 使用腾讯 CDN 代理
+      response = await fetch(`https://m.douban.cmliussss.net/rexxar/api/v2${url.replace('https://movie.douban.com', '')}`, {
+        headers,
+      });
+      break;
+    }
+
+    case 'cmliussss-cdn-ali': {
+      // 使用阿里云 CDN 代理
+      response = await fetch(`https://m.douban.cmliussss.com/rexxar/api/v2${url.replace('https://movie.douban.com', '')}`, {
+        headers,
+      });
+      break;
+    }
+
+    case 'cors-proxy-zwei': {
+      response = await fetch('https://ciao-cors.is-an.org/' + url, {
+        headers,
+      });
+      break;
+    }
+
+    case 'cors-anywhere': {
+      response = await fetch('https://cors-anywhere.com/' + url, {
+        headers,
+      });
+      break;
+    }
+
+    case 'custom': {
+      // 自定义代理
+      const customProxyUrl = proxyUrl || '';
+      if (customProxyUrl.endsWith('/')) {
+        response = await fetch(customProxyUrl + url, { headers });
+      } else {
+        response = await fetch(customProxyUrl + '?url=' + encodeURIComponent(url), { headers });
+      }
+      break;
+    }
+
+    case 'direct':
+    default: {
+      // 直接请求（使用反爬虫机制）
+      response = await fetchDoubanWithVerification(url, { headers });
+      break;
+    }
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -54,7 +99,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 请求豆瓣短评页面（使用反爬验证）
+    // 请求豆瓣短评页面
     const url = `https://movie.douban.com/subject/${doubanId}/comments?start=${start}&limit=${limit}&status=P&sort=new_score`;
 
     const headers = {
@@ -64,13 +109,16 @@ export async function GET(request: NextRequest) {
       'Referer': 'https://movie.douban.com/',
     };
 
+    const { proxyType } = getDoubanProxyConfig();
+    console.log(`Fetching Douban comments with proxy type: ${proxyType}`);
+
     let response: Response;
-    
+
     try {
-      response = await fetchWithProxy(url, headers);
+      response = await fetchWithDoubanProxy(url, headers);
     } catch (proxyError) {
       console.error('Proxy fetch failed, trying direct:', proxyError);
-      // 降级到直接请求（可能也会失败）
+      // 降级到直接请求
       response = await fetchDoubanWithVerification(url, { headers });
     }
 
@@ -94,13 +142,13 @@ export async function GET(request: NextRequest) {
     if (bodyText.includes('验证') || bodyText.includes('验证码') || bodyText.includes('security check')) {
       console.warn('Douban verification/security check detected');
       return NextResponse.json(
-        { error: '豆瓣访问受限，请配置代理或稍后再试' },
+        { error: '豆瓣访问受限，请检查代理配置' },
         { status: 403 }
       );
     }
 
     // 解析每条短评
-    $('.comment-item').each((index, element) => {
+    $('.comment-item').each((_index, element) => {
       const $comment = $(element);
 
       // 提取评论 ID
@@ -117,7 +165,7 @@ export async function GET(request: NextRequest) {
       let rating: number | null = null;
       const ratingMatch = ratingClass.match(/allstar(\d)0/);
       if (ratingMatch) {
-        rating = parseInt(ratingMatch[1]);
+        rating = parseInt(ratingMatch[1], 10);
       }
 
       // 提取短评内容
@@ -130,7 +178,7 @@ export async function GET(request: NextRequest) {
 
       // 提取有用数
       const votesText = $comment.find('.votes.vote-count').text().trim();
-      const votes = parseInt(votesText) || 0;
+      const votes = parseInt(votesText, 10) || 0;
 
       if (commentId && content) {
         comments.push({
@@ -155,7 +203,7 @@ export async function GET(request: NextRequest) {
     const titleText = $('.mod-hd h2, h2, .section-title').text();
     const titleMatch = titleText.match(/全部\s*(\d+)\s*条/);
     if (titleMatch) {
-      total = parseInt(titleMatch[1]);
+      total = parseInt(titleMatch[1], 10);
     }
 
     // 方式2: 从导航标签获取 "看过(XXX)"
@@ -163,24 +211,24 @@ export async function GET(request: NextRequest) {
       const navText = $('.tabs, .nav-tabs, a').text();
       const navMatch = navText.match(/看过\s*\((\d+)\)/);
       if (navMatch) {
-        total = parseInt(navMatch[1]);
+        total = parseInt(navMatch[1], 10);
       }
     }
 
     // 方式3: 从页面所有文本查找
     if (total === 0) {
-      const bodyText = $('body').text();
-      const bodyMatch = bodyText.match(/全部\s*(\d+)\s*条|看过\s*\((\d+)\)/);
+      const bodyText2 = $('body').text();
+      const bodyMatch = bodyText2.match(/全部\s*(\d+)\s*条|看过\s*\((\d+)\)/);
       if (bodyMatch) {
-        total = parseInt(bodyMatch[1] || bodyMatch[2]);
+        total = parseInt(bodyMatch[1] || bodyMatch[2], 10);
       }
     }
 
     // 方式4: 如果有评论但 total 为 0，至少设置为当前评论数，并假设有更多
     if (total === 0 && comments.length > 0) {
-      total = parseInt(start) + comments.length;
+      total = parseInt(start, 10) + comments.length;
       // 如果本次获取了完整的 limit 数量，可能还有更多
-      if (comments.length >= parseInt(limit)) {
+      if (comments.length >= parseInt(limit, 10)) {
         total += 1; // 暂定有更多
       }
     }
@@ -198,19 +246,19 @@ export async function GET(request: NextRequest) {
       commentsCount: comments.length,
       start,
       limit,
-      hasMore: parseInt(start) + comments.length < total || (total === 0 && comments.length >= parseInt(limit)),
+      hasMore: parseInt(start, 10) + comments.length < total || (total === 0 && comments.length >= parseInt(limit, 10)),
     });
 
     return NextResponse.json(
       {
         comments,
         total,
-        start: parseInt(start),
-        limit: parseInt(limit),
+        start: parseInt(start, 10),
+        limit: parseInt(limit, 10),
         // 如果知道总数，就用总数判断；否则如果获取了完整页，假设还有更多
         hasMore: total > 0
-          ? parseInt(start) + comments.length < total
-          : comments.length >= parseInt(limit),
+          ? parseInt(start, 10) + comments.length < total
+          : comments.length >= parseInt(limit, 10),
       },
       {
         headers: {
