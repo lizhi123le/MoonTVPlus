@@ -178,8 +178,8 @@ CREATE TABLE IF NOT EXISTS music_play_records (
   artist TEXT NOT NULL,
   album TEXT,
   pic TEXT,
-  play_time INTEGER NOT NULL,
-  duration INTEGER NOT NULL,
+  play_time REAL NOT NULL,
+  duration REAL NOT NULL,
   save_time INTEGER NOT NULL,
   PRIMARY KEY (username, key),
   FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
