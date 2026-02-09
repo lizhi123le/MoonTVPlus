@@ -401,6 +401,14 @@ function PlayPageClient() {
     anime4kScaleRef.current = anime4kScale;
   }, [anime4kEnabled, anime4kMode, anime4kScale]);
 
+  // 初始化播放设置从本地缓存
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      lastVolumeRef.current = loadPlayerVolume();
+      lastPlaybackRateRef.current = loadPlayerPlaybackRate();
+    }
+  }, []);
+
   // 检测WebGPU支持
   useEffect(() => {
     const checkWebGPUSupport = async () => {

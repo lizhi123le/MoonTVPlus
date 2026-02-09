@@ -157,9 +157,13 @@ function getD1Adapter(): any {
     });
   }
 
-  // 开发环境：better-sqlite3
-  const Database = require('better-sqlite3');
-  const path = require('path');
+  // 开发环境：better-sqlite3（动态导入以避免 Edge Runtime 问题）
+  if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+    // 只有在 Node.js 环境中才导入 better-sqlite3
+    return (async () => {
+      try {
+        const Database = (await import('better-sqlite3')).default;
+        const pathModule = await import('path');
 
   const dbPath =
     process.env.SQLITE_DB_PATH || path.join(process.cwd(), '.data', 'moontv.db');
@@ -172,7 +176,17 @@ function getD1Adapter(): any {
   console.log('Using SQLite database (non-Cloudflare mode)');
   console.log('Database location:', dbPath);
 
-  return new SQLiteAdapter(db);
+        return new SQLiteAdapter(db);
+      } catch (error) {
+        console.error('Failed to initialize SQLite database:', error);
+        throw error;
+      }
+    })();
+  }
+
+  // 非 Node.js 环境（如 Edge Runtime），回退到 null storage
+  console.warn('better-sqlite3 not available in this environment, using null storage');
+  return null as unknown as IStorage;
 }
 
 // 单例存储实例
