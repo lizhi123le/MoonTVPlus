@@ -5,6 +5,33 @@ import { fetchDoubanWithVerification } from '@/lib/douban-anti-crawler';
 
 export const runtime = 'nodejs';
 
+// 获取代理配置
+function getProxyUrl(): string | null {
+  return process.env.DOUBAN_PROXY_URL || process.env.https_proxy || process.env.HTTPS_PROXY || null;
+}
+
+// 使用代理获取页面
+async function fetchWithProxy(url: string, headers: Record<string, string>): Promise<Response> {
+  const proxyUrl = getProxyUrl();
+  
+  if (proxyUrl) {
+    console.log('Using proxy:', proxyUrl);
+    return fetch(proxyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url,
+        headers,
+      }),
+    });
+  }
+  
+  // 没有代理，使用原始方法
+  return fetchDoubanWithVerification(url, { headers });
+}
+
 interface DoubanComment {
   id: string;
   userName: string;
@@ -30,11 +57,27 @@ export async function GET(request: NextRequest) {
     // 请求豆瓣短评页面（使用反爬验证）
     const url = `https://movie.douban.com/subject/${doubanId}/comments?start=${start}&limit=${limit}&status=P&sort=new_score`;
 
-    const response = await fetchDoubanWithVerification(url);
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      'Referer': 'https://movie.douban.com/',
+    };
+
+    let response: Response;
+    
+    try {
+      response = await fetchWithProxy(url, headers);
+    } catch (proxyError) {
+      console.error('Proxy fetch failed, trying direct:', proxyError);
+      // 降级到直接请求（可能也会失败）
+      response = await fetchDoubanWithVerification(url, { headers });
+    }
 
     if (!response.ok) {
+      console.error('Douban fetch failed with status:', response.status);
       return NextResponse.json(
-        { error: 'Failed to fetch douban page' },
+        { error: '获取评论失败，请检查网络或代理配置' },
         { status: response.status }
       );
     }
@@ -45,6 +88,16 @@ export async function GET(request: NextRequest) {
     const comments: DoubanComment[] = [];
 
     console.log('开始解析豆瓣评论，start:', start, 'limit:', limit);
+
+    // 检查是否被屏蔽或需要验证
+    const bodyText = $('body').text();
+    if (bodyText.includes('验证') || bodyText.includes('验证码') || bodyText.includes('security check')) {
+      console.warn('Douban verification/security check detected');
+      return NextResponse.json(
+        { error: '豆瓣访问受限，请配置代理或稍后再试' },
+        { status: 403 }
+      );
+    }
 
     // 解析每条短评
     $('.comment-item').each((index, element) => {
@@ -132,6 +185,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 如果没有获取到评论，且没有 total，返回友好错误
+    if (comments.length === 0 && total === 0) {
+      return NextResponse.json(
+        { error: '暂无评论或访问受限' },
+        { status: 404 }
+      );
+    }
+
     console.log('豆瓣评论统计:', {
       total,
       commentsCount: comments.length,
@@ -160,7 +221,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Douban comments fetch error:', error);
     return NextResponse.json(
-      { error: 'Failed to parse douban comments' },
+      { error: '获取评论失败，请稍后重试' },
       { status: 500 }
     );
   }
