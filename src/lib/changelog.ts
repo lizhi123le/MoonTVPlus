@@ -11,8 +11,8 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
 	{
-     version: '212.2.0',
-     date: '2026-02-09',
+      version: '212.2.0',
+      date: '2026-02-09',
 	added: [
 		"新增播放器设置本地缓存，记住用户偏好（音量、播放速率、弹幕开关等）",
 		"新增豆瓣评论 API 代理支持，复用现有 CMLiussss 代理配置"
@@ -21,6 +21,9 @@ export const changelog: ChangelogEntry[] = [
 		"源站寻片页面布局优化，搜索框移至顶部",
 		"移除选择视频源和乐子资源的分类提示标签，使用颜色深度区分",
 		"源站寻片分类下拉框保持固定显示",
+		"源站寻片来源和分类选择器放在同一背景方框内",
+		"源站寻片搜索逻辑优化，切换源时保留搜索关键词自动搜索",
+		"源站寻片搜索框和选项卡颜色优化",
 		"解决 PWA 构建超时问题"
     ],
     fixed: [
