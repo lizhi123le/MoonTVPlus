@@ -298,63 +298,48 @@ function SourceSearchPageClient() {
           </div>
         )}
 
-        {/* 源选择 + 分类下拉 */}
+        {/* 源选择 + 分类 */}
         <div className='mb-8'>
           <div className='bg-white/60 dark:bg-gray-800/40 rounded-2xl p-4 sm:p-6 border border-gray-200/30 dark:border-gray-700/30 backdrop-blur-sm'>
-            {isLoadingSources ? (
-              <div className="flex items-center justify-center h-10">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                  <span className="text-sm text-gray-500 dark:text-gray-400">加载视频源中...</span>
-                </div>
-              </div>
-            ) : apiSites.length === 0 ? (
-              <div className="flex items-center justify-center h-10">
-                <span className="text-sm text-gray-500 dark:text-gray-400">暂无可用源</span>
-              </div>
-            ) : (
-              <div className="relative">
-                {/* 源选择器 */}
-                <div className="mb-2">
-                  <CapsuleSwitch
-                    options={apiSites.map((site) => ({
-                      label: site.name,
-                      value: site.key,
-                    }))}
-                    active={selectedSource}
-                    onChange={(value) => {
-                      const site = apiSites.find(s => s.key === value);
-                      handleSourceChange(value, site?.name || '');
-                    }}
-                  />
-                </div>
+            {/* 源选择器 */}
+            <div className="mb-3">
+              <CapsuleSwitch
+                options={apiSites.map((site) => ({
+                  label: site.name,
+                  value: site.key,
+                }))}
+                active={selectedSource}
+                onChange={(value) => {
+                  const site = apiSites.find(s => s.key === value);
+                  handleSourceChange(value, site?.name || '');
+                }}
+              />
+            </div>
 
-                {/* 分类下拉弹窗 */}
-                {showCategoryDropdown && (
-                  <div className="absolute top-full left-0 right-0 z-50 animate-in slide-in-from-top-2 duration-200">
-                    <div className="bg-indigo-50/95 dark:bg-indigo-900/95 backdrop-blur-xl rounded-lg shadow-lg border border-indigo-200/50 dark:border-indigo-700/50 p-2">
-                      {/* 分类列表 */}
-                      {isLoadingCategories ? (
-                        <CategoryDropdownSkeleton />
-                      ) : categories.length === 0 ? (
-                        <div className="flex items-center justify-center h-10">
-                          <span className="text-sm text-gray-500 dark:text-gray-400">暂无分类</span>
-                        </div>
-                      ) : (
-                        <CapsuleSwitch
-                          options={categories.map((category) => ({
-                            label: category.name,
-                            value: category.id,
-                          }))}
-                          active={selectedCategory}
-                          onChange={setSelectedCategory}
-                        />
-                      )}
-                    </div>
+            {/* 分类选择器 */}
+            <div>
+              {isLoadingCategories ? (
+                <div className="flex items-center justify-center h-10">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">加载分类中...</span>
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              ) : categories.length === 0 ? (
+                <div className="flex items-center justify-center h-10">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">暂无可用分类</span>
+                </div>
+              ) : (
+                <CapsuleSwitch
+                  options={categories.map((category) => ({
+                    label: category.name,
+                    value: category.id,
+                  }))}
+                  active={selectedCategory}
+                  onChange={setSelectedCategory}
+                />
+              )}
+            </div>
           </div>
         </div>
 
