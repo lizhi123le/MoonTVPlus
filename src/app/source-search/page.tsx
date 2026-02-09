@@ -209,7 +209,20 @@ function SourceSearchPageClient() {
     setSelectedSource(value);
     setSelectedSourceName(name);
     setShowCategoryDropdown(true);
-    handleBackToBrowse();
+
+    // 如果当前是搜索模式，保留搜索关键词在新源搜索
+    if (viewMode === 'search' && searchKeyword) {
+      setVideos([]);
+      setHasMore(true);
+      setCurrentPage(1);
+      // 触发搜索
+      setTimeout(() => {
+        searchVideos();
+      }, 100);
+    } else {
+      // 浏览模式下才清空搜索
+      handleBackToBrowse();
+    }
   };
 
   // Intersection Observer for infinite scroll
