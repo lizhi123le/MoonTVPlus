@@ -2885,10 +2885,10 @@ function PlayPageClient() {
           newConfig
         );
         // 同时保存跨来源配置并同步到 D1
-        if (currentTitleRef.current && newConfig.intro_time > 0) {
-          saveSkipTime(currentTitleRef.current, newConfig.intro_time, newConfig.outro_time);
+        if (videoTitleRef.current && newConfig.intro_time > 0) {
+          saveSkipTime(videoTitleRef.current, newConfig.intro_time, newConfig.outro_time);
           // 异步同步到 D1
-          syncSkipTimeToD1(currentTitleRef.current, newConfig.intro_time, newConfig.outro_time);
+          syncSkipTimeToD1(videoTitleRef.current, newConfig.intro_time, newConfig.outro_time);
         }
       }
       console.log('跳过片头片尾配置已保存:', newConfig);
