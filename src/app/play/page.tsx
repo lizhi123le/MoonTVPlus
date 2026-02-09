@@ -16,8 +16,18 @@ import {
   initDanmakuModule,
   loadDanmakuDisplayState,
   loadDanmakuSettings,
+  loadPlayerAutoPlay,
+  loadPlayerDanmakuEnabled,
+  loadPlayerPlaybackRate,
+  loadPlayerTheaterMode,
+  loadPlayerVolume,
   saveDanmakuDisplayState,
   saveDanmakuSettings,
+  savePlayerAutoPlay,
+  savePlayerDanmakuEnabled,
+  savePlayerPlaybackRate,
+  savePlayerTheaterMode,
+  savePlayerVolume,
   searchAnime,
 } from '@/lib/danmaku/api';
 import {
