@@ -1,6 +1,6 @@
 // 跳过时间 API（跨来源共享，双向同步）
 import { NextRequest, NextResponse } from 'next/server';
-import { getDB } from '@/lib/db';
+import { db } from '@/lib/db';
 
 // 生成标准化的标题（与客户端保持一致）
 function normalizeTitle(title: string): string {
@@ -16,8 +16,6 @@ export async function GET(request: NextRequest) {
 
     // 获取所有跳过时间（用于全量同步）
     const all = searchParams.get('all');
-
-    const db = await getDB();
 
     if (all === 'true') {
       const skipTimes = await db.getAllSkipTimes();
@@ -42,8 +40,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { title, intro_time, outro_time, skipTimes } = body;
-
-    const db = await getDB();
 
     // 批量保存跳过时间
     if (skipTimes && Array.isArray(skipTimes)) {
@@ -82,7 +78,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: '缺少 title 参数' }, { status: 400 });
     }
 
-    const db = await getDB();
     const titleNormalized = normalizeTitle(title);
     await db.deleteSkipTime(titleNormalized);
 
