@@ -398,3 +398,121 @@ export function loadDanmakuMemory(
     return null;
   }
 }
+
+// ---------------- 播放器设置本地缓存 ----------------
+
+// 播放器设置接口
+export interface PlayerSettings {
+  volume: number;           // 音量 (0-1)
+  playbackRate: number;     // 播放速率
+  autoPlay: boolean;        // 自动播放
+  danmakuEnabled: boolean;   // 弹幕开关
+  theaterMode: boolean;     // 影院模式
+}
+
+// 默认播放器设置
+const defaultPlayerSettings: PlayerSettings = {
+  volume: 0.7,
+  playbackRate: 1.0,
+  autoPlay: false,
+  danmakuEnabled: true,
+  theaterMode: false,
+};
+
+// 保存播放器设置到 localStorage
+export function savePlayerSettings(settings: Partial<PlayerSettings>): void {
+  if (typeof window === 'undefined') return;
+
+  try {
+    // 读取现有设置
+    const saved = localStorage.getItem('player_settings');
+    const currentSettings: PlayerSettings = saved
+      ? { ...defaultPlayerSettings, ...JSON.parse(saved) }
+      : { ...defaultPlayerSettings };
+
+    // 合并新设置
+    const mergedSettings = { ...currentSettings, ...settings };
+
+    // 保存到 localStorage
+    localStorage.setItem('player_settings', JSON.stringify(mergedSettings));
+  } catch (error) {
+    console.error('保存播放器设置失败:', error);
+  }
+}
+
+// 从 localStorage 读取播放器设置
+export function loadPlayerSettings(): PlayerSettings {
+  if (typeof window === 'undefined') return { ...defaultPlayerSettings };
+
+  try {
+    const saved = localStorage.getItem('player_settings');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { ...defaultPlayerSettings, ...parsed };
+    }
+  } catch (error) {
+    console.error('读取播放器设置失败:', error);
+  }
+
+  return { ...defaultPlayerSettings };
+}
+
+// 保存音量
+export function savePlayerVolume(volume: number): void {
+  if (typeof window === 'undefined') return;
+  savePlayerSettings({ volume: Math.max(0, Math.min(1, volume)) });
+}
+
+// 读取音量
+export function loadPlayerVolume(): number {
+  if (typeof window === 'undefined') return 0.7;
+  return loadPlayerSettings().volume;
+}
+
+// 保存播放速率
+export function savePlayerPlaybackRate(rate: number): void {
+  if (typeof window === 'undefined') return;
+  savePlayerSettings({ playbackRate: rate });
+}
+
+// 读取播放速率
+export function loadPlayerPlaybackRate(): number {
+  if (typeof window === 'undefined') return 1.0;
+  return loadPlayerSettings().playbackRate;
+}
+
+// 保存自动播放设置
+export function savePlayerAutoPlay(autoPlay: boolean): void {
+  if (typeof window === 'undefined') return;
+  savePlayerSettings({ autoPlay });
+}
+
+// 读取自动播放设置
+export function loadPlayerAutoPlay(): boolean {
+  if (typeof window === 'undefined') return false;
+  return loadPlayerSettings().autoPlay;
+}
+
+// 保存弹幕开关状态
+export function savePlayerDanmakuEnabled(enabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  savePlayerSettings({ danmakuEnabled: enabled });
+}
+
+// 读取弹幕开关状态
+export function loadPlayerDanmakuEnabled(): boolean {
+  if (typeof window === 'undefined') return true;
+  return loadPlayerSettings().danmakuEnabled;
+}
+
+// 保存影院模式状态
+export function savePlayerTheaterMode(enabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  savePlayerSettings({ theaterMode: enabled });
+}
+
+// 读取影院模式状态
+export function loadPlayerTheaterMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  return loadPlayerSettings().theaterMode;
+}

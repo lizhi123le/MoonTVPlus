@@ -15,8 +15,18 @@ import {
   initDanmakuModule,
   loadDanmakuDisplayState,
   loadDanmakuSettings,
+  loadPlayerAutoPlay,
+  loadPlayerDanmakuEnabled,
+  loadPlayerPlaybackRate,
+  loadPlayerTheaterMode,
+  loadPlayerVolume,
   saveDanmakuDisplayState,
   saveDanmakuSettings,
+  savePlayerAutoPlay,
+  savePlayerDanmakuEnabled,
+  savePlayerPlaybackRate,
+  savePlayerTheaterMode,
+  savePlayerVolume,
   searchAnime,
 } from '@/lib/danmaku/api';
 import {
@@ -1234,10 +1244,20 @@ function PlayPageClient() {
 
   // 用于记录是否需要在播放器 ready 后跳转到指定进度
   const resumeTimeRef = useRef<number | null>(null);
-  // 上次使用的音量，默认 0.7
-  const lastVolumeRef = useRef<number>(0.7);
-  // 上次使用的播放速率，默认 1.0
-  const lastPlaybackRateRef = useRef<number>(1.0);
+  // 上次使用的音量，默认从本地缓存读取
+  const lastVolumeRef = useRef<number>(() => {
+    if (typeof window !== 'undefined') {
+      return loadPlayerVolume();
+    }
+    return 0.7;
+  });
+  // 上次使用的播放速率，默认从本地缓存读取
+  const lastPlaybackRateRef = useRef<number>(() => {
+    if (typeof window !== 'undefined') {
+      return loadPlayerPlaybackRate();
+    }
+    return 1.0;
+  });
 
   // 换源相关状态
   const [availableSources, setAvailableSources] = useState<SearchResult[]>([]);
@@ -5808,6 +5828,26 @@ function PlayPageClient() {
         setPlayerReady(true);
         console.log('[PlayPage] Player ready, triggering sync setup');
 
+        // 应用保存的播放器设置
+        const savedVolume = loadPlayerVolume();
+        const savedRate = loadPlayerPlaybackRate();
+        const savedDanmakuEnabled = loadPlayerDanmakuEnabled();
+
+        // 应用音量
+        if (Math.abs(artPlayerRef.current.volume - savedVolume) > 0.01) {
+          artPlayerRef.current.volume = savedVolume;
+        }
+
+        // 应用播放速率
+        if (Math.abs(artPlayerRef.current.playbackRate - savedRate) > 0.01) {
+          artPlayerRef.current.playbackRate = savedRate;
+        }
+
+        // 应用弹幕开关状态
+        if (!savedDanmakuEnabled && artPlayerRef.current.plugins?.artplayerPluginDanmuku) {
+          artPlayerRef.current.plugins.artplayerPluginDanmuku.hide();
+        }
+
         // 添加字幕切换功能
         const currentSubtitles = detailRef.current?.subtitles?.[currentEpisodeIndex] || [];
         if (currentSubtitles.length > 0 && artPlayerRef.current) {
@@ -6020,11 +6060,13 @@ function PlayPageClient() {
             artPlayerRef.current.on('artplayerPluginDanmuku:show', () => {
               danmakuDisplayStateRef.current = true;
               saveDanmakuDisplayState(true);
+              savePlayerDanmakuEnabled(true); // 保存到播放器设置
             });
 
             artPlayerRef.current.on('artplayerPluginDanmuku:hide', () => {
               danmakuDisplayStateRef.current = false;
               saveDanmakuDisplayState(false);
+              savePlayerDanmakuEnabled(false); // 保存到播放器设置
             });
           }
          
@@ -6056,10 +6098,14 @@ function PlayPageClient() {
       }
 
       artPlayerRef.current.on('video:volumechange', () => {
-        lastVolumeRef.current = artPlayerRef.current.volume;
+        const volume = artPlayerRef.current.volume;
+        lastVolumeRef.current = volume;
+        savePlayerVolume(volume); // 保存音量到本地缓存
       });
       artPlayerRef.current.on('video:ratechange', () => {
-        lastPlaybackRateRef.current = artPlayerRef.current.playbackRate;
+        const rate = artPlayerRef.current.playbackRate;
+        lastPlaybackRateRef.current = rate;
+        savePlayerPlaybackRate(rate); // 保存播放速率到本地缓存
       });
 
       // 监听网页全屏事件，控制导航栏显示隐藏
@@ -6570,18 +6616,26 @@ function PlayPageClient() {
         resumeTimeRef.current = null;
 
         setTimeout(() => {
+          // 从本地缓存获取保存的设置
+          const savedVolume = typeof lastVolumeRef.current === 'function'
+            ? lastVolumeRef.current()
+            : lastVolumeRef.current;
+          const savedRate = typeof lastPlaybackRateRef.current === 'function'
+            ? lastPlaybackRateRef.current()
+            : lastPlaybackRateRef.current;
+
           if (
-            Math.abs(artPlayerRef.current.volume - lastVolumeRef.current) > 0.01
+            Math.abs(artPlayerRef.current.volume - savedVolume) > 0.01
           ) {
-            artPlayerRef.current.volume = lastVolumeRef.current;
+            artPlayerRef.current.volume = savedVolume;
           }
           if (
             Math.abs(
-              artPlayerRef.current.playbackRate - lastPlaybackRateRef.current
+              artPlayerRef.current.playbackRate - savedRate
             ) > 0.01 &&
             isWebkit
           ) {
-            artPlayerRef.current.playbackRate = lastPlaybackRateRef.current;
+            artPlayerRef.current.playbackRate = savedRate;
           }
           artPlayerRef.current.notice.show = '';
         }, 0);
