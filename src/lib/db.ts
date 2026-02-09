@@ -787,6 +787,59 @@ export class DbManager {
       await (this.storage as any).deleteGlobalValue(key);
     }
   }
+
+  // ---------- 播放器设置（支持匿名用户） ----------
+  async getPlayerSettings(userId: string): Promise<string | null> {
+    if (typeof (this.storage as any).getPlayerSettings === 'function') {
+      return (this.storage as any).getPlayerSettings(userId);
+    }
+    return null;
+  }
+
+  async setPlayerSettings(userId: string, settings: string, updatedAt?: number): Promise<void> {
+    if (typeof (this.storage as any).setPlayerSettings === 'function') {
+      await (this.storage as any).setPlayerSettings(userId, settings, updatedAt);
+    }
+  }
+
+  async deletePlayerSettings(userId: string): Promise<void> {
+    if (typeof (this.storage as any).deletePlayerSettings === 'function') {
+      await (this.storage as any).deletePlayerSettings(userId);
+    }
+  }
+
+  // ---------- 跳过时间（跨来源共享） ----------
+  async getSkipTime(titleNormalized: string): Promise<{ intro_time: number; outro_time: number; updated_at: number } | null> {
+    if (typeof (this.storage as any).getSkipTime === 'function') {
+      return (this.storage as any).getSkipTime(titleNormalized);
+    }
+    return null;
+  }
+
+  async setSkipTime(titleNormalized: string, intro_time: number, outro_time: number): Promise<void> {
+    if (typeof (this.storage as any).setSkipTime === 'function') {
+      await (this.storage as any).setSkipTime(titleNormalized, intro_time, outro_time);
+    }
+  }
+
+  async getAllSkipTimes(): Promise<Array<{ title_normalized: string; intro_time: number; outro_time: number; updated_at: number }>> {
+    if (typeof (this.storage as any).getAllSkipTimes === 'function') {
+      return (this.storage as any).getAllSkipTimes();
+    }
+    return [];
+  }
+
+  async bulkSetSkipTimes(skipTimes: Array<{ title_normalized: string; intro_time: number; outro_time: number; updated_at: number }>): Promise<void> {
+    if (typeof (this.storage as any).bulkSetSkipTimes === 'function') {
+      await (this.storage as any).bulkSetSkipTimes(skipTimes);
+    }
+  }
+
+  async deleteSkipTime(titleNormalized: string): Promise<void> {
+    if (typeof (this.storage as any).deleteSkipTime === 'function') {
+      await (this.storage as any).deleteSkipTime(titleNormalized);
+    }
+  }
 }
 
 // 导出默认实例

@@ -160,6 +160,18 @@ export interface IStorage {
   setUserEmail?(userName: string, email: string): Promise<void>;
   getEmailNotificationPreference?(userName: string): Promise<boolean>;
   setEmailNotificationPreference?(userName: string, enabled: boolean): Promise<void>;
+
+  // 播放器设置（支持匿名用户）
+  getPlayerSettings?(userId: string): Promise<string | null>;
+  setPlayerSettings?(userId: string, settings: string, updatedAt?: number): Promise<void>;
+  deletePlayerSettings?(userId: string): Promise<void>;
+
+  // 跳过时间（跨来源共享）
+  getSkipTime?(titleNormalized: string): Promise<{ intro_time: number; outro_time: number; updated_at: number } | null>;
+  setSkipTime?(titleNormalized: string, intro_time: number, outro_time: number): Promise<void>;
+  getAllSkipTimes?(): Promise<Array<{ title_normalized: string; intro_time: number; outro_time: number; updated_at: number }>>;
+  bulkSetSkipTimes?(skipTimes: Array<{ title_normalized: string; intro_time: number; outro_time: number; updated_at: number }>): Promise<void>;
+  deleteSkipTime?(titleNormalized: string): Promise<void>;
 }
 
 // 搜索结果数据结构
