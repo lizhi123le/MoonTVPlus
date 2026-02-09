@@ -151,34 +151,35 @@ function SourceSearchPageClient() {
     fetchVideos();
   }, [selectedSource, selectedCategory, currentPage, viewMode]);
 
+  // 搜索视频函数（可在外部调用）
+  const searchVideos = useCallback(async () => {
+    if (!selectedSource || !searchKeyword) return;
+    setIsLoadingVideos(true);
+    try {
+      const response = await fetch(
+        `/api/source-search/search?source=${encodeURIComponent(selectedSource)}&keyword=${encodeURIComponent(searchKeyword)}&page=${currentPage}`
+      );
+      const data = await response.json();
+      if (data.results && Array.isArray(data.results)) {
+        if (currentPage === 1) {
+          setVideos(data.results);
+        } else {
+          setVideos((prev) => [...prev, ...data.results]);
+        }
+        setHasMore(data.page < data.pageCount);
+      }
+    } catch (error) {
+      console.error('Failed to search videos:', error);
+    } finally {
+      setIsLoadingVideos(false);
+    }
+  }, [selectedSource, searchKeyword]); // currentPage 由 useEffect 闭包捕获
+
   // 当搜索关键词或页码变化时，执行搜索（搜索模式）
   useEffect(() => {
     if (viewMode !== 'search' || !selectedSource || !searchKeyword) return;
-
-    const searchVideos = async () => {
-      setIsLoadingVideos(true);
-      try {
-        const response = await fetch(
-          `/api/source-search/search?source=${encodeURIComponent(selectedSource)}&keyword=${encodeURIComponent(searchKeyword)}&page=${currentPage}`
-        );
-        const data = await response.json();
-        if (data.results && Array.isArray(data.results)) {
-          if (currentPage === 1) {
-            setVideos(data.results);
-          } else {
-            setVideos((prev) => [...prev, ...data.results]);
-          }
-          setHasMore(data.page < data.pageCount);
-        }
-      } catch (error) {
-        console.error('Failed to search videos:', error);
-      } finally {
-        setIsLoadingVideos(false);
-      }
-    };
-
     searchVideos();
-  }, [selectedSource, searchKeyword, currentPage, viewMode]);
+  }, [viewMode, selectedSource, searchKeyword, searchVideos]);
 
   // 处理搜索提交
   const handleSearch = (e: React.FormEvent) => {
