@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 'use client';
 
-import { Globe2, Layers, Loader2, Search, SearchX, Sparkles } from 'lucide-react';
+import { ChevronDown, Globe2, Loader2, Search, SearchX, Sparkles } from 'lucide-react';
 import { Suspense, useEffect, useRef, useState } from 'react';
 
 import { ApiSite } from '@/lib/config';
@@ -18,20 +18,8 @@ interface Category {
 
 type ViewMode = 'browse' | 'search';
 
-// Loading skeleton for sources
-function SourceSkeleton() {
-  return (
-    <div className="flex items-center justify-center h-12 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl border border-gray-200/50 dark:border-gray-700/50">
-      <div className="flex items-center gap-2">
-        <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-        <span className="text-sm text-gray-500 dark:text-gray-400">加载视频源中...</span>
-      </div>
-    </div>
-  );
-}
-
-// Loading skeleton for categories
-function CategorySkeleton() {
+// Loading skeleton for categories dropdown
+function CategoryDropdownSkeleton() {
   return (
     <div className="flex items-center justify-center h-12 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl border border-gray-200/50 dark:border-gray-700/50">
       <div className="flex items-center gap-2">
@@ -60,6 +48,7 @@ function VideoSkeleton() {
 function SourceSearchPageClient() {
   const [apiSites, setApiSites] = useState<ApiSite[]>([]);
   const [selectedSource, setSelectedSource] = useState<string>('');
+  const [selectedSourceName, setSelectedSourceName] = useState<string>('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [videos, setVideos] = useState<SearchResult[]>([]);
@@ -71,7 +60,21 @@ function SourceSearchPageClient() {
   const [viewMode, setViewMode] = useState<ViewMode>('browse');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [searchInputValue, setSearchInputValue] = useState<string>('');
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  // 点击外部关闭分类下拉
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setShowCategoryDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // 加载用户可用的视频源
   useEffect(() => {
@@ -82,9 +85,11 @@ function SourceSearchPageClient() {
         const data = await response.json();
         if (data.sources && Array.isArray(data.sources)) {
           setApiSites(data.sources);
-          // 默认选择第一个源
+          // 默认选择第一个源，并显示分类下拉
           if (data.sources.length > 0) {
             setSelectedSource(data.sources[0].key);
+            setSelectedSourceName(data.sources[0].name);
+            setShowCategoryDropdown(true);
           }
         }
       } catch (error) {
@@ -188,13 +193,6 @@ function SourceSearchPageClient() {
     searchVideos();
   }, [selectedSource, searchKeyword, currentPage, viewMode]);
 
-  // 当分类变化时，重置到第一页
-  useEffect(() => {
-    setCurrentPage(1);
-    setVideos([]);
-    setHasMore(true);
-  }, []);
-
   // 处理搜索提交
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,6 +202,7 @@ function SourceSearchPageClient() {
       setCurrentPage(1);
       setVideos([]);
       setHasMore(true);
+      setShowCategoryDropdown(false);
     }
   };
 
@@ -215,6 +214,15 @@ function SourceSearchPageClient() {
     setCurrentPage(1);
     setVideos([]);
     setHasMore(true);
+    setShowCategoryDropdown(true);
+  };
+
+  // 处理源选择
+  const handleSourceChange = (value: string, name: string) => {
+    setSelectedSource(value);
+    setSelectedSourceName(name);
+    setShowCategoryDropdown(true);
+    handleBackToBrowse();
   };
 
   // Intersection Observer for infinite scroll
@@ -249,7 +257,7 @@ function SourceSearchPageClient() {
 
       <div className='px-4 sm:px-10 py-6 sm:py-10 overflow-visible mb-10 relative'>
         {/* 页面标题 */}
-        <div className='max-w-4xl mx-auto mb-8 text-center'>
+        <div className='max-w-4xl mx-auto mb-6 text-center'>
           <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-2xl shadow-lg border border-gray-200/50 dark:border-gray-700/50 mb-4">
             <Globe2 className="h-5 w-5 text-indigo-500" />
             <Sparkles className="h-4 w-4 text-amber-500" />
@@ -262,69 +270,33 @@ function SourceSearchPageClient() {
           </p>
         </div>
 
-        {/* 源选择和分类选择 */}
-        <div className='max-w-5xl mx-auto mb-10 space-y-6'>
-          {/* 源选择 */}
-          <div className='relative'>
-            <div className="flex items-center gap-2 mb-3">
-              <Layers className="h-4 w-4 text-indigo-500" />
-              <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
-                选择视频源
-              </span>
-            </div>
-            {isLoadingSources ? (
-              <SourceSkeleton />
-            ) : apiSites.length === 0 ? (
-              <div className='flex items-center justify-center h-12 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl border border-gray-200/50 dark:border-gray-700/50'>
-                <span className='text-sm text-gray-500 dark:text-gray-400'>
-                  暂无可用源
-                </span>
-              </div>
-            ) : (
-              <div className='flex justify-center'>
-                <CapsuleSwitch
-                  options={apiSites.map((site) => ({
-                    label: site.name,
-                    value: site.key,
-                  }))}
-                  active={selectedSource}
-                  onChange={(value) => {
-                    setSelectedSource(value);
-                    handleBackToBrowse();
-                  }}
+        {/* 搜索框 - 最上面 */}
+        <div className='max-w-2xl mx-auto mb-6'>
+          <form onSubmit={handleSearch}>
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-blue-500/20 rounded-xl blur-xl group-hover:blur-2xl transition-all duration-500 opacity-50" />
+              <div className="relative flex items-center">
+                <input
+                  type='text'
+                  value={searchInputValue}
+                  onChange={(e) => setSearchInputValue(e.target.value)}
+                  placeholder='搜索视频...'
+                  className='w-full h-12 rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl py-3 pl-5 pr-14 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400/50 focus:bg-white dark:focus:bg-gray-700 border border-gray-200/50 dark:border-gray-700/50 shadow-lg transition-all'
                 />
+                <button
+                  type='submit'
+                  className='absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95'
+                >
+                  <Search size={18} />
+                </button>
               </div>
-            )}
-          </div>
-
-          {/* 搜索框 */}
-          {selectedSource && (
-            <div className='relative'>
-              <form onSubmit={handleSearch}>
-                <div className="relative group">
-                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-blue-500/20 rounded-xl blur-xl group-hover:blur-2xl transition-all duration-500 opacity-50" />
-                  <div className="relative flex items-center">
-                    <input
-                      type='text'
-                      value={searchInputValue}
-                      onChange={(e) => setSearchInputValue(e.target.value)}
-                      placeholder='搜索视频...'
-                      className='w-full h-12 rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl py-3 pl-5 pr-14 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400/50 focus:bg-white dark:focus:bg-gray-700 border border-gray-200/50 dark:border-gray-700/50 shadow-lg transition-all'
-                    />
-                    <button
-                      type='submit'
-                      className='absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95'
-                    >
-                      <Search size={18} />
-                    </button>
-                  </div>
-                </div>
-              </form>
             </div>
-          )}
+          </form>
+        </div>
 
-          {/* 搜索结果提示和返回按钮 */}
-          {viewMode === 'search' && searchKeyword && (
+        {/* 搜索结果提示和返回按钮 */}
+        {viewMode === 'search' && searchKeyword && (
+          <div className='max-w-5xl mx-auto mb-6'>
             <div className='flex items-center justify-between bg-gradient-to-r from-indigo-50/80 to-purple-50/80 dark:from-indigo-900/30 dark:to-purple-900/30 backdrop-blur-sm border border-indigo-200/50 dark:border-indigo-800/30 rounded-xl px-5 py-3.5'>
               <div className="flex items-center gap-2">
                 <SearchX className="h-4 w-4 text-indigo-500" />
@@ -340,35 +312,76 @@ function SourceSearchPageClient() {
                 返回分类浏览
               </button>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* 分类选择 */}
-          {selectedSource && viewMode === 'browse' && (
-            <div className='relative'>
+        {/* 源选择 + 分类下拉 */}
+        <div className='max-w-5xl mx-auto mb-8'>
+          {isLoadingSources ? (
+            <div className="flex items-center justify-center h-12 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl border border-gray-200/50 dark:border-gray-700/50">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                <span className="text-sm text-gray-500 dark:text-gray-400">加载视频源中...</span>
+              </div>
+            </div>
+          ) : apiSites.length === 0 ? (
+            <div className="flex items-center justify-center h-12 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl border border-gray-200/50 dark:border-gray-700/50">
+              <span className="text-sm text-gray-500 dark:text-gray-400">暂无可用源</span>
+            </div>
+          ) : (
+            <div className="relative" ref={categoryDropdownRef}>
+              {/* 源选择器 */}
               <div className="flex items-center gap-2 mb-3">
-                <Layers className="h-4 w-4 text-purple-500" />
+                <Globe2 className="h-4 w-4 text-indigo-500" />
                 <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
-                  选择分类
+                  选择视频源
                 </span>
               </div>
-              {isLoadingCategories ? (
-                <CategorySkeleton />
-              ) : categories.length === 0 ? (
-                <div className='flex items-center justify-center h-12 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl border border-gray-200/50 dark:border-gray-700/50'>
-                  <span className='text-sm text-gray-500 dark:text-gray-400'>
-                    暂无分类
-                  </span>
-                </div>
-              ) : (
-                <div className='flex justify-center'>
-                  <CapsuleSwitch
-                    options={categories.map((category) => ({
-                      label: category.name,
-                      value: category.id,
-                    }))}
-                    active={selectedCategory}
-                    onChange={setSelectedCategory}
-                  />
+              
+              <div className="flex justify-center mb-3">
+                <CapsuleSwitch
+                  options={apiSites.map((site) => ({
+                    label: site.name,
+                    value: site.key,
+                  }))}
+                  active={selectedSource}
+                  onChange={(value) => {
+                    const site = apiSites.find(s => s.key === value);
+                    handleSourceChange(value, site?.name || '');
+                  }}
+                />
+              </div>
+
+              {/* 分类下拉弹窗 */}
+              {showCategoryDropdown && (
+                <div className="absolute top-full left-0 right-0 z-50 animate-in slide-in-from-top-2 duration-200">
+                  <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 p-4">
+                    {/* 当前选中源提示 */}
+                    <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-200/50 dark:border-gray-700/50">
+                      <ChevronDown className="h-4 w-4 text-indigo-500" />
+                      <span className='text-sm text-gray-600 dark:text-gray-400'>
+                        {selectedSourceName} 的分类
+                      </span>
+                    </div>
+                    
+                    {/* 分类列表 */}
+                    {isLoadingCategories ? (
+                      <CategoryDropdownSkeleton />
+                    ) : categories.length === 0 ? (
+                      <div className="flex items-center justify-center h-12">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">暂无分类</span>
+                      </div>
+                    ) : (
+                      <CapsuleSwitch
+                        options={categories.map((category) => ({
+                          label: category.name,
+                          value: category.id,
+                        }))}
+                        active={selectedCategory}
+                        onChange={setSelectedCategory}
+                      />
+                    )}
+                  </div>
                 </div>
               )}
             </div>
