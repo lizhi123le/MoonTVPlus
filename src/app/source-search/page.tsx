@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 'use client';
 
-import { ChevronDown, Globe2, Loader2, Search, SearchX, Sparkles } from 'lucide-react';
+import { Globe2, Loader2, Search, SearchX, Sparkles } from 'lucide-react';
 import { Suspense, useEffect, useRef, useState } from 'react';
 
 import { ApiSite } from '@/lib/config';
@@ -21,9 +21,9 @@ type ViewMode = 'browse' | 'search';
 // Loading skeleton for categories dropdown
 function CategoryDropdownSkeleton() {
   return (
-    <div className="flex items-center justify-center h-12 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl border border-gray-200/50 dark:border-gray-700/50">
+    <div className="flex items-center justify-center h-10 bg-gray-100/80 dark:bg-gray-700/80 backdrop-blur-sm rounded-lg">
       <div className="flex items-center gap-2">
-        <Loader2 className="h-4 w-4 animate-spin text-purple-500" />
+        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
         <span className="text-sm text-gray-500 dark:text-gray-400">加载分类中...</span>
       </div>
     </div>
@@ -256,22 +256,18 @@ function SourceSearchPageClient() {
       </div>
 
       <div className='px-4 sm:px-10 py-6 sm:py-10 overflow-visible mb-10 relative'>
-        {/* 页面标题 */}
-        <div className='max-w-4xl mx-auto mb-6 text-center'>
-          <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-2xl shadow-lg border border-gray-200/50 dark:border-gray-700/50 mb-4">
-            <Globe2 className="h-5 w-5 text-indigo-500" />
-            <Sparkles className="h-4 w-4 text-amber-500" />
-          </div>
-          <h1 className='text-3xl sm:text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 bg-clip-text text-transparent dark:from-indigo-400 dark:via-purple-400 dark:to-blue-400'>
+        {/* 页面标题 - 移到左上角 */}
+        <div className='mb-6'>
+          <h1 className='text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-1'>
             源站寻片
           </h1>
-          <p className='text-sm text-gray-500 dark:text-gray-400 mt-2'>
+          <p className='text-sm text-gray-500 dark:text-gray-400'>
             根据可用视频源浏览分类内容，畅享海量视频
           </p>
         </div>
 
-        {/* 搜索框 - 最上面 */}
-        <div className='max-w-2xl mx-auto mb-6'>
+        {/* 搜索框 */}
+        <div className='mb-6'>
           <form onSubmit={handleSearch}>
             <div className="relative group">
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-blue-500/20 rounded-xl blur-xl group-hover:blur-2xl transition-all duration-500 opacity-50" />
@@ -296,8 +292,8 @@ function SourceSearchPageClient() {
 
         {/* 搜索结果提示和返回按钮 */}
         {viewMode === 'search' && searchKeyword && (
-          <div className='max-w-5xl mx-auto mb-6'>
-            <div className='flex items-center justify-between bg-gradient-to-r from-indigo-50/80 to-purple-50/80 dark:from-indigo-900/30 dark:to-purple-900/30 backdrop-blur-sm border border-indigo-200/50 dark:border-indigo-800/30 rounded-xl px-5 py-3.5'>
+          <div className='mb-6'>
+            <div className='flex items-center justify-between bg-indigo-50/80 dark:bg-indigo-900/30 border border-indigo-200/50 dark:border-indigo-800/30 rounded-xl px-4 py-3'>
               <div className="flex items-center gap-2">
                 <SearchX className="h-4 w-4 text-indigo-500" />
                 <span className='text-sm text-gray-700 dark:text-gray-300'>
@@ -307,7 +303,7 @@ function SourceSearchPageClient() {
               <button
                 type="button"
                 onClick={handleBackToBrowse}
-                className='text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium px-3 py-1.5 rounded-lg hover:bg-indigo-100/50 dark:hover:bg-indigo-900/30 transition-colors'
+                className='text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium'
               >
                 返回分类浏览
               </button>
@@ -316,29 +312,22 @@ function SourceSearchPageClient() {
         )}
 
         {/* 源选择 + 分类下拉 */}
-        <div className='max-w-5xl mx-auto mb-8'>
+        <div className='mb-8'>
           {isLoadingSources ? (
-            <div className="flex items-center justify-center h-12 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl border border-gray-200/50 dark:border-gray-700/50">
+            <div className="flex items-center justify-center h-10 bg-gray-100/80 dark:bg-gray-700/80 backdrop-blur-sm rounded-lg">
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
                 <span className="text-sm text-gray-500 dark:text-gray-400">加载视频源中...</span>
               </div>
             </div>
           ) : apiSites.length === 0 ? (
-            <div className="flex items-center justify-center h-12 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl border border-gray-200/50 dark:border-gray-700/50">
+            <div className="flex items-center justify-center h-10 bg-gray-100/80 dark:bg-gray-700/80 backdrop-blur-sm rounded-lg">
               <span className="text-sm text-gray-500 dark:text-gray-400">暂无可用源</span>
             </div>
           ) : (
             <div className="relative" ref={categoryDropdownRef}>
-              {/* 源选择器 */}
-              <div className="flex items-center gap-2 mb-3">
-                <Globe2 className="h-4 w-4 text-indigo-500" />
-                <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
-                  选择视频源
-                </span>
-              </div>
-              
-              <div className="flex justify-center mb-3">
+              {/* 源选择器 - 浅色 */}
+              <div className="mb-2">
                 <CapsuleSwitch
                   options={apiSites.map((site) => ({
                     label: site.name,
@@ -352,23 +341,15 @@ function SourceSearchPageClient() {
                 />
               </div>
 
-              {/* 分类下拉弹窗 */}
+              {/* 分类下拉弹窗 - 深色区分 */}
               {showCategoryDropdown && (
                 <div className="absolute top-full left-0 right-0 z-50 animate-in slide-in-from-top-2 duration-200">
-                  <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 p-4">
-                    {/* 当前选中源提示 */}
-                    <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-200/50 dark:border-gray-700/50">
-                      <ChevronDown className="h-4 w-4 text-indigo-500" />
-                      <span className='text-sm text-gray-600 dark:text-gray-400'>
-                        {selectedSourceName} 的分类
-                      </span>
-                    </div>
-                    
+                  <div className="bg-indigo-50/95 dark:bg-indigo-900/95 backdrop-blur-xl rounded-lg shadow-lg border border-indigo-200/50 dark:border-indigo-700/50 p-2">
                     {/* 分类列表 */}
                     {isLoadingCategories ? (
                       <CategoryDropdownSkeleton />
                     ) : categories.length === 0 ? (
-                      <div className="flex items-center justify-center h-12">
+                      <div className="flex items-center justify-center h-10">
                         <span className="text-sm text-gray-500 dark:text-gray-400">暂无分类</span>
                       </div>
                     ) : (
