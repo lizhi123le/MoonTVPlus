@@ -40,50 +40,44 @@ async function fetchWithDoubanProxy(
   switch (proxyType) {
     case 'cmliussss-cdn-tencent': {
       // 使用腾讯 CDN 代理
-      response = await fetch(`https://m.douban.cmliussss.net/rexxar/api/v2${url.replace('https://movie.douban.com', '')}`, {
+      return fetch(`https://m.douban.cmliussss.net/rexxar/api/v2${url.replace('https://movie.douban.com', '')}`, {
         headers,
       });
-      break;
     }
 
     case 'cmliussss-cdn-ali': {
       // 使用阿里云 CDN 代理
-      response = await fetch(`https://m.douban.cmliussss.com/rexxar/api/v2${url.replace('https://movie.douban.com', '')}`, {
+      return fetch(`https://m.douban.cmliussss.com/rexxar/api/v2${url.replace('https://movie.douban.com', '')}`, {
         headers,
       });
-      break;
     }
 
     case 'cors-proxy-zwei': {
-      response = await fetch('https://ciao-cors.is-an.org/' + url, {
+      return fetch('https://ciao-cors.is-an.org/' + url, {
         headers,
       });
-      break;
     }
 
     case 'cors-anywhere': {
-      response = await fetch('https://cors-anywhere.com/' + url, {
+      return fetch('https://cors-anywhere.com/' + url, {
         headers,
       });
-      break;
     }
 
     case 'custom': {
       // 自定义代理
       const customProxyUrl = proxyUrl || '';
       if (customProxyUrl.endsWith('/')) {
-        response = await fetch(customProxyUrl + url, { headers });
+        return fetch(customProxyUrl + url, { headers });
       } else {
-        response = await fetch(customProxyUrl + '?url=' + encodeURIComponent(url), { headers });
+        return fetch(customProxyUrl + '?url=' + encodeURIComponent(url), { headers });
       }
-      break;
     }
 
     case 'direct':
     default: {
       // 直接请求（使用反爬虫机制）
-      response = await fetchDoubanWithVerification(url, { headers });
-      break;
+      return fetchDoubanWithVerification(url, { headers });
     }
   }
 }
@@ -113,7 +107,6 @@ export async function GET(request: NextRequest) {
     console.log(`Fetching Douban comments with proxy type: ${proxyType}`);
 
     let response: Response;
-
     try {
       response = await fetchWithDoubanProxy(url, headers);
     } catch (proxyError) {
