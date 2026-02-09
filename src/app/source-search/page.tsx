@@ -61,20 +61,7 @@ function SourceSearchPageClient() {
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [searchInputValue, setSearchInputValue] = useState<string>('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-  const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
-
-  // 点击外部关闭分类下拉
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
-        setShowCategoryDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   // 加载用户可用的视频源
   useEffect(() => {
@@ -325,7 +312,7 @@ function SourceSearchPageClient() {
               <span className="text-sm text-gray-500 dark:text-gray-400">暂无可用源</span>
             </div>
           ) : (
-            <div className="relative" ref={categoryDropdownRef}>
+            <div className="relative">
               {/* 源选择器 - 浅色 */}
               <div className="mb-2">
                 <CapsuleSwitch
