@@ -9,6 +9,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { getAuthInfoFromBrowserCookie } from '@/lib/auth';
 import {
   convertDanmakuFormat,
+  getCrossSourceSkipConfig,
   getDanmakuById,
   getDanmakuFromCache,
   getEpisodes,
