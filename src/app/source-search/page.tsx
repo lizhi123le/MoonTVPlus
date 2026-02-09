@@ -2,7 +2,7 @@
 'use client';
 
 import { Globe2, Loader2, Search, SearchX, Sparkles } from 'lucide-react';
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiSite } from '@/lib/config';
 import { SearchResult } from '@/lib/types';
@@ -173,7 +173,7 @@ function SourceSearchPageClient() {
     } finally {
       setIsLoadingVideos(false);
     }
-  }, [selectedSource, searchKeyword]); // currentPage 由 useEffect 闭包捕获
+  }, [selectedSource, searchKeyword, currentPage]);
 
   // 当搜索关键词或页码变化时，执行搜索（搜索模式）
   useEffect(() => {
