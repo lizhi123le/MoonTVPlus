@@ -322,6 +322,57 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
           return;
         }
 
+        // 使用源详情 API（当 doubanId 为空时）
+        if (source && sourceId && title) {
+          try {
+            const sourceDetailResponse = await fetch(
+              `/api/source-detail?id=${encodeURIComponent(sourceId)}&source=${encodeURIComponent(source)}&title=${encodeURIComponent(title)}`
+            );
+            if (sourceDetailResponse.ok) {
+              const sourceData = await sourceDetailResponse.json();
+              // 如果源详情中有豆瓣ID，重新获取豆瓣详情
+              if (sourceData.douban_id && !isBangumi) {
+                const doubanResponse = await fetch(`/api/douban/detail?id=${sourceData.douban_id}`);
+                if (doubanResponse.ok) {
+                  const doubanData = await doubanResponse.json();
+                  setDetailData({
+                    title: doubanData.title,
+                    originalTitle: doubanData.original_title,
+                    year: doubanData.year,
+                    poster: (doubanData.pic?.large || doubanData.pic?.normal) ? processImageUrl(doubanData.pic?.large || doubanData.pic?.normal) : poster,
+                    rating: doubanData.rating
+                      ? {
+                          value: doubanData.rating.value,
+                          count: doubanData.rating.count,
+                        }
+                      : undefined,
+                    intro: doubanData.intro,
+                    genres: doubanData.genres,
+                    directors: doubanData.directors,
+                    actors: doubanData.actors,
+                    countries: doubanData.countries,
+                    languages: doubanData.languages,
+                    duration: doubanData.durations?.[0],
+                    episodesCount: doubanData.episodes_count,
+                  });
+                  return;
+                }
+              }
+              // 如果没有豆瓣ID，使用源详情的 desc 作为 intro
+              setDetailData({
+                title: sourceData.title || title,
+                intro: sourceData.desc || '',
+                poster: sourceData.poster ? processImageUrl(sourceData.poster) : poster,
+                year: sourceData.year,
+                episodesCount: sourceData.episodes?.length,
+              });
+              return;
+            }
+          } catch (err) {
+            console.error('获取源详情失败:', err);
+          }
+        }
+
         // 使用 TMDB 搜索
         if (title) {
           // 移除季度信息进行搜索
