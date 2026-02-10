@@ -257,16 +257,20 @@ jobs:
           wranglerVersion: "4.60.0"
 
       - name: Set PASSWORD secret for Cloudflare Pages
-        if: secrets.PASSWORD != ''
         run: |
+          # Skip if PASSWORD secret is not set in GitHub Secrets
+          if [ -z "$PASSWORD_SECRET" ]; then
+            echo "PASSWORD secret not configured, skipping"
+            exit 0
+          fi
           # Get project name from secrets or use default
           PROJECT_NAME="${{ secrets.PROJECT_NAME }}"
           if [ -z "$PROJECT_NAME" ]; then
             PROJECT_NAME="moontv-plus"
           fi
           echo "Setting PASSWORD secret for project: $PROJECT_NAME"
-          echo "$PASSWORD" | npx wrangler pages secret put PASSWORD --project-name="$PROJECT_NAME"
+          echo "$PASSWORD_SECRET" | npx wrangler pages secret put PASSWORD --project-name="$PROJECT_NAME"
         env:
-          PASSWORD: ${{ secrets.PASSWORD }}
+          PASSWORD_SECRET: ${{ secrets.PASSWORD }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
