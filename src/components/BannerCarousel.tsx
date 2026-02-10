@@ -279,11 +279,6 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
 
   const [hasStarted, setHasStarted] = useState(false); // 是否已经开始播放预告片
 
-  // 切换轮播图时重置静音状态
-  useEffect(() => {
-    setIsMuted(true);
-  }, [currentIndex]);
-
   // 控制视频播放/暂停和静音状态
   useEffect(() => {
     videoRefs.current.forEach((video, index) => {
