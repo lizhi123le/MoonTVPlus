@@ -209,6 +209,23 @@ export default async function RootLayout({
         <link rel='apple-touch-icon' href='/icons/icon-192x192.png' />
         {/* 主题CSS */}
         <link rel='stylesheet' href='/api/theme/css' />
+        {/* 防止主题闪烁：在 hydration 之前应用保存的主题 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('theme');
+                  if (theme === 'dark' || theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
         {/* 将配置序列化后直接写入脚本，浏览器端可通过 window.RUNTIME_CONFIG 获取 */}
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script
