@@ -2,6 +2,7 @@
 -- MoonTVPlus 完整数据库初始化脚本
 -- 一键创建所有表、索引、初始数据
 -- 使用方法：npx wrangler d1 execute mdhfuep --file=sql/init_complete.sql --remote
+-- 更新时间: 2026-02-10
 -- ============================================
 
 -- 1. 全局配置表（最先创建，无依赖）
