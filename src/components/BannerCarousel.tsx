@@ -31,7 +31,7 @@ export default function BannerCarousel({ autoPlayInterval = 5000, delayLoad = fa
   const [isPaused, setIsPaused] = useState(false);
   const [skipNextAutoPlay, setSkipNextAutoPlay] = useState(false); // 跳过下一次自动播放
   const [isYouTubeAccessible, setIsYouTubeAccessible] = useState(false); // YouTube连通性（默认false，检查后再决定）
-  const [enableTrailers, setEnableTrailers] = useState(false); // 是否启用预告片（默认关闭）
+  const [enableTrailers, setEnableTrailers] = useState(true); // 是否启用预告片（默认开启）
   const [dataSource, setDataSource] = useState<string>(''); // 当前数据源
   const [trailersLoaded, setTrailersLoaded] = useState(false); // 预告片是否已加载
   const [isMuted, setIsMuted] = useState(true); // 视频是否静音（默认静音）
@@ -550,7 +550,7 @@ export default function BannerCarousel({ autoPlayInterval = 5000, delayLoad = fa
       {currentItem.trailer_url && enableTrailers && (
         <button
           onClick={toggleMute}
-          className="absolute top-2 right-2 md:top-4 md:right-4 w-8 h-8 md:w-10 md:h-10 bg-black/30 hover:bg-black/60 text-white rounded-full flex items-center justify-center transition-all duration-300 z-10"
+          className="absolute bottom-2 right-2 md:bottom-4 md:right-4 w-8 h-8 md:w-10 md:h-10 bg-black/30 hover:bg-black/60 text-white rounded-full flex items-center justify-center transition-all duration-300 z-10"
           aria-label={isMuted ? "开启声音" : "关闭声音"}
         >
           {isMuted ? (
