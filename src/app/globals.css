@@ -66,6 +66,7 @@ body {
   color: rgb(var(--foreground-rgb));
 }
 
+/* 默认背景（浅色模式） */
 html:not(.dark) body {
   background: linear-gradient(
     180deg,
@@ -75,6 +76,20 @@ html:not(.dark) body {
     #e9ecef 60%,
     #dbe3ea 80%,
     #d3dde6 100%
+  );
+  background-attachment: fixed;
+}
+
+/* 深色模式背景 */
+.dark body {
+  background: linear-gradient(
+    180deg,
+    #0f172a 0%,
+    #1e293b 18%,
+    #0f172a 38%,
+    #020617 60%,
+    #0f172a 80%,
+    #000000 100%
   );
   background-attachment: fixed;
 }
