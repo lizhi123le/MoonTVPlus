@@ -1173,6 +1173,8 @@ function SearchPageClient() {
                       const title = group[0]?.title || '';
                       const poster = group[0]?.poster || '';
                       const year = group[0]?.year || 'unknown';
+                      const source = group[0]?.source || '';
+                      const id = group[0]?.id || '';
                       const { episodes, source_names, douban_id } = computeGroupStats(group);
 
                       // 从 mapKey 中提取类型（mapKey 格式：normalizedTitle-type-year）
@@ -1194,6 +1196,8 @@ function SearchPageClient() {
                             ref={getGroupRef(mapKey)}
                             from='search'
                             isAggregate={true}
+                            id={id}
+                            source={source}
                             title={title}
                             poster={poster}
                             year={year}
