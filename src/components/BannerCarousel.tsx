@@ -40,6 +40,7 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
   const [trailersLoaded, setTrailersLoaded] = useState(false); // 预告片是否已加载
   const [isMuted, setIsMuted] = useState(() => {
     // 从浏览器缓存读取静音状态，默认为静音
+    if (typeof window === 'undefined') return true;
     const saved = localStorage.getItem('bannerTrailerMuted');
     return saved === null ? true : saved === 'true';
   }); // 视频是否静音（默认静音）
