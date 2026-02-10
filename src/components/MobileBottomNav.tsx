@@ -55,11 +55,6 @@ const MobileBottomNav = ({ activePath }: MobileBottomNavProps) => {
       label: '电视直播',
       href: '/live',
     },
-    {
-      icon: Globe,
-      label: '网络直播',
-      href: '/web-live',
-    },
   ]);
 
   useEffect(() => {
