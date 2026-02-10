@@ -31,7 +31,7 @@ export default function BannerCarousel({ autoPlayInterval = 5000, delayLoad = fa
   const [isPaused, setIsPaused] = useState(false);
   const [skipNextAutoPlay, setSkipNextAutoPlay] = useState(false); // 跳过下一次自动播放
   const [isYouTubeAccessible, setIsYouTubeAccessible] = useState(false); // YouTube连通性（默认false，检查后再决定）
-  const [enableTrailers, setEnableTrailers] = useState(true); // 是否启用预告片（默认开启）
+  const [enableTrailers, setEnableTrailers] = useState(false); // 是否启用预告片（默认关闭）
   const [dataSource, setDataSource] = useState<string>(''); // 当前数据源
   const [trailersLoaded, setTrailersLoaded] = useState(false); // 预告片是否已加载
   const [isMuted, setIsMuted] = useState(true); // 视频是否静音（默认静音）
