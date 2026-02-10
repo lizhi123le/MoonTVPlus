@@ -250,9 +250,14 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
                 });
                 setLoading(false);
                 return;
+              } else if (response.status === 401) {
+                // 未认证，跳过 source-detail，继续尝试其他数据源
+                console.log('source-detail 需要认证，跳过');
+              } else {
+                console.error('获取 source-detail 失败:', response.status);
               }
             } catch (err) {
-              console.error('获取source-detail失败:', err);
+              console.error('获取 source-detail 失败:', err);
               // 继续执行后续逻辑
             }
           }
