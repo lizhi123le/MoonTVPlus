@@ -34,7 +34,11 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
   const [enableTrailers, setEnableTrailers] = useState(false); // 是否启用预告片（默认关闭）
   const [dataSource, setDataSource] = useState<string>(''); // 当前数据源
   const [trailersLoaded, setTrailersLoaded] = useState(false); // 预告片是否已加载
-  const [isMuted, setIsMuted] = useState(true); // 视频是否静音（默认静音）
+  const [isMuted, setIsMuted] = useState(() => {
+    // 从浏览器缓存读取静音状态，默认为静音
+    const saved = localStorage.getItem('bannerTrailerMuted');
+    return saved === null ? true : saved === 'true';
+  }); // 视频是否静音（默认静音）
   const videoRef = useRef<HTMLVideoElement>(null); // 视频元素引用
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map()); // 所有视频元素的引用
   const touchStartX = useRef(0);
@@ -59,6 +63,9 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     e.stopPropagation();
     const newMutedState = !isMuted;
     setIsMuted(newMutedState);
+    
+    // 保存静音状态到浏览器缓存
+    localStorage.setItem('bannerTrailerMuted', String(newMutedState));
 
     // 直接更新当前视频元素的静音状态
     const currentVideo = videoRefs.current.get(currentIndex);
