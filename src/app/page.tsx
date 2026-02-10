@@ -326,6 +326,7 @@ function HomeClient() {
                         rate={movie.rate}
                         type='movie'
                         from='douban'
+                        douban_id={parseInt(movie.id)}
                       />
                     </div>
                   ))}
@@ -485,6 +486,7 @@ function HomeClient() {
                         rate={tvShow.rate}
                         type='tv'
                         from='douban'
+                        douban_id={parseInt(tvShow.id)}
                       />
                     </div>
                   ))}
@@ -531,6 +533,7 @@ function HomeClient() {
                         rate={varietyShow.rate}
                         type='tv'
                         from='douban'
+                        douban_id={parseInt(varietyShow.id)}
                       />
                     </div>
                   ))}
