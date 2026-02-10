@@ -41,6 +41,7 @@ export interface PlayRecord {
   save_time: number; // 记录保存时间（时间戳）
   search_title?: string; // 搜索时使用的标题
   origin?: 'vod' | 'live'; // 来源类型
+  douban_id?: number; // 豆瓣ID，用于获取详情
 }
 
 // ---- 收藏类型 ----
