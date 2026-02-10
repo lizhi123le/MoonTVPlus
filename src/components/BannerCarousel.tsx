@@ -265,6 +265,8 @@ export default function BannerCarousel({ autoPlayInterval = 5000, delayLoad = fa
     fetchDoubanTrailers();
   }, [enableTrailers, dataSource, items.length, trailersLoaded]);
 
+  const [hasStarted, setHasStarted] = useState(false); // 是否已经开始播放预告片
+
   // 切换轮播图时重置静音状态
   useEffect(() => {
     setIsMuted(true);
@@ -272,7 +274,10 @@ export default function BannerCarousel({ autoPlayInterval = 5000, delayLoad = fa
 
   // 控制视频播放/暂停和静音状态
   useEffect(() => {
-    // 遍历所有视频元素
+    // 只有当用户开始交互（页面加载完成）后才播放视频
+    // 这样可以避免 CPU 超时和持续请求
+    if (!hasStarted) return;
+
     videoRefs.current.forEach((video, index) => {
       if (index === currentIndex) {
         // 当前显示的视频：播放并设置静音状态
@@ -285,7 +290,20 @@ export default function BannerCarousel({ autoPlayInterval = 5000, delayLoad = fa
         video.pause();
       }
     });
-  }, [currentIndex, isMuted]);
+  }, [currentIndex, isMuted, hasStarted]);
+
+  // 页面加载完成后开始播放（避免 CPU 超时）
+  useEffect(() => {
+    if (delayLoad) {
+      // 如果是延迟加载模式，等待页面加载完成后再开始播放
+      const timer = setTimeout(() => {
+        setHasStarted(true);
+      }, 2000); // 延迟 2 秒开始播放
+      return () => clearTimeout(timer);
+    } else {
+      setHasStarted(true);
+    }
+  }, [delayLoad]);
 
   // 自动播放
   useEffect(() => {
@@ -432,7 +450,7 @@ export default function BannerCarousel({ autoPlayInterval = 5000, delayLoad = fa
                   muted={isMuted}
                   loop
                   playsInline
-                  preload="auto"
+                  preload="metadata"
                 />
               </div>
             ) : item.video_key && isYouTubeAccessible && enableTrailers ? (

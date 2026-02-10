@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 
-// 视频代理接口 - 简化版，直接透传响应
-// Cloudflare Workers 对视频流有严格的 CPU 限制
-// 解决方案：直接透传响应，不做任何处理
+// 视频代理接口 - 支持 Range 请求和浏览器缓存
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const videoUrl = searchParams.get('url');
@@ -12,7 +10,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    // 获取客户端的Range请求头
+    // 获取客户端的 Range 请求头
     const range = request.headers.get('range');
 
     const fetchHeaders: Record<string, string> = {
@@ -21,7 +19,7 @@ export async function GET(request: Request) {
       'Referer': 'https://movie.douban.com/',
     };
 
-    // 如果客户端发送了Range请求，转发给源服务器
+    // 只有当有 Range 请求时才转发
     if (range) {
       fetchHeaders['Range'] = range;
     }
@@ -30,22 +28,29 @@ export async function GET(request: Request) {
       headers: fetchHeaders,
     });
 
-    // 获取源响应的 headers
     const responseHeaders = new Headers(response.headers);
 
-    // 添加缓存控制头 - 缓存到浏览器和 CDN 1年
-    // 豆瓣视频直链是永久链接，可以长期缓存
-    responseHeaders.set('Cache-Control', 'public, max-age=31536000, s-maxage=31536000');
-    responseHeaders.set('CDN-Cache-Control', 'public, s-maxage=31536000');
-    responseHeaders.set('Vercel-CDN-Cache-Control', 'public, s-maxage=31536000');
+    // 生成 ETag 用于缓存验证
+    const etag = `"${videoUrl.substring(videoUrl.lastIndexOf('/') + 1)}-${response.status}-${response.headers.get('content-length') || 'unknown'}"`;
+    responseHeaders.set('ETag', etag);
+    responseHeaders.set('Last-Modified', new Date().toUTCString());
+
+    // 添加缓存控制头 - 使用 immutable 表示内容不会变化
+    responseHeaders.set('Cache-Control', 'public, max-age=31536000, immutable');
+    responseHeaders.set('CDN-Cache-Control', 'public, max-age=31536000');
+    responseHeaders.set('Vercel-CDN-Cache-Control', 'public, max-age=31536000');
 
     // 设置 CORS 头
     responseHeaders.set('Access-Control-Allow-Origin', '*');
-    responseHeaders.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+    responseHeaders.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, ETag, Accept-Ranges');
+    responseHeaders.set('Accept-Ranges', 'bytes');
 
-    // 返回带缓存头的响应
+    // 如果源服务器返回了 Content-Range，设置 206 状态
+    const contentRange = response.headers.get('content-range');
+    const status = (range && contentRange) ? 206 : response.status;
+
     return new Response(response.body, {
-      status: response.status,
+      status,
       statusText: response.statusText,
       headers: responseHeaders,
     });
@@ -65,7 +70,7 @@ export async function OPTIONS() {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Range, Origin, Accept',
+      'Access-Control-Allow-Headers': 'Range, Origin, Accept, If-Range',
       'Access-Control-Max-Age': '86400',
     },
   });
