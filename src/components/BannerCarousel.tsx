@@ -31,19 +31,11 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
   const [isPaused, setIsPaused] = useState(false);
   const [skipNextAutoPlay, setSkipNextAutoPlay] = useState(false); // 跳过下一次自动播放
   const [isYouTubeAccessible, setIsYouTubeAccessible] = useState(false); // YouTube连通性（默认false，检查后再决定）
-  const [enableTrailers, setEnableTrailers] = useState(() => {
-    // 从浏览器缓存读取预告片开关状态，默认为关闭
-    const saved = localStorage.getItem('enableTrailers');
-    return saved === null ? false : saved === 'true';
-  }); // 是否启用预告片（默认关闭）
+  const [enableTrailers, setEnableTrailers] = useState(false); // 是否启用预告片（默认关闭）
   const [dataSource, setDataSource] = useState<string>(''); // 当前数据源
   const [trailersLoaded, setTrailersLoaded] = useState(false); // 预告片是否已加载
-  const [isMuted, setIsMuted] = useState(() => {
-    // 从浏览器缓存读取静音状态，默认为静音
-    if (typeof window === 'undefined') return true;
-    const saved = localStorage.getItem('bannerTrailerMuted');
-    return saved === null ? true : saved === 'true';
-  }); // 视频是否静音（默认静音）
+  const [isMuted, setIsMuted] = useState(true); // 视频是否静音（默认静音）
+  const [isMounted, setIsMounted] = useState(false); // 标记组件是否已挂载（用于localStorage访问）
   const videoRef = useRef<HTMLVideoElement>(null); // 视频元素引用
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map()); // 所有视频元素的引用
   const touchStartX = useRef(0);
@@ -70,7 +62,9 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     setIsMuted(newMutedState);
     
     // 保存静音状态到浏览器缓存
-    localStorage.setItem('bannerTrailerMuted', String(newMutedState));
+    if (isMounted) {
+      localStorage.setItem('bannerTrailerMuted', String(newMutedState));
+    }
 
     // 直接更新当前视频元素的静音状态
     const currentVideo = videoRefs.current.get(currentIndex);
@@ -100,11 +94,19 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     return url;
   };
 
-  // 读取本地设置
+  // 标记组件已挂载（用于localStorage访问）
   useEffect(() => {
-    const setting = localStorage.getItem('enableTrailers');
-    if (setting !== null) {
-      setEnableTrailers(setting === 'true');
+    setIsMounted(true);
+    
+    // 从浏览器缓存读取设置
+    const savedTrailers = localStorage.getItem('enableTrailers');
+    if (savedTrailers !== null) {
+      setEnableTrailers(savedTrailers === 'true');
+    }
+    
+    const savedMuted = localStorage.getItem('bannerTrailerMuted');
+    if (savedMuted !== null) {
+      setIsMuted(savedMuted === 'true');
     }
   }, []);
 
@@ -173,7 +175,8 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
         // 遍历所有数据源，找到最新的缓存
         for (const source of sources) {
           const cacheKey = getLocalStorageKey(source);
-          const cached = localStorage.getItem(cacheKey);
+          // 只在挂载后访问 localStorage
+          const cached = isMounted ? localStorage.getItem(cacheKey) : null;
 
           if (cached) {
             try {
@@ -214,14 +217,16 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
             setTrailersLoaded(false); // 重置预告片加载状态
 
             // 保存到 localStorage（使用数据源特定的key）
-            try {
-              localStorage.setItem(cacheKey, JSON.stringify({
-                data: result.list,
-                timestamp: Date.now()
-              }));
-            } catch (e) {
-              // localStorage 可能已满，忽略错误
-              console.error('保存到 localStorage 失败:', e);
+            if (isMounted) {
+              try {
+                localStorage.setItem(cacheKey, JSON.stringify({
+                  data: result.list,
+                  timestamp: Date.now()
+                }));
+              } catch (e) {
+                // localStorage 可能已满，忽略错误
+                console.error('保存到 localStorage 失败:', e);
+              }
             }
           }
         }
@@ -233,7 +238,7 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     };
 
     fetchTrending();
-  }, [shouldLoad]);
+  }, [shouldLoad, isMounted]);
 
   // 前端获取豆瓣预告片
   useEffect(() => {
