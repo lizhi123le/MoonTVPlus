@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS play_records (
   total_time INTEGER NOT NULL, -- 总时长（秒）
   save_time INTEGER NOT NULL, -- 保存时间戳
   search_title TEXT,
+  douban_id INTEGER, -- 豆瓣ID，用于获取详情
   PRIMARY KEY (username, key),
   FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
 );
