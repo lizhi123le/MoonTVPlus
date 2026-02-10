@@ -22,7 +22,7 @@ interface BannerItem extends TMDBItem {
   genres?: string[]; // 豆瓣数据源的类型标签
 }
 
-export default function BannerCarousel({ autoPlayInterval = 5000, delayLoad = false }: BannerCarouselProps) {
+export default function BannerCarousel({ autoPlayInterval = 12000, delayLoad = false }: BannerCarouselProps) {
   const router = useRouter();
   const [items, setItems] = useState<BannerItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
