@@ -432,7 +432,7 @@ export default function BannerCarousel({ autoPlayInterval = 5000, delayLoad = fa
                   muted={isMuted}
                   loop
                   playsInline
-                  preload="metadata"
+                  preload="auto"
                 />
               </div>
             ) : item.video_key && isYouTubeAccessible && enableTrailers ? (

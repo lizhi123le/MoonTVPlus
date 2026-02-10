@@ -26,10 +26,28 @@ export async function GET(request: Request) {
       fetchHeaders['Range'] = range;
     }
 
-    // 直接返回响应，不做任何处理
-    // 这样可以避免 CPU 超时，因为 Workers 会直接转发流
-    return fetch(videoUrl, {
+    const response = await fetch(videoUrl, {
       headers: fetchHeaders,
+    });
+
+    // 获取源响应的 headers
+    const responseHeaders = new Headers(response.headers);
+
+    // 添加缓存控制头 - 缓存到浏览器和 CDN 1年
+    // 豆瓣视频直链是永久链接，可以长期缓存
+    responseHeaders.set('Cache-Control', 'public, max-age=31536000, s-maxage=31536000');
+    responseHeaders.set('CDN-Cache-Control', 'public, s-maxage=31536000');
+    responseHeaders.set('Vercel-CDN-Cache-Control', 'public, s-maxage=31536000');
+
+    // 设置 CORS 头
+    responseHeaders.set('Access-Control-Allow-Origin', '*');
+    responseHeaders.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+
+    // 返回带缓存头的响应
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: responseHeaders,
     });
   } catch (error) {
     console.error('Error proxying video:', error);
