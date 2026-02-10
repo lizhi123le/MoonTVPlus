@@ -12,7 +12,7 @@ export interface ChangelogEntry {
 export const changelog: ChangelogEntry[] = [
 	{
       version: '212.2.0',
-      date: '2026-02-09',
+      date: '2026-02-11',
       added: [
 		"新增播放器设置本地缓存，记住用户偏好（音量、播放速率、弹幕开关等）",
 		"新增播放器设置 D1 云端同步，支持多设备同步播放器偏好设置",
@@ -27,10 +27,15 @@ export const changelog: ChangelogEntry[] = [
 		"源站寻片来源和分类选择器放在同一背景方框内",
 		"源站寻片搜索逻辑优化，切换源时保留搜索关键词自动搜索",
 		"源站寻片搜索框和选项卡颜色优化",
-		"解决 PWA 构建超时问题"
+		"轮播图预告片优化，首次加载后 2 秒才开始请求视频",
+		"轮播图切换间隔改为 12 秒"
       ],
       fixed: [
-		"豆瓣评论访问增加友好错误提示"
+		"解决 PWA 构建超时问题",
+		"豆瓣评论访问增加友好错误提示",
+		"视频预告片添加 ETag 和 Last-Modified 缓存验证头",
+		"视频预告片使用 immutable 缓存指令避免持续请求",
+		"修复视频预告片导致 Cloudflare Workers CPU 超时问题"
 	]
 	},
 	{
