@@ -28,7 +28,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'pnpm'
+
+      - name: Clean pnpm cache
+        run: rm -rf ~/.cache/pnpm
 
       - name: Set environment variables
         run: |
@@ -73,6 +75,8 @@ jobs:
 
       - name: Install dependencies
         run: |
+          echo "Cleaning old dependencies..."
+          rm -rf node_modules .next
           echo "Installing dependencies..."
           pnpm install --frozen-lockfile
           echo "Dependencies installed"
