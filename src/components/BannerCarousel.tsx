@@ -31,7 +31,11 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
   const [isPaused, setIsPaused] = useState(false);
   const [skipNextAutoPlay, setSkipNextAutoPlay] = useState(false); // 跳过下一次自动播放
   const [isYouTubeAccessible, setIsYouTubeAccessible] = useState(false); // YouTube连通性（默认false，检查后再决定）
-  const [enableTrailers, setEnableTrailers] = useState(false); // 是否启用预告片（默认关闭）
+  const [enableTrailers, setEnableTrailers] = useState(() => {
+    // 从浏览器缓存读取预告片开关状态，默认为关闭
+    const saved = localStorage.getItem('enableTrailers');
+    return saved === null ? false : saved === 'true';
+  }); // 是否启用预告片（默认关闭）
   const [dataSource, setDataSource] = useState<string>(''); // 当前数据源
   const [trailersLoaded, setTrailersLoaded] = useState(false); // 预告片是否已加载
   const [isMuted, setIsMuted] = useState(() => {
