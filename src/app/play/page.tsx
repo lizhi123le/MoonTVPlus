@@ -4768,6 +4768,7 @@ function PlayPageClient() {
         total_time: Math.floor(duration),
         save_time: Date.now(),
         search_title: searchTitle,
+        douban_id: detailRef.current?.douban_id,
       });
 
       lastSaveTimeRef.current = Date.now();

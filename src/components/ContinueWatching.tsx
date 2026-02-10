@@ -170,6 +170,7 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
                   orientation='horizontal'
                   playTime={record.play_time}
                   totalTime={record.total_time}
+                  douban_id={record.douban_id}
                 />
               </div>
             );
