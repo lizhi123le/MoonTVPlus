@@ -15,11 +15,11 @@ binding = "DB"
 database_name = "moontvplus"
 database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
 
-[vars]
-NODE_ENV = "production"
-BUILD_TARGET = "cloudflare"
-
 [observability]
 [observability.logs]
 enabled = true
 invocation_logs = true
+
+[vars]
+NODE_ENV = "production"
+BUILD_TARGET = "cloudflare"

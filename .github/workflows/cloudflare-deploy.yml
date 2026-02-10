@@ -107,7 +107,7 @@ jobs:
             echo "D1_DATABASE_ID secret not set, skipping replacement"
           fi
 
-      - name: Update wrangler.toml with non-sensitive environment variables
+      - name: Update wrangler.toml with environment variables
         run: |
           # Function to append variable to wrangler.toml if it has a value
           append_var() {
@@ -118,8 +118,7 @@ jobs:
             fi
           }
 
-          # Append only public (NEXT_PUBLIC_*) variables to wrangler.toml
-          # Sensitive variables (PASSWORD, USERNAME, API keys, tokens, etc.) are set via wrangler pages secret put
+          # Append all environment variables to wrangler.toml
           append_var "NEXT_PUBLIC_STORAGE_TYPE" "${{ secrets.NEXT_PUBLIC_STORAGE_TYPE }}"
           append_var "NEXT_PUBLIC_SITE_NAME" "${{ secrets.NEXT_PUBLIC_SITE_NAME }}"
           append_var "NEXT_PUBLIC_SEARCH_MAX_PAGE" "${{ secrets.NEXT_PUBLIC_SEARCH_MAX_PAGE }}"
@@ -134,8 +133,26 @@ jobs:
           append_var "NEXT_PUBLIC_VOICE_CHAT_STRATEGY" "${{ secrets.NEXT_PUBLIC_VOICE_CHAT_STRATEGY }}"
           append_var "NEXT_PUBLIC_ENABLE_OFFLINE_DOWNLOAD" "${{ secrets.NEXT_PUBLIC_ENABLE_OFFLINE_DOWNLOAD }}"
           append_var "NEXT_PUBLIC_ENABLE_SOURCE_SEARCH" "${{ secrets.NEXT_PUBLIC_ENABLE_SOURCE_SEARCH }}"
-          # Note: Sensitive variables (PASSWORD, USERNAME, API keys, tokens, URLs with secrets) are NOT appended here
-          # They are set via wrangler pages secret put in the next step
+          append_var "USERNAME" "${{ secrets.USERNAME }}"
+          append_var "PASSWORD" "${{ secrets.PASSWORD }}"
+          append_var "UPSTASH_URL" "${{ secrets.UPSTASH_URL }}"
+          append_var "UPSTASH_TOKEN" "${{ secrets.UPSTASH_TOKEN }}"
+          append_var "TMDB_API_KEY" "${{ secrets.TMDB_API_KEY }}"
+          append_var "TMDB_PROXY" "${{ secrets.TMDB_PROXY }}"
+          append_var "TMDB_REVERSE_PROXY" "${{ secrets.TMDB_REVERSE_PROXY }}"
+          append_var "DANMAKU_API_BASE" "${{ secrets.DANMAKU_API_BASE }}"
+          append_var "DANMAKU_API_TOKEN" "${{ secrets.DANMAKU_API_TOKEN }}"
+          append_var "ANNOUNCEMENT" "${{ secrets.ANNOUNCEMENT }}"
+          append_var "CRON_PASSWORD" "${{ secrets.CRON_PASSWORD }}"
+          append_var "SITE_BASE" "${{ secrets.SITE_BASE }}"
+          append_var "REDIS_URL" "${{ secrets.REDIS_URL }}"
+          append_var "KVROCKS_URL" "${{ secrets.KVROCKS_URL }}"
+          append_var "INIT_CONFIG" "${{ secrets.INIT_CONFIG }}"
+          append_var "CONFIG_SUBSCRIPTION_URL" "${{ secrets.CONFIG_SUBSCRIPTION_URL }}"
+          append_var "ENABLE_TVBOX_SUBSCRIBE" "${{ secrets.ENABLE_TVBOX_SUBSCRIBE }}"
+          append_var "TVBOX_SUBSCRIBE_TOKEN" "${{ secrets.TVBOX_SUBSCRIBE_TOKEN }}"
+          append_var "TVBOX_BLOCKED_SOURCES" "${{ secrets.TVBOX_BLOCKED_SOURCES }}"
+          append_var "D1_DATABASE_ID" "${{ secrets.D1_DATABASE_ID }}"
 
           echo "Updated wrangler.toml:"
           cat wrangler.toml
@@ -238,116 +255,3 @@ jobs:
           command: deploy
           packageManager: pnpm
           wranglerVersion: "4.60.0"
-
-      - name: Set all secrets for Cloudflare Pages
-        run: |
-          # Skip if no secrets configured
-          if [ -z "$PASSWORD_SECRET" ] && [ -z "$CRON_PASSWORD_SECRET" ]; then
-            echo "No secrets configured, skipping"
-            exit 0
-          fi
-
-          # Get project name from secrets or use default
-          PROJECT_NAME="${{ secrets.PROJECT_NAME }}"
-          if [ -z "$PROJECT_NAME" ]; then
-            PROJECT_NAME="moontv-plus"
-          fi
-
-          echo "Setting secrets for project: $PROJECT_NAME"
-
-          # Set sensitive variables using wrangler pages secret put
-          if [ -n "$PASSWORD_SECRET" ]; then
-            echo "$PASSWORD_SECRET" | npx wrangler pages secret put PASSWORD --project-name="$PROJECT_NAME"
-            echo "✅ PASSWORD set"
-          fi
-
-          if [ -n "$CRON_PASSWORD_SECRET" ]; then
-            echo "$CRON_PASSWORD_SECRET" | npx wrangler pages secret put CRON_PASSWORD --project-name="$PROJECT_NAME"
-            echo "✅ CRON_PASSWORD set"
-          fi
-
-          if [ -n "$USERNAME_SECRET" ]; then
-            echo "$USERNAME_SECRET" | npx wrangler pages secret put USERNAME --project-name="$PROJECT_NAME"
-            echo "✅ USERNAME set"
-          fi
-
-          if [ -n "$UPSTASH_URL_SECRET" ]; then
-            echo "$UPSTASH_URL_SECRET" | npx wrangler pages secret put UPSTASH_URL --project-name="$PROJECT_NAME"
-            echo "✅ UPSTASH_URL set"
-          fi
-
-          if [ -n "$UPSTASH_TOKEN_SECRET" ]; then
-            echo "$UPSTASH_TOKEN_SECRET" | npx wrangler pages secret put UPSTASH_TOKEN --project-name="$PROJECT_NAME"
-            echo "✅ UPSTASH_TOKEN set"
-          fi
-
-          if [ -n "$TMDB_API_KEY_SECRET" ]; then
-            echo "$TMDB_API_KEY_SECRET" | npx wrangler pages secret put TMDB_API_KEY --project-name="$PROJECT_NAME"
-            echo "✅ TMDB_API_KEY set"
-          fi
-
-          if [ -n "$DANMAKU_API_TOKEN_SECRET" ]; then
-            echo "$DANMAKU_API_TOKEN_SECRET" | npx wrangler pages secret put DANMAKU_API_TOKEN --project-name="$PROJECT_NAME"
-            echo "✅ DANMAKU_API_TOKEN set"
-          fi
-
-          if [ -n "$ANNOUNCEMENT_SECRET" ]; then
-            echo "$ANNOUNCEMENT_SECRET" | npx wrangler pages secret put ANNOUNCEMENT --project-name="$PROJECT_NAME"
-            echo "✅ ANNOUNCEMENT set"
-          fi
-
-          if [ -n "$CONFIG_SUBSCRIPTION_URL_SECRET" ]; then
-            echo "$CONFIG_SUBSCRIPTION_URL_SECRET" | npx wrangler pages secret put CONFIG_SUBSCRIPTION_URL --project-name="$PROJECT_NAME"
-            echo "✅ CONFIG_SUBSCRIPTION_URL set"
-          fi
-
-          if [ -n "$TVBOX_SUBSCRIBE_TOKEN_SECRET" ]; then
-            echo "$TVBOX_SUBSCRIBE_TOKEN_SECRET" | npx wrangler pages secret put TVBOX_SUBSCRIBE_TOKEN --project-name="$PROJECT_NAME"
-            echo "✅ TVBOX_SUBSCRIBE_TOKEN set"
-          fi
-
-          if [ -n "$REDIS_URL_SECRET" ]; then
-            echo "$REDIS_URL_SECRET" | npx wrangler pages secret put REDIS_URL --project-name="$PROJECT_NAME"
-            echo "✅ REDIS_URL set"
-          fi
-
-          if [ -n "$KVROCKS_URL_SECRET" ]; then
-            echo "$KVROCKS_URL_SECRET" | npx wrangler pages secret put KVROCKS_URL --project-name="$PROJECT_NAME"
-            echo "✅ KVROCKS_URL set"
-          fi
-
-          if [ -n "$TMDB_PROXY_SECRET" ]; then
-            echo "$TMDB_PROXY_SECRET" | npx wrangler pages secret put TMDB_PROXY --project-name="$PROJECT_NAME"
-            echo "✅ TMDB_PROXY set"
-          fi
-
-          if [ -n "$TMDB_REVERSE_PROXY_SECRET" ]; then
-            echo "$TMDB_REVERSE_PROXY_SECRET" | npx wrangler pages secret put TMDB_REVERSE_PROXY --project-name="$PROJECT_NAME"
-            echo "✅ TMDB_REVERSE_PROXY set"
-          fi
-
-          if [ -n "$INIT_CONFIG_SECRET" ]; then
-            echo "$INIT_CONFIG_SECRET" | npx wrangler pages secret put INIT_CONFIG --project-name="$PROJECT_NAME"
-            echo "✅ INIT_CONFIG set"
-          fi
-
-          echo "🎉 All secrets set successfully!"
-        env:
-          PASSWORD_SECRET: ${{ secrets.PASSWORD }}
-          CRON_PASSWORD_SECRET: ${{ secrets.CRON_PASSWORD }}
-          USERNAME_SECRET: ${{ secrets.USERNAME }}
-          UPSTASH_URL_SECRET: ${{ secrets.UPSTASH_URL }}
-          UPSTASH_TOKEN_SECRET: ${{ secrets.UPSTASH_TOKEN }}
-          TMDB_API_KEY_SECRET: ${{ secrets.TMDB_API_KEY }}
-          TMDB_PROXY_SECRET: ${{ secrets.TMDB_PROXY }}
-          TMDB_REVERSE_PROXY_SECRET: ${{ secrets.TMDB_REVERSE_PROXY }}
-          DANMAKU_API_TOKEN_SECRET: ${{ secrets.DANMAKU_API_TOKEN }}
-          ANNOUNCEMENT_SECRET: ${{ secrets.ANNOUNCEMENT }}
-          CONFIG_SUBSCRIPTION_URL_SECRET: ${{ secrets.CONFIG_SUBSCRIPTION_URL }}
-          TVBOX_SUBSCRIBE_TOKEN_SECRET: ${{ secrets.TVBOX_SUBSCRIBE_TOKEN }}
-          REDIS_URL_SECRET: ${{ secrets.REDIS_URL }}
-          KVROCKS_URL_SECRET: ${{ secrets.KVROCKS_URL }}
-          INIT_CONFIG_SECRET: ${{ secrets.INIT_CONFIG }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
