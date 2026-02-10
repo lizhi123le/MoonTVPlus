@@ -22,7 +22,7 @@ interface BannerItem extends TMDBItem {
   genres?: string[]; // 豆瓣数据源的类型标签
 }
 
-export default function BannerCarousel({ autoPlayInterval = 12000, delayLoad = false }: BannerCarouselProps) {
+export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = false }: BannerCarouselProps) {
   const router = useRouter();
   const [items, setItems] = useState<BannerItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -274,19 +274,17 @@ export default function BannerCarousel({ autoPlayInterval = 12000, delayLoad = f
 
   // 控制视频播放/暂停和静音状态
   useEffect(() => {
-    // 只有当用户开始交互（页面加载完成）后才播放视频
-    // 这样可以避免 CPU 超时和持续请求
-    if (!hasStarted) return;
-
     videoRefs.current.forEach((video, index) => {
       if (index === currentIndex) {
-        // 当前显示的视频：播放并设置静音状态
-        video.muted = isMuted;
-        video.play().catch(() => {
-          // 忽略自动播放失败的错误
-        });
+        // 当前显示的视频：只有已启动时才播放
+        if (hasStarted) {
+          video.muted = isMuted;
+          video.play().catch(() => {
+            // 忽略自动播放失败的错误
+          });
+        }
       } else {
-        // 非当前显示的视频：暂停
+        // 非当前显示的视频：始终暂停（无论是否已启动）
         video.pause();
       }
     });
