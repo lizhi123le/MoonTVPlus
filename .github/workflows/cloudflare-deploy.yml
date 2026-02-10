@@ -29,8 +29,12 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Clean pnpm cache
-        run: rm -rf ~/.cache/pnpm
+      - name: Clean all pnpm caches
+        run: |
+          rm -rf ~/.cache/pnpm
+          rm -rf $HOME/.pnpm-store
+          rm -rf node_modules
+          rm -rf .next
 
       - name: Set environment variables
         run: |
