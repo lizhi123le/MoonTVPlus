@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
 
-export const runtime = 'nodejs';
-
 // 视频代理接口，支持Range请求
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -70,9 +68,12 @@ export async function GET(request: Request) {
     }
 
     // 设置缓存头
-    headers.set('Cache-Control', 'public, max-age=31536000, s-maxage=31536000'); // 缓存1年
+    headers.set('Cache-Control', 'public, max-age=31536000, s-maxage=31536000');
     headers.set('CDN-Cache-Control', 'public, s-maxage=31536000');
     headers.set('Vercel-CDN-Cache-Control', 'public, s-maxage=31536000');
+    
+    // 关键：设置分块传输编码
+    headers.set('Transfer-Encoding', 'chunked');
 
     // 返回视频流，状态码根据是否有Range请求决定
     const status = range && contentRange ? 206 : 200;
