@@ -3,7 +3,7 @@
 import { ChevronLeft, ChevronRight, Play, Volume2, VolumeX } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef,useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { type TMDBItem,getGenreNames, getTMDBImageUrl } from '@/lib/tmdb.client';
 import { getDoubanDetail } from '@/lib/douban.client';
