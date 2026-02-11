@@ -23,8 +23,10 @@ const API_SEARCH_TIMEOUT_MS = 8000; // API搜索超时时间
 const EMBY_SEARCH_TIMEOUT_MS = 5000; // Emby搜索超时时间
 const OPENLIST_SEARCH_TIMEOUT_MS = 5000; // OpenList搜索超时时间
 const MAX_RESULTS_PER_SOURCE = 30; // 每个源最大结果数
+const MAX_TOTAL_TIME_MS = 25000; // 最大总执行时间25秒（Cloudflare限制是30秒）
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now(); // 记录开始时间
   const authInfo = getAuthInfoFromCookie(request);
   if (!authInfo || !authInfo.username) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -244,7 +246,11 @@ export async function GET(request: NextRequest) {
   );
 
   try {
-    const allResults = await Promise.all([
+    // 在等待结果时定期检查总执行时间
+    const allResults: any[] = [];
+    
+    // OpenList 结果
+    const openlistResult = await Promise.race([
       openlistPromise,
       ...embyPromises,
       ...searchPromises,
