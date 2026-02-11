@@ -139,61 +139,58 @@ async function searchWithCache(
   }
 }
 
+// 搜索配置常量
+const DEFAULT_SEARCH_TIMEOUT_MS = 8000;
+const MAX_PAGES_PER_SEARCH = 3; // 减少最大分页数，从默认5减少到3
+
 export async function searchFromApi(
   apiSite: ApiSite,
-  query: string
+  query: string,
+  options?: { maxPages?: number; timeoutMs?: number }
 ): Promise<SearchResult[]> {
   try {
+    const timeoutMs = options?.timeoutMs || DEFAULT_SEARCH_TIMEOUT_MS;
+    const maxPages = options?.maxPages || MAX_PAGES_PER_SEARCH;
+
     const apiBaseUrl = apiSite.api;
     const apiUrl =
       apiBaseUrl + API_CONFIG.search.path + encodeURIComponent(query);
 
-    // 使用新的缓存搜索函数处理第一页
-    const firstPageResult = await searchWithCache(apiSite, query, 1, apiUrl, 8000);
+    // 使用缓存搜索函数处理第一页
+    const firstPageResult = await searchWithCache(apiSite, query, 1, apiUrl, timeoutMs);
     const results = firstPageResult.results;
     const pageCountFromFirst = firstPageResult.pageCount;
 
-    const config = await getConfig();
-    const MAX_SEARCH_PAGES: number = config.SiteConfig.SearchDownstreamMaxPage;
-
-    // 获取总页数
-    const pageCount = pageCountFromFirst || 1;
+    // 获取总页数，限制最大页数
+    const pageCount = Math.min(pageCountFromFirst || 1, maxPages);
     // 确定需要获取的额外页数
-    const pagesToFetch = Math.min(pageCount - 1, MAX_SEARCH_PAGES - 1);
+    const pagesToFetch = Math.min(pageCount - 1, maxPages - 1);
 
-    // 如果有额外页数，获取更多页的结果
+    // 如果有额外页数，使用串行或限流方式获取更多页的结果
     if (pagesToFetch > 0) {
-      const additionalPagePromises = [];
-
+      // 使用串行方式而非并行，减少CPU和网络压力
       for (let page = 2; page <= pagesToFetch + 1; page++) {
-        const pageUrl =
-          apiBaseUrl +
-          API_CONFIG.search.pagePath
-            .replace('{query}', encodeURIComponent(query))
-            .replace('{page}', page.toString());
+        try {
+          const pageUrl =
+            apiBaseUrl +
+            API_CONFIG.search.pagePath
+              .replace('{query}', encodeURIComponent(query))
+              .replace('{page}', page.toString());
 
-        const pagePromise = (async () => {
-          // 使用新的缓存搜索函数处理分页
-          const pageResult = await searchWithCache(apiSite, query, page, pageUrl, 8000);
-          return pageResult.results;
-        })();
-
-        additionalPagePromises.push(pagePromise);
-      }
-
-      // 等待所有额外页的结果
-      const additionalResults = await Promise.all(additionalPagePromises);
-
-      // 合并所有页的结果
-      additionalResults.forEach((pageResults) => {
-        if (pageResults.length > 0) {
-          results.push(...pageResults);
+          const pageResult = await searchWithCache(apiSite, query, page, pageUrl, timeoutMs);
+          if (pageResult.results.length > 0) {
+            results.push(...pageResult.results);
+          }
+        } catch (error) {
+          console.warn(`获取第${page}页失败:`, error);
+          // 继续下一页，不中断整个搜索
         }
-      });
+      }
     }
 
     return results;
   } catch (error) {
+    console.error(`搜索失败 ${apiSite.name}:`, error);
     return [];
   }
 }

@@ -9,6 +9,14 @@ import { yellowWords } from '@/lib/yellow';
 
 export const runtime = 'nodejs';
 
+// 搜索API优化配置
+const MAX_CONCURRENT_API_SITES = 5; // 最大并发API站点数
+const MAX_CONCURRENT_EMBY_SOURCES = 3; // 最大并发Emby源数
+const API_SEARCH_TIMEOUT_MS = 8000; // API搜索超时时间
+const EMBY_SEARCH_TIMEOUT_MS = 5000; // Emby搜索超时时间
+const OPENLIST_SEARCH_TIMEOUT_MS = 5000; // OpenList搜索超时时间
+const MAX_RESULTS_PER_SOURCE = 30; // 每个源最大结果数
+
 export async function GET(request: NextRequest) {
   const authInfo = getAuthInfoFromCookie(request);
   if (!authInfo || !authInfo.username) {
@@ -34,7 +42,8 @@ export async function GET(request: NextRequest) {
   }
 
   const config = await getConfig();
-  const apiSites = await getAvailableApiSites(authInfo.username);
+  // 限制并发API站点数量
+  const apiSites = (await getAvailableApiSites(authInfo.username)).slice(0, MAX_CONCURRENT_API_SITES);
 
   // 创建权重映射表
   const weightMap = new Map<string, number>();
@@ -50,15 +59,15 @@ export async function GET(request: NextRequest) {
     config.OpenListConfig?.Password
   );
 
-  // 获取所有启用的 Emby 源
+  // 获取所有启用的 Emby 源（限制数量）
   const { embyManager } = await import('@/lib/emby-manager');
   const embySourcesMap = await embyManager.getAllClients();
-  const embySources = Array.from(embySourcesMap.values());
+  const embySources = Array.from(embySourcesMap.values()).slice(0, MAX_CONCURRENT_EMBY_SOURCES);
 
   console.log('[Search] Emby sources count:', embySources.length);
   console.log('[Search] Emby sources:', embySources.map(s => ({ key: s.config.key, name: s.config.name })));
 
-  // 为每个 Emby 源创建搜索 Promise（全部并发，无限制）
+  // 为每个 Emby 源创建搜索 Promise（限制并发）
   const embyPromises = embySources.map(({ client, config: embyConfig }) =>
     Promise.race([
       (async () => {
@@ -68,14 +77,15 @@ export async function GET(request: NextRequest) {
             IncludeItemTypes: 'Movie,Series',
             Recursive: true,
             Fields: 'Overview,ProductionYear',
-            Limit: 50,
+            Limit: 20, // 限制结果数量
           });
 
           // 如果只有一个Emby源，保持旧格式（向后兼容）
           const sourceValue = embySources.length === 1 ? 'emby' : `emby_${embyConfig.key}`;
           const sourceName = embySources.length === 1 ? 'Emby' : embyConfig.name;
 
-          return searchResult.Items.map((item) => ({
+          // 限制结果数量
+          return (searchResult.Items || []).slice(0, MAX_RESULTS_PER_SOURCE).map((item) => ({
             id: item.Id,
             source: sourceValue,
             source_name: sourceName,
@@ -94,7 +104,7 @@ export async function GET(request: NextRequest) {
         }
       })(),
       new Promise<any[]>((_, reject) =>
-        setTimeout(() => reject(new Error(`${embyConfig.name} timeout`)), 20000)
+        setTimeout(() => reject(new Error(`${embyConfig.name} timeout`)), EMBY_SEARCH_TIMEOUT_MS)
       ),
     ]).catch((error) => {
       console.error(`[Search] 搜索 ${embyConfig.name} 超时:`, error);
@@ -124,25 +134,39 @@ export async function GET(request: NextRequest) {
             }
 
             if (metaInfo && metaInfo.folders) {
-              return Object.entries(metaInfo.folders)
-                .filter(([folderName, info]: [string, any]) => {
-                  const matchFolder = folderName.toLowerCase().includes(query.toLowerCase());
-                  const matchTitle = info.title.toLowerCase().includes(query.toLowerCase());
-                  return matchFolder || matchTitle;
-                })
-                .map(([folderName, info]: [string, any]) => ({
-                  id: folderName,
-                  source: 'openlist',
-                  source_name: '私人影库',
-                  title: info.title,
-                  poster: getTMDBImageUrl(info.poster_path),
-                  episodes: [],
-                  episodes_titles: [],
-                  year: info.release_date.split('-')[0] || '',
-                  desc: info.overview,
-                  type_name: info.media_type === 'movie' ? '电影' : '电视剧',
-                  douban_id: 0,
-                }));
+              const queryLower = query.toLowerCase();
+              const folderEntries = Object.entries(metaInfo.folders);
+              
+              // 限制遍历的文件夹数量
+              const maxFoldersToSearch = Math.min(folderEntries.length, 500);
+              const results = [];
+              
+              for (let i = 0; i < maxFoldersToSearch; i++) {
+                const [folderName, info] = folderEntries[i] as [string, any];
+                const matchFolder = folderName?.toLowerCase().includes(queryLower);
+                const matchTitle = info.title?.toLowerCase().includes(queryLower);
+                
+                if (matchFolder || matchTitle) {
+                  results.push({
+                    id: folderName,
+                    source: 'openlist',
+                    source_name: '私人影库',
+                    title: info.title,
+                    poster: getTMDBImageUrl(info.poster_path),
+                    episodes: [],
+                    episodes_titles: [],
+                    year: info.release_date?.split('-')[0] || '',
+                    desc: info.overview || '',
+                    type_name: info.media_type === 'movie' ? '电影' : '电视剧',
+                    douban_id: 0,
+                  });
+                  
+                  // 限制结果数量
+                  if (results.length >= MAX_RESULTS_PER_SOURCE) break;
+                }
+              }
+              
+              return results;
             }
             return [];
           } catch (error) {
@@ -151,7 +175,7 @@ export async function GET(request: NextRequest) {
           }
         })(),
         new Promise<any[]>((_, reject) =>
-          setTimeout(() => reject(new Error('OpenList timeout')), 20000)
+          setTimeout(() => reject(new Error('OpenList timeout')), OPENLIST_SEARCH_TIMEOUT_MS)
         ),
       ]).catch((error) => {
         console.error('[Search] 搜索 OpenList 超时:', error);
@@ -162,9 +186,9 @@ export async function GET(request: NextRequest) {
   // 添加超时控制和错误处理，避免慢接口拖累整体响应
   const searchPromises = apiSites.map((site) =>
     Promise.race([
-      searchFromApi(site, query),
+      searchFromApi(site, query, { timeoutMs: API_SEARCH_TIMEOUT_MS }),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`${site.name} timeout`)), 20000)
+        setTimeout(() => reject(new Error(`${site.name} timeout`)), API_SEARCH_TIMEOUT_MS)
       ),
     ]).catch((err) => {
       console.warn(`搜索失败 ${site.name}:`, err.message);
@@ -189,7 +213,9 @@ export async function GET(request: NextRequest) {
     const embyResults = embyResultsArray.filter(Array.isArray).flat();
     const apiResultsFlat = apiResults.filter(Array.isArray).flat();
 
-    let flattenedResults = [...openlistResults, ...embyResults, ...apiResultsFlat];
+    // 限制总结果数量，避免返回过多数据
+    let flattenedResults = [...openlistResults, ...embyResults, ...apiResultsFlat]
+      .slice(0, MAX_RESULTS_PER_SOURCE * (apiSites.length + embySources.length + 1));
 
     if (!config.SiteConfig.DisableYellowFilter) {
       flattenedResults = flattenedResults.filter((result) => {
