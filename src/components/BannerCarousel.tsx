@@ -286,20 +286,14 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
 
   // 控制视频播放/暂停和静音状态
   useEffect(() => {
-    videoRefs.current.forEach((video, index) => {
-      if (index === currentIndex) {
-        // 当前显示的视频：只有已启动时才播放
-        if (hasStarted) {
-          video.muted = isMuted;
-          video.play().catch(() => {
-            // 忽略自动播放失败的错误
-          });
-        }
-      } else {
-        // 非当前显示的视频：始终暂停（无论是否已启动）
-        video.pause();
-      }
-    });
+    // 只控制当前显示的视频
+    const currentVideo = videoRefs.current.get(currentIndex);
+    if (currentVideo && hasStarted) {
+      currentVideo.muted = isMuted;
+      currentVideo.play().catch(() => {
+        // 忽略自动播放失败的错误
+      });
+    }
   }, [currentIndex, isMuted, hasStarted]);
 
   // 页面加载完成后开始播放（避免 CPU 超时）
@@ -437,65 +431,68 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     >
       {/* 背景图片或视频 */}
       <div className="absolute inset-0">
-        {items.map((item, index) => (
-          <div
-            key={item.id}
-            className={`absolute inset-0 transition-opacity duration-1000 ${
-              index === currentIndex ? 'opacity-100' : 'opacity-0'
-            }`}
-          >
-            {item.trailer_url && enableTrailers ? (
-              /* 显示豆瓣直链视频 */
-              <div className="absolute inset-0 overflow-hidden">
-                <video
-                  ref={(el) => {
-                    if (el) {
-                      videoRefs.current.set(index, el);
-                    } else {
-                      videoRefs.current.delete(index);
-                    }
-                  }}
-                  src={getVideoUrl(item.trailer_url) || undefined}
-                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full w-auto h-auto object-cover"
-                  muted={isMuted}
-                  loop
-                  playsInline
-                  preload="metadata"
+        {/* 只渲染当前显示的项目，避免隐藏的视频发送请求 */}
+        {items.map((item, index) => {
+          if (index !== currentIndex) return null;
+          
+          return (
+            <div
+              key={item.id}
+              className="absolute inset-0"
+            >
+              {item.trailer_url && enableTrailers ? (
+                /* 显示豆瓣直链视频 */
+                <div className="absolute inset-0 overflow-hidden">
+                  <video
+                    ref={(el) => {
+                      if (el) {
+                        videoRefs.current.set(index, el);
+                      } else {
+                        videoRefs.current.delete(index);
+                      }
+                    }}
+                    src={getVideoUrl(item.trailer_url) || undefined}
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full w-auto h-auto object-cover"
+                    muted={isMuted}
+                    loop
+                    playsInline
+                    preload="none"
+                  />
+                </div>
+              ) : item.video_key && isYouTubeAccessible && enableTrailers ? (
+                /* 显示YouTube视频 */
+                <div className="absolute inset-0 overflow-hidden">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${item.video_key}?listType=playlist&autoplay=1&mute=1&controls=0&loop=1&playlist=${item.video_key}&modestbranding=1&rel=0&showinfo=0&vq=hd1080&hd=1&disablekb=1&fs=0&iv_load_policy=3`}
+                    className="absolute top-1/2 left-1/2 pointer-events-none"
+                    allow="autoplay; encrypted-media"
+                    style={{
+                      border: 'none',
+                      width: '100vw',
+                      height: '100vh',
+                      minWidth: '100%',
+                      minHeight: '100%',
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  />
+                </div>
+              ) : (
+                /* 显示图片 */
+                <Image
+                  src={getImageUrl(item.backdrop_path || item.poster_path)}
+                  alt={item.title}
+                  fill
+                  className="object-cover"
+                  priority
+                  sizes="100vw"
                 />
-              </div>
-            ) : item.video_key && isYouTubeAccessible && enableTrailers ? (
-              /* 显示YouTube视频 */
-              <div className="absolute inset-0 overflow-hidden">
-                <iframe
-                  src={`https://www.youtube.com/embed/${item.video_key}?listType=playlist&autoplay=1&mute=1&controls=0&loop=1&playlist=${item.video_key}&modestbranding=1&rel=0&showinfo=0&vq=hd1080&hd=1&disablekb=1&fs=0&iv_load_policy=3`}
-                  className="absolute top-1/2 left-1/2 pointer-events-none"
-                  allow="autoplay; encrypted-media"
-                  style={{
-                    border: 'none',
-                    width: '100vw',
-                    height: '100vh',
-                    minWidth: '100%',
-                    minHeight: '100%',
-                    transform: 'translate(-50%, -50%)',
-                  }}
-                />
-              </div>
-            ) : (
-              /* 显示图片 */
-              <Image
-                src={getImageUrl(item.backdrop_path || item.poster_path)}
-                alt={item.title}
-                fill
-                className="object-cover"
-                priority={index === 0}
-                sizes="100vw"
-              />
-            )}
-            {/* 渐变遮罩 */}
-            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent"></div>
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
-          </div>
-        ))}
+              )}
+              {/* 渐变遮罩 */}
+              <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent"></div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+            </div>
+          );
+        })}
       </div>
 
       {/* 内容信息 */}
