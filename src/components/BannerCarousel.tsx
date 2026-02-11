@@ -41,6 +41,8 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
   const isManualChange = useRef(false); // 标记是否为手动切换
+  const isFetchingTrailers = useRef(false); // 标记是否正在获取预告片，防止重复请求
+  const trailerUrlsRef = useRef<Map<number, string>>(new Map()); // 缓存预告片URL，避免重复获取
 
   // LocalStorage 缓存配置
   const LOCALSTORAGE_DURATION = 24 * 60 * 60 * 1000; // 1天
@@ -240,19 +242,34 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     fetchTrending();
   }, [shouldLoad, isMounted]);
 
-  // 前端获取豆瓣预告片
+  // 前端获取豆瓣预告片 - 修复：防止重复请求和循环更新
   useEffect(() => {
     // 只有在启用预告片、数据源是豆瓣、有数据且未加载预告片时才执行
     if (!enableTrailers || dataSource !== 'Douban' || items.length === 0 || trailersLoaded) {
       return;
     }
 
+    // 防止重复请求
+    if (isFetchingTrailers.current) {
+      return;
+    }
+
     const fetchDoubanTrailers = async () => {
+      isFetchingTrailers.current = true;
       try {
         // 为每个项目获取预告片
         const itemsWithTrailers = await Promise.all(
-          items.map(async (item) => {
+          items.map(async (item, index) => {
             try {
+              // 检查是否已经缓存了该项目的预告片URL
+              const cachedUrl = trailerUrlsRef.current.get(index);
+              if (cachedUrl !== undefined) {
+                return {
+                  ...item,
+                  trailer_url: cachedUrl,
+                };
+              }
+
               // 使用统一的豆瓣详情获取函数（会根据用户配置的代理设置自动选择请求方式）
               const detail = await getDoubanDetail(item.id.toString());
 
@@ -261,12 +278,17 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
                 ? detail.trailers[0].video_url
                 : null;
 
+              // 缓存预告片URL
+              trailerUrlsRef.current.set(index, trailerUrl);
+
               return {
                 ...item,
                 trailer_url: trailerUrl,
               };
             } catch (error) {
               console.error(`获取豆瓣电影 ${item.id} 预告片失败:`, error);
+              // 缓存失败结果，避免重复请求
+              trailerUrlsRef.current.set(index, null);
               return item;
             }
           })
@@ -276,13 +298,26 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
         setTrailersLoaded(true);
       } catch (error) {
         console.error('获取豆瓣预告片失败:', error);
+      } finally {
+        isFetchingTrailers.current = false;
       }
     };
 
     fetchDoubanTrailers();
+    // 修复：移除 items 依赖，使用 items.length 和 trailersLoaded 控制执行
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enableTrailers, dataSource, items.length, trailersLoaded]);
 
   const [hasStarted, setHasStarted] = useState(false); // 是否已经开始播放预告片
+
+  // 缓存 video ref 回调，避免重复创建
+  const setVideoRef = useCallback((el: HTMLVideoElement | null, index: number) => {
+    if (el) {
+      videoRefs.current.set(index, el);
+    } else {
+      videoRefs.current.delete(index);
+    }
+  }, []);
 
   // 控制视频播放/暂停和静音状态
   useEffect(() => {
@@ -290,11 +325,75 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     const currentVideo = videoRefs.current.get(currentIndex);
     if (currentVideo && hasStarted) {
       currentVideo.muted = isMuted;
-      currentVideo.play().catch(() => {
-        // 忽略自动播放失败的错误
-      });
+      // 只有当视频真正需要播放时才调用 play
+      if (currentVideo.paused) {
+        currentVideo.play().catch(() => {
+          // 忽略自动播放失败的错误
+        });
+      }
     }
   }, [currentIndex, isMuted, hasStarted]);
+
+  // 缓存当前显示的背景内容，避免不必要的重新渲染
+  const bannerBackground = useMemo(() => {
+    const item = items[currentIndex];
+    if (!item) return null;
+
+    return (
+      <div
+        key={`banner-${item.id}`}
+        className="absolute inset-0"
+      >
+        {item.trailer_url && enableTrailers ? (
+          /* 显示豆瓣直链视频 */
+          <div className="absolute inset-0 overflow-hidden">
+            <video
+              ref={(el) => setVideoRef(el, currentIndex)}
+              src={getVideoUrl(item.trailer_url) || undefined}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full w-auto h-auto object-cover"
+              muted={isMuted}
+              loop
+              playsInline
+              preload="metadata"
+            />
+          </div>
+        ) : item.video_key && isYouTubeAccessible && enableTrailers ? (
+          /* 显示YouTube视频 */
+          <div className="absolute inset-0 overflow-hidden">
+            <iframe
+              title={`${item.title} trailer`}
+              src={`https://www.youtube.com/embed/${item.video_key}?listType=playlist&autoplay=1&mute=1&controls=0&loop=1&playlist=${item.video_key}&modestbranding=1&rel=0&showinfo=0&vq=hd1080&hd=1&disablekb=1&fs=0&iv_load_policy=3`}
+              className="absolute top-1/2 left-1/2 pointer-events-none"
+              allow="autoplay; encrypted-media"
+              style={{
+                border: 'none',
+                width: '100vw',
+                height: '100vh',
+                minWidth: '100%',
+                minHeight: '100%',
+                transform: 'translate(-50%, -50%)',
+              }}
+            />
+          </div>
+        ) : (
+          /* 显示图片 */
+          <Image
+            src={getImageUrl(item.backdrop_path || item.poster_path)}
+            alt={item.title}
+            fill
+            className="object-cover"
+            priority
+            sizes="100vw"
+          />
+        )}
+        {/* 渐变遮罩 */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+      </div>
+    );
+    // 只在关键依赖变化时重新渲染
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, items, enableTrailers, isMuted, isYouTubeAccessible]);
 
   // 页面加载完成后开始播放（避免 CPU 超时）
   useEffect(() => {
@@ -431,68 +530,8 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     >
       {/* 背景图片或视频 */}
       <div className="absolute inset-0">
-        {/* 只渲染当前显示的项目，避免隐藏的视频发送请求 */}
-        {items.map((item, index) => {
-          if (index !== currentIndex) return null;
-          
-          return (
-            <div
-              key={item.id}
-              className="absolute inset-0"
-            >
-              {item.trailer_url && enableTrailers ? (
-                /* 显示豆瓣直链视频 */
-                <div className="absolute inset-0 overflow-hidden">
-                  <video
-                    ref={(el) => {
-                      if (el) {
-                        videoRefs.current.set(index, el);
-                      } else {
-                        videoRefs.current.delete(index);
-                      }
-                    }}
-                    src={getVideoUrl(item.trailer_url) || undefined}
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full w-auto h-auto object-cover"
-                    muted={isMuted}
-                    loop
-                    playsInline
-                    preload="none"
-                  />
-                </div>
-              ) : item.video_key && isYouTubeAccessible && enableTrailers ? (
-                /* 显示YouTube视频 */
-                <div className="absolute inset-0 overflow-hidden">
-                  <iframe
-                    src={`https://www.youtube.com/embed/${item.video_key}?listType=playlist&autoplay=1&mute=1&controls=0&loop=1&playlist=${item.video_key}&modestbranding=1&rel=0&showinfo=0&vq=hd1080&hd=1&disablekb=1&fs=0&iv_load_policy=3`}
-                    className="absolute top-1/2 left-1/2 pointer-events-none"
-                    allow="autoplay; encrypted-media"
-                    style={{
-                      border: 'none',
-                      width: '100vw',
-                      height: '100vh',
-                      minWidth: '100%',
-                      minHeight: '100%',
-                      transform: 'translate(-50%, -50%)',
-                    }}
-                  />
-                </div>
-              ) : (
-                /* 显示图片 */
-                <Image
-                  src={getImageUrl(item.backdrop_path || item.poster_path)}
-                  alt={item.title}
-                  fill
-                  className="object-cover"
-                  priority
-                  sizes="100vw"
-                />
-              )}
-              {/* 渐变遮罩 */}
-              <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent"></div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
-            </div>
-          );
-        })}
+        {/* 只渲染当前显示的项目，避免隐藏的视频发送请求 - 使用useMemo缓存 */}
+        {bannerBackground}
       </div>
 
       {/* 内容信息 */}
