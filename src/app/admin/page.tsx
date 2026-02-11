@@ -4397,9 +4397,36 @@ const VideoSourceConfig = ({
     })
   );
 
+  // 表格滚动位置保持 ref
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const scrollPositionRef = useRef<number>(0);
+
+  // 保存滚动位置
+  const saveScrollPosition = useCallback(() => {
+    if (tableContainerRef.current) {
+      scrollPositionRef.current = tableContainerRef.current.scrollTop;
+    }
+  }, []);
+
+  // 恢复滚动位置
+  const restoreScrollPosition = useCallback(() => {
+    requestAnimationFrame(() => {
+      if (tableContainerRef.current && scrollPositionRef.current > 0) {
+        tableContainerRef.current.scrollTop = scrollPositionRef.current;
+      }
+    });
+  }, []);
+
+  // 监听 sources 变化时恢复滚动位置
+  useEffect(() => {
+    restoreScrollPosition();
+  }, [sources.length, restoreScrollPosition]);
+
   // 初始化
   useEffect(() => {
     if (config?.SourceConfig) {
+      // 保存当前滚动位置
+      saveScrollPosition();
       setSources(config.SourceConfig);
       // 进入时重置 orderChanged
       setOrderChanged(false);
@@ -4437,6 +4464,8 @@ const VideoSourceConfig = ({
   };
 
   const handleToggleEnable = (key: string) => {
+    // 保存滚动位置
+    saveScrollPosition();
     const target = sources.find((s) => s.key === key);
     if (!target) return;
     const action = target.disabled ? 'enable' : 'disable';
@@ -4448,6 +4477,8 @@ const VideoSourceConfig = ({
   };
 
   const handleDelete = (key: string) => {
+    // 保存滚动位置
+    saveScrollPosition();
     withLoading(`deleteSource_${key}`, () =>
       callSourceApi({ action: 'delete', key })
     ).catch(() => {
@@ -4456,6 +4487,8 @@ const VideoSourceConfig = ({
   };
 
   const handleToggleProxyMode = (key: string) => {
+    // 保存滚动位置
+    saveScrollPosition();
     const target = sources.find((s) => s.key === key);
     if (!target) return;
 
@@ -4503,6 +4536,8 @@ const VideoSourceConfig = ({
   };
 
   const handleUpdateWeight = (key: string, weight: number) => {
+    // 保存滚动位置
+    saveScrollPosition();
     // 先乐观更新本地状态
     setSources((prev) =>
       prev.map((s) =>
@@ -4960,6 +4995,8 @@ const VideoSourceConfig = ({
   // 全选/取消全选
   const handleSelectAll = useCallback(
     (checked: boolean) => {
+      // 保存滚动位置
+      saveScrollPosition();
       if (checked) {
         const allKeys = sources.map((s) => s.key);
         setSelectedSources(new Set(allKeys));
@@ -4967,11 +5004,13 @@ const VideoSourceConfig = ({
         setSelectedSources(new Set());
       }
     },
-    [sources]
+    [sources, saveScrollPosition]
   );
 
   // 单个选择
   const handleSelectSource = useCallback((key: string, checked: boolean) => {
+    // 保存滚动位置
+    saveScrollPosition();
     setSelectedSources((prev) => {
       const newSelected = new Set(prev);
       if (checked) {
@@ -4981,12 +5020,14 @@ const VideoSourceConfig = ({
       }
       return newSelected;
     });
-  }, []);
+  }, [saveScrollPosition]);
 
   // 批量操作
   const handleBatchOperation = async (
     action: 'batch_enable' | 'batch_disable' | 'batch_delete'
   ) => {
+    // 保存滚动位置
+    saveScrollPosition();
     if (selectedSources.size === 0) {
       showAlert({
         type: 'warning',
@@ -5253,6 +5294,7 @@ const VideoSourceConfig = ({
 
       {/* 视频源表格 */}
       <div
+        ref={tableContainerRef}
         className='border border-gray-200 dark:border-gray-700 rounded-lg max-h-[28rem] overflow-y-auto overflow-x-auto relative'
         data-table='source-list'
       >
