@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { fetchDoubanWithVerification } from '@/lib/douban-anti-crawler';
 
+export const runtime = 'nodejs';
+
 interface DoubanComment {
   id: string;
   userName: string;
