@@ -10,10 +10,11 @@ import { yellowWords } from '@/lib/yellow';
 export const runtime = 'nodejs';
 
 // 并发控制配置
-const MAX_CONCURRENT_SEARCHES = 5; // 最大并发搜索源数量
-const SEARCH_TIMEOUT_MS = 8000; // 单个源搜索超时时间（毫秒）
-const EMBY_SEARCH_TIMEOUT_MS = 5000; // Emby搜索超时时间（更短，因为通常是本地）
+const MAX_CONCURRENT = 3; // 最大并发搜索任务数（统一限制）
+const SEARCH_TIMEOUT_MS = 8000; // 单个源搜索超时时间
+const EMBY_SEARCH_TIMEOUT_MS = 5000; // Emby搜索超时时间
 const MAX_RESULTS_PER_SOURCE = 20; // 每个源最大结果数
+const MAX_TOTAL_TIME_MS = 25000; // 最大总执行时间25秒（Cloudflare限制是30秒）
 
 export async function GET(request: NextRequest) {
   const authInfo = getAuthInfoFromCookie(request);
@@ -45,14 +46,13 @@ export async function GET(request: NextRequest) {
     weightMap.set(source.key, source.weight ?? 0);
   });
 
-  // 按权重降序排序 apiSites，并限制数量
+  // 按权重降序排序（不再限制数量）
   const sortedApiSites = [...apiSites]
     .sort((a, b) => {
       const weightA = weightMap.get(a.key) ?? 0;
       const weightB = weightMap.get(b.key) ?? 0;
       return weightB - weightA;
-    })
-    .slice(0, MAX_CONCURRENT_SEARCHES); // 限制并发源数量
+    });
 
   // 检查是否配置了 OpenList
   const hasOpenList = !!(
@@ -99,17 +99,17 @@ export async function GET(request: NextRequest) {
         return Date.now() - startTime > MAX_TOTAL_TIME_MS;
       };
 
-      // 获取 Emby 源数量（限制最多3个）
+      // 获取所有Emby源（不再限制数量）
       let embySourcesCount = 0;
       let embySources: Array<{ client: any; config: any }> = [];
       if (hasEmby) {
         try {
           const { embyManager } = await import('@/lib/emby-manager');
           const embySourcesMap = await embyManager.getAllClients();
-          embySources = Array.from(embySourcesMap.values()).slice(0, 3); // 限制最多3个Emby源
+          embySources = Array.from(embySourcesMap.values()); // 不再限制数量
           embySourcesCount = embySources.length;
         } catch (error) {
-          console.error('[Search WS] 获取 Emby 源数量失败:', error);
+          console.error('[Search WS] 获取 Emby 源失败:', error);
         }
       }
 
@@ -235,8 +235,8 @@ export async function GET(request: NextRequest) {
           }
         });
 
-        // 并发执行Emby搜索
-        runWithConcurrencyLimit(embyTasks, 2);
+        // 并发执行Emby搜索（使用统一的并发控制）
+        runWithConcurrencyLimit(embyTasks, MAX_CONCURRENT);
       }
 
       // 搜索 OpenList（如果配置了）- 异步带超时
@@ -430,8 +430,8 @@ export async function GET(request: NextRequest) {
         }
       });
 
-      // 使用限流器执行搜索任务
-      await runWithConcurrencyLimit(searchTasks, MAX_CONCURRENT_SEARCHES);
+      // 使用限流器执行搜索任务（统一使用MAX_CONCURRENT）
+      await runWithConcurrencyLimit(searchTasks, MAX_CONCURRENT);
     },
 
     cancel() {
