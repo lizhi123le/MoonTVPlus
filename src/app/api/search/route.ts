@@ -16,8 +16,10 @@ const API_SEARCH_TIMEOUT_MS = 8000; // API搜索超时时间
 const EMBY_SEARCH_TIMEOUT_MS = 5000; // Emby搜索超时时间
 const OPENLIST_SEARCH_TIMEOUT_MS = 5000; // OpenList搜索超时时间
 const MAX_RESULTS_PER_SOURCE = 30; // 每个源最大结果数
+const MAX_TOTAL_TIME_MS = 25000; // 最大总执行时间25秒（Cloudflare限制是30秒）
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now(); // 记录开始时间
   const authInfo = getAuthInfoFromCookie(request);
   if (!authInfo || !authInfo.username) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -196,12 +198,46 @@ export async function GET(request: NextRequest) {
     })
   );
 
+  // 检查是否超时的辅助函数
+  const isTimeExceeded = () => {
+    return Date.now() - startTime > MAX_TOTAL_TIME_MS;
+  };
+
   try {
-    const allResults = await Promise.all([
+    // 在等待结果时定期检查总执行时间
+    const allResults: any[] = [];
+    
+    // OpenList 结果
+    const openlistResult = await Promise.race([
       openlistPromise,
-      ...embyPromises,
-      ...searchPromises,
-    ]);
+      new Promise<any[]>((_, reject) =>
+        setTimeout(() => reject(new Error('OpenList timeout')), OPENLIST_SEARCH_TIMEOUT_MS)
+      ),
+    ]).catch(() => []);
+    
+    if (!isTimeExceeded()) {
+      allResults.push(openlistResult);
+    }
+    
+    // Emby 结果（并发3个）
+    if (!isTimeExceeded()) {
+      const embyResults = await Promise.allSettled(embyPromises);
+      embyResults.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value) {
+          allResults.push(result.value);
+        }
+      });
+    }
+    
+    // API 搜索结果（并发5个，逐步完成）
+    if (!isTimeExceeded()) {
+      const searchResults = await Promise.allSettled(searchPromises);
+      searchResults.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value) {
+          allResults.push(result.value);
+        }
+      });
+    }
 
     // 分离结果：第一个是 openlist，接下来是 emby 结果，最后是 api 结果
     // 添加安全检查，确保即使某个结果处理出错也不影响其他结果
