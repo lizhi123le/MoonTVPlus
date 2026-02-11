@@ -11634,6 +11634,17 @@ function AdminPageClient() {
       const data = (await response.json()) as AdminConfigResult;
       setConfig(data.Config);
       setRole(data.Role);
+
+      // 更新全局 runtimeConfig 并触发事件，让其他页面实时更新
+      if (typeof window !== 'undefined' && (window as any).RUNTIME_CONFIG) {
+        (window as any).RUNTIME_CONFIG.WEB_LIVE_ENABLED = data.Config.WebLiveEnabled ?? false;
+        (window as any).RUNTIME_CONFIG.PRIVATE_LIBRARY_ENABLED = 
+          (data.Config.OpenListConfig?.Enabled && data.Config.OpenListConfig?.URL && data.Config.OpenListConfig?.Username && data.Config.OpenListConfig?.Password) ||
+          (data.Config.EmbyConfig?.Sources && data.Config.EmbyConfig.Sources.length > 0 && data.Config.EmbyConfig.Sources.some(s => s.enabled && s.ServerURL)) ||
+          (data.Config.XiaoyaConfig?.Enabled && data.Config.XiaoyaConfig?.ServerURL);
+        // 触发事件通知其他组件更新
+        window.dispatchEvent(new Event('runtimeConfigUpdated'));
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : '获取配置失败';
       // 只在首次加载时设置错误状态，避免弹窗和错误页面同时显示

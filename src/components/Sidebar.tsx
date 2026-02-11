@@ -149,8 +149,26 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
     },
   ]);
 
+  const [runtimeConfig, setRuntimeConfig] = useState<any>(null);
+
+  // 监听 runtimeConfig 变化，用于实时更新菜单
   useEffect(() => {
-    const runtimeConfig = (window as any).RUNTIME_CONFIG;
+    // 初始化时读取 runtimeConfig
+    if (typeof window !== 'undefined') {
+      setRuntimeConfig((window as any).RUNTIME_CONFIG);
+    }
+
+    const handleConfigChange = () => {
+      setRuntimeConfig((window as any).RUNTIME_CONFIG);
+    };
+
+    window.addEventListener('runtimeConfigUpdated', handleConfigChange);
+    return () => window.removeEventListener('runtimeConfigUpdated', handleConfigChange);
+  }, []);
+
+  useEffect(() => {
+    // 如果 runtimeConfig 还未加载，跳过
+    if (!runtimeConfig) return;
 
     // 基础菜单项（不包括观影室）
     const items = [
@@ -218,7 +236,7 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
     }
 
     setMenuItems(items);
-  }, [watchRoomContext?.isEnabled]);
+  }, [watchRoomContext?.isEnabled, runtimeConfig]);
 
   return (
     <SidebarContext.Provider value={contextValue}>
