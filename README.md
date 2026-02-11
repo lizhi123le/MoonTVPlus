@@ -232,7 +232,7 @@ services:
     container_name: moontv-kvrocks
     restart: unless-stopped
     volumes:
-      - kvrocks-data:/var/lib/kvrocks
+      - kvrocks-data:/var/lib/kvrocks/data
     networks:
       - moontv-network
 networks:
