@@ -42,7 +42,7 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
   const touchEndX = useRef(0);
   const isManualChange = useRef(false); // 标记是否为手动切换
   const isFetchingTrailers = useRef(false); // 标记是否正在获取预告片，防止重复请求
-  const trailerUrlsRef = useRef<Map<number, string>>(new Map()); // 缓存预告片URL，避免重复获取
+  const trailerUrlsRef = useRef<Map<number, string | null>>(new Map()); // 缓存预告片URL，避免重复获取
 
   // LocalStorage 缓存配置
   const LOCALSTORAGE_DURATION = 24 * 60 * 60 * 1000; // 1天
