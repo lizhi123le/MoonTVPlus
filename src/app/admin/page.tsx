@@ -44,7 +44,7 @@ import {
   Video,
 } from 'lucide-react';
 import { GripVertical } from 'lucide-react';
-import { memo, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { AdminConfig, AdminConfigResult } from '@/lib/admin.types';
