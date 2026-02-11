@@ -16,6 +16,14 @@ import { yellowWords } from '@/lib/yellow';
 
 export const runtime = 'nodejs';
 
+// 搜索API优化配置
+const MAX_CONCURRENT_API_SITES = 5; // 最大并发API站点数
+const MAX_CONCURRENT_EMBY_SOURCES = 3; // 最大并发Emby源数
+const API_SEARCH_TIMEOUT_MS = 8000; // API搜索超时时间
+const EMBY_SEARCH_TIMEOUT_MS = 5000; // Emby搜索超时时间
+const OPENLIST_SEARCH_TIMEOUT_MS = 5000; // OpenList搜索超时时间
+const MAX_RESULTS_PER_SOURCE = 30; // 每个源最大结果数
+
 export async function GET(request: NextRequest) {
   const authInfo = getAuthInfoFromCookie(request);
   if (!authInfo || !authInfo.username) {
@@ -41,7 +49,8 @@ export async function GET(request: NextRequest) {
   }
 
   const config = await getConfig();
-  const apiSites = await getAvailableApiSites(authInfo.username);
+  // 限制并发API站点数量
+  const apiSites = (await getAvailableApiSites(authInfo.username)).slice(0, MAX_CONCURRENT_API_SITES);
 
   // 创建权重映射表
   const weightMap = new Map<string, number>();
@@ -57,10 +66,10 @@ export async function GET(request: NextRequest) {
     config.OpenListConfig?.Password
   );
 
-  // 获取所有启用的 Emby 源
+  // 获取所有启用的 Emby 源（限制数量）
   const { embyManager } = await import('@/lib/emby-manager');
   const embySourcesMap = await embyManager.getAllClients();
-  const embySources = Array.from(embySourcesMap.values());
+  const embySources = Array.from(embySourcesMap.values()).slice(0, MAX_CONCURRENT_EMBY_SOURCES);
 
   console.log('[Search] Emby sources count:', embySources.length);
   console.log('[Search] Emby sources:', embySources.map(s => ({ key: s.config.key, name: s.config.name })));
@@ -78,14 +87,15 @@ export async function GET(request: NextRequest) {
             IncludeItemTypes: 'Movie,Series',
             Recursive: true,
             Fields: 'Overview,ProductionYear',
-            Limit: 50,
+            Limit: 20, // 限制结果数量
           });
 
           // 如果只有一个Emby源，保持旧格式（向后兼容）
           const sourceValue = embySources.length === 1 ? 'emby' : `emby_${embyConfig.key}`;
           const sourceName = embySources.length === 1 ? 'Emby' : embyConfig.name;
 
-          return searchResult.Items.map((item) => ({
+          // 限制结果数量
+          return (searchResult.Items || []).slice(0, MAX_RESULTS_PER_SOURCE).map((item) => ({
             id: item.Id,
             source: sourceValue,
             source_name: sourceName,
@@ -105,7 +115,7 @@ export async function GET(request: NextRequest) {
         }
       })(),
       new Promise<any[]>((_, reject) =>
-        setTimeout(() => reject(new Error(`${embyConfig.name} timeout`)), 20000)
+        setTimeout(() => reject(new Error(`${embyConfig.name} timeout`)), EMBY_SEARCH_TIMEOUT_MS)
       ),
     ]).catch((error) => {
       console.error(`[Search] 搜索 ${embyConfig.name} 超时:`, error);
@@ -163,7 +173,7 @@ export async function GET(request: NextRequest) {
           }
         })(),
         new Promise<any[]>((_, reject) =>
-          setTimeout(() => reject(new Error('OpenList timeout')), 20000)
+          setTimeout(() => reject(new Error('OpenList timeout')), OPENLIST_SEARCH_TIMEOUT_MS)
         ),
       ]).catch((error) => {
         console.error('[Search] 搜索 OpenList 超时:', error);
@@ -174,9 +184,9 @@ export async function GET(request: NextRequest) {
   // 添加超时控制和错误处理，避免慢接口拖累整体响应
   const searchPromises = apiSites.map((site) =>
     Promise.race([
-      searchFromApi(site, query),
+      searchFromApi(site, query, { timeoutMs: API_SEARCH_TIMEOUT_MS }),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`${site.name} timeout`)), 20000)
+        setTimeout(() => reject(new Error(`${site.name} timeout`)), API_SEARCH_TIMEOUT_MS)
       ),
     ]).catch((err) => {
       console.warn(`搜索失败 ${site.name}:`, err.message);

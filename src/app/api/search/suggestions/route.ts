@@ -4,11 +4,14 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { AdminConfig } from '@/lib/admin.types';
 import { getAuthInfoFromCookie } from '@/lib/auth';
-import { getAvailableApiSites, getConfig } from '@/lib/config';
-import { searchFromApi } from '@/lib/downstream';
+import { getAvailableApiSites, getConfig, API_CONFIG } from '@/lib/config';
 import { yellowWords } from '@/lib/yellow';
 
 export const runtime = 'nodejs';
+
+// 搜索建议API优化配置
+const SUGGESTIONS_SEARCH_TIMEOUT_MS = 3000; // 搜索建议超时时间（更短）
+const MAX_SUGGESTIONS_RESULTS = 10; // 最大建议数量
 
 export async function GET(request: NextRequest) {
   try {
@@ -49,6 +52,42 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * 轻量级搜索函数 - 只获取第一页结果，用于搜索建议
+ */
+async function quickSearch(site: any, query: string): Promise<any[]> {
+  try {
+    const apiUrl = site.api + API_CONFIG.search.path + encodeURIComponent(query);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), SUGGESTIONS_SEARCH_TIMEOUT_MS);
+
+    const response = await fetch(apiUrl, {
+      headers: API_CONFIG.search.headers,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    if (!data?.list || !Array.isArray(data.list)) {
+      return [];
+    }
+
+    // 只返回前5个结果，避免过多数据处理
+    return data.list.slice(0, 5).map((item: any) => ({
+      title: item.vod_name?.trim() || '',
+      type_name: item.type_name || '',
+    }));
+  } catch (error) {
+    return [];
+  }
+}
+
 async function generateSuggestions(config: AdminConfig, query: string, username: string): Promise<
   Array<{
     text: string;
@@ -62,10 +101,11 @@ async function generateSuggestions(config: AdminConfig, query: string, username:
   let realKeywords: string[] = [];
 
   if (apiSites.length > 0) {
-    // 取第一个可用的数据源进行搜索
+    // 取第一个可用的数据源进行轻量级搜索
     const firstSite = apiSites[0];
-    const results = await searchFromApi(firstSite, query);
+    const results = await quickSearch(firstSite, query);
 
+    // 优化：只处理前5个结果，减少CPU使用
     realKeywords = Array.from(
       new Set(
         results
@@ -77,7 +117,7 @@ async function generateSuggestions(config: AdminConfig, query: string, username:
             (w: string) => w.length > 1 && w.toLowerCase().includes(queryLower)
           )
       )
-    ).slice(0, 8);
+    ).slice(0, MAX_SUGGESTIONS_RESULTS);
   }
 
   // 根据关键词与查询的匹配程度计算分数，并动态确定类型
