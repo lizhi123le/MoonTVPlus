@@ -16,6 +16,11 @@ binding = "DB"
 database_name = "mdhfuep"
 database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
 
+[observability]
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 [vars]
 NODE_ENV = "production"
 BUILD_TARGET = "cloudflare"
