@@ -53,10 +53,20 @@ export async function GET(request: Request) {
     headers.set('Access-Control-Allow-Headers', 'Content-Type, Range, Origin, Accept');
     headers.set('Accept-Ranges', 'bytes');
     headers.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
+    
+    // 添加缓存头 - 视频分段文件通常不会变化，缓存1天
     const contentLength = response.headers.get('content-length');
     if (contentLength) {
       headers.set('Content-Length', contentLength);
     }
+    
+    // 生成 ETag 用于缓存验证
+    const etag = `"${Buffer.from(decodedUrl).toString('base64').slice(-16)}-${contentLength || 'unknown'}"`;
+    headers.set('ETag', etag);
+    headers.set('Last-Modified', new Date().toUTCString());
+    headers.set('Cache-Control', 'public, max-age=86400, immutable'); // 缓存1天
+    headers.set('CDN-Cache-Control', 'public, max-age=86400');
+    headers.set('Vercel-CDN-Cache-Control', 'public, max-age=86400');
 
     // 使用流式传输，避免占用内存
     const stream = new ReadableStream({
