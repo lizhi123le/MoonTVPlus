@@ -373,10 +373,6 @@
       "api": "http://collect.wolongzyw.com/api.php/provide/vod",
       "name": "卧龙资源"
     },
-    "feisu_2": {
-      "api": "http://fszy1.com/api.php/provide/vod",
-      "name": "飞速资源"
-    },
     "yinghua_2": {
       "api": "http://yhzy.cc/api.php/provide/vod",
       "name": "樱花资源"
@@ -388,14 +384,6 @@
     "jisu_2": {
       "api": "http://jszyapi.com/api.php/provide/vod",
       "name": "极速资源"
-    },
-    "guangsu_2": {
-      "api": "http://guangsuapi.com/api.php/provide/vod",
-      "name": "光速资源"
-    },
-    "subo_2": {
-      "api": "http://suboapi.com/api.php/provide/vod",
-      "name": "速播资源"
     }
   }
 }
