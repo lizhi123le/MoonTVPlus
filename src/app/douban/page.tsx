@@ -42,7 +42,11 @@ function DoubanPageClient() {
     currentPage: 0,
   });
 
-  const type = searchParams.get('type') || 'movie';
+  const rawType = searchParams.get('type') || 'movie';
+  const category = searchParams.get('category') || '';
+  // 如果 category=show，则认为是综艺类型
+  const type: 'movie' | 'tv' | 'show' | 'anime' | 'custom' = 
+    category === 'show' ? 'show' : (rawType as 'movie' | 'tv' | 'show' | 'anime' | 'custom');
 
   // 获取 runtimeConfig 中的自定义分类数据
   const [customCategories, setCustomCategories] = useState<
