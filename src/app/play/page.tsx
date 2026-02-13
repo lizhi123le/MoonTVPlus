@@ -1037,6 +1037,9 @@ function PlayPageClient() {
       console.log(`[弹幕] ====== 开始加载第 ${episodeIndex + 1} 集弹幕 ======`);
       console.log(`[弹幕] videoTitle="${title}", episodeIndex=${episodeIndex}`);
 
+      // 重置加载状态，确保切换集数后能正确加载
+      loadingDanmakuEpisodeIdRef.current = null;
+
       // 先尝试从 IndexedDB 缓存加载
       try {
         const cachedData = await getDanmakuFromCache(title, episodeIndex);
@@ -1084,24 +1087,8 @@ function PlayPageClient() {
             }
           }
 
-          // 应用弹幕数量限制
-          const maxCount = typeof window !== 'undefined' ? parseInt(localStorage.getItem('danmakuMaxCount') || '0', 10) : 0;
-          let calculatedOriginalCount = 0;
-          if (maxCount > 0 && danmakuData.length > maxCount) {
-            const originalCount = danmakuData.length;
-            const step = danmakuData.length / maxCount;
-            const limitedData = [];
-            for (let i = 0; i < maxCount; i++) {
-              limitedData.push(danmakuData[Math.floor(i * step)]);
-            }
-            danmakuData = limitedData;
-            calculatedOriginalCount = originalCount;
-            setDanmakuOriginalCount(originalCount);
-            console.log(`弹幕数量限制: 原始 ${originalCount} 条，限制到 ${danmakuData.length} 条`);
-          } else {
-            // 没有应用限制，不显示原始数量
-            setDanmakuOriginalCount(0);
-          }
+          // 不再限制弹幕数量，显示所有弹幕
+          setDanmakuOriginalCount(0);
 
           // 加载弹幕到插件
           const currentSettings = danmakuSettingsRef.current;
@@ -1135,7 +1122,6 @@ function PlayPageClient() {
               episodeTitle: cachedData.metadata.episodeTitle || '',
               searchKeyword: cachedData.metadata.searchKeyword,
               danmakuCount: danmakuData.length,
-              danmakuOriginalCount: calculatedOriginalCount > 0 ? calculatedOriginalCount : undefined,
             });
           }
 
@@ -4998,23 +4984,8 @@ function PlayPageClient() {
         }
       }
 
-      // 应用弹幕数量限制
-      const maxCount = typeof window !== 'undefined' ? parseInt(localStorage.getItem('danmakuMaxCount') || '0', 10) : 0;
-      let calculatedOriginalCount = 0;
-      if (maxCount > 0 && danmakuData.length > maxCount) {
-        const originalCount = danmakuData.length;
-        const step = danmakuData.length / maxCount;
-        const limitedData = [];
-        for (let i = 0; i < maxCount; i++) {
-          limitedData.push(danmakuData[Math.floor(i * step)]);
-        }
-        danmakuData = limitedData;
-        calculatedOriginalCount = originalCount;
-        setDanmakuOriginalCount(originalCount);
-        console.log(`弹幕数量限制: 原始 ${originalCount} 条，限制到 ${danmakuData.length} 条`);
-      } else {
-        setDanmakuOriginalCount(0);
-      }
+      // 不再限制弹幕数量，显示所有弹幕
+      setDanmakuOriginalCount(0);
 
       // 加载弹幕到插件，同时应用当前的弹幕设置
       const currentSettings = danmakuSettingsRef.current;
@@ -5219,21 +5190,8 @@ function PlayPageClient() {
         });
       }
 
-      // 应用弹幕数量限制
-      const maxCount = typeof window !== 'undefined' ? parseInt(localStorage.getItem('danmakuMaxCount') || '0', 10) : 0;
-      if (maxCount > 0 && danmakuData.length > maxCount) {
-        const originalCount = danmakuData.length;
-        const step = danmakuData.length / maxCount;
-        const limitedData = [];
-        for (let i = 0; i < maxCount; i++) {
-          limitedData.push(danmakuData[Math.floor(i * step)]);
-        }
-        danmakuData = limitedData;
-        setDanmakuOriginalCount(originalCount);
-        console.log(`弹幕数量限制: 原始 ${originalCount} 条，限制到 ${danmakuData.length} 条`);
-      } else {
-        setDanmakuOriginalCount(0);
-      }
+      // 不再限制弹幕数量，显示所有弹幕
+      setDanmakuOriginalCount(0);
 
       // 加载弹幕到播放器（使用 reset 方法清空，不触发显示/隐藏事件）
       if (danmakuPluginRef.current) {
@@ -5474,24 +5432,8 @@ function PlayPageClient() {
           }
         }
 
-        // 应用弹幕数量限制
-        const maxCount = typeof window !== 'undefined' ? parseInt(localStorage.getItem('danmakuMaxCount') || '0', 10) : 0;
-        let calculatedOriginalCount = 0;
-        if (maxCount > 0 && danmakuData.length > maxCount) {
-          const originalCount = danmakuData.length;
-          const step = danmakuData.length / maxCount;
-          const limitedData = [];
-          for (let i = 0; i < maxCount; i++) {
-            limitedData.push(danmakuData[Math.floor(i * step)]);
-          }
-          danmakuData = limitedData;
-          calculatedOriginalCount = originalCount;
-          setDanmakuOriginalCount(originalCount);
-          console.log(`弹幕数量限制: 原始 ${originalCount} 条，限制到 ${danmakuData.length} 条`);
-        } else {
-          // 没有应用限制，不显示原始数量
-          setDanmakuOriginalCount(0);
-        }
+        // 不再限制弹幕数量，显示所有弹幕
+        setDanmakuOriginalCount(0);
 
         // 加载弹幕到插件
         const currentSettings = danmakuSettingsRef.current;
