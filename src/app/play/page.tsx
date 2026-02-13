@@ -4039,6 +4039,7 @@ function PlayPageClient() {
         fontSize: currentSettings.fontSize,
         margin: [currentSettings.marginTop, currentSettings.marginBottom],
         synchronousPlayback: currentSettings.synchronousPlayback,
+        unlimited: currentSettings.unlimited ?? false,
       });
       danmakuPluginRef.current.load();
 
@@ -5289,6 +5290,10 @@ function PlayPageClient() {
             theme: 'dark',
             // 根据保存的显示状态设置初始可见性
             visible: danmakuDisplayStateRef.current,
+            // 移动端性能优化：限制弹幕数量避免卡顿
+            unlimited: danmakuSettingsRef.current.unlimited ?? false,
+            // 移动端：确保弹幕在安全区域内
+            bottom: 'env(safe-area-inset-bottom, 10px)',
             filter: (danmu: any) => {
               // 应用过滤规则
               const filterConfig = danmakuFilterConfigRef.current;
@@ -6245,9 +6250,9 @@ function PlayPageClient() {
             if (danmakuPluginRef.current?.option) {
               const newSettings = {
                 ...danmakuSettingsRef.current,
-                opacity: danmakuPluginRef.current.option.opacity || danmakuSettingsRef.current.opacity,
-                fontSize: danmakuPluginRef.current.option.fontSize || danmakuSettingsRef.current.fontSize,
-                speed: danmakuPluginRef.current.option.speed || danmakuSettingsRef.current.speed,
+                opacity: danmakuPluginRef.current.option.opacity ?? danmakuSettingsRef.current.opacity,
+                fontSize: danmakuPluginRef.current.option.fontSize ?? danmakuSettingsRef.current.fontSize,
+                speed: danmakuPluginRef.current.option.speed ?? danmakuSettingsRef.current.speed,
                 marginTop: (danmakuPluginRef.current.option.margin && danmakuPluginRef.current.option.margin[0]) ?? danmakuSettingsRef.current.marginTop,
                 marginBottom: (danmakuPluginRef.current.option.margin && danmakuPluginRef.current.option.margin[1]) ?? danmakuSettingsRef.current.marginBottom,
               };
@@ -6257,6 +6262,21 @@ function PlayPageClient() {
               saveDanmakuSettings(newSettings);
               if (artPlayerRef.current?.storage) {
                 artPlayerRef.current.storage.set('danmaku_settings', newSettings);
+              }
+
+              // 重新应用弹幕配置到插件，确保设置立即生效
+              // 修复：更改字体大小等设置后弹幕不显示的问题
+              if (danmakuPluginRef.current.option.danmuku && danmakuPluginRef.current.option.danmuku.length > 0) {
+                danmakuPluginRef.current.config({
+                  danmuku: danmakuPluginRef.current.option.danmuku,
+                  speed: newSettings.speed,
+                  opacity: newSettings.opacity,
+                  fontSize: newSettings.fontSize,
+                  margin: [newSettings.marginTop, newSettings.marginBottom],
+                  synchronousPlayback: newSettings.synchronousPlayback,
+                  unlimited: newSettings.unlimited ?? false,
+                });
+                danmakuPluginRef.current.load();
               }
 
               console.log('弹幕设置已更新并保存:', newSettings);
