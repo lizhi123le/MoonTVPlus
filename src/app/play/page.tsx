@@ -3969,7 +3969,6 @@ function PlayPageClient() {
           episodeTitle: metadata.episodeTitle || '',
           searchKeyword: metadata.searchKeyword,
           danmakuCount: danmakuData.length,
-          danmakuOriginalCount: calculatedOriginalCount > 0 ? calculatedOriginalCount : undefined,
         });
       }
 
