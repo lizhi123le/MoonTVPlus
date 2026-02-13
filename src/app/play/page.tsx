@@ -882,7 +882,8 @@ function PlayPageClient() {
       }
 
       const episodeIndex = currentEpisodeIndexRef.current;
-      console.log(`[弹幕] 开始加载第 ${episodeIndex + 1} 集弹幕`);
+      console.log(`[弹幕] ====== 开始加载第 ${episodeIndex + 1} 集弹幕 ======`);
+      console.log(`[弹幕] videoTitle="${title}", episodeIndex=${episodeIndex}`);
 
       // 先尝试从 IndexedDB 缓存加载
       try {
@@ -1000,11 +1001,14 @@ function PlayPageClient() {
 
       // 检查是否有手动选择的剧集 ID
       const manualEpisodeId = getManualDanmakuSelection(title, episodeIndex);
+      console.log(`[弹幕] 检查手动选择: ${title} 第${episodeIndex + 1}集 -> ${manualEpisodeId}`);
+      
       if (manualEpisodeId) {
         console.log(`[弹幕记忆] 使用手动选择的剧集 ID: ${manualEpisodeId}`);
         
         // 获取动漫ID来构建完整的 selection
         const savedAnimeId = getDanmakuAnimeId(title);
+        console.log(`[弹幕记忆] 检查保存的动漫ID: ${title} -> ${savedAnimeId}`);
         if (savedAnimeId) {
           try {
             const episodesResult = await getEpisodes(savedAnimeId);
@@ -1034,6 +1038,19 @@ function PlayPageClient() {
         // 如果无法获取完整信息，至少尝试直接加载
         setDanmakuLoading(true);
         await loadDanmaku(manualEpisodeId);
+        
+        // 更新当前选择状态（即使无法获取完整信息也更新）
+        setCurrentDanmakuSelection({
+          animeId: 0,
+          episodeId: manualEpisodeId,
+          animeTitle: '',
+          episodeTitle: `第 ${episodeIndex + 1} 集弹幕`,
+          danmakuCount: 0,
+        });
+        
+        // 清空集数列表，因为没有获取到完整信息
+        setDanmakuEpisodesList([]);
+        
         console.log('[弹幕记忆] 使用手动选择的弹幕成功');
         return;
       }
@@ -1073,12 +1090,16 @@ function PlayPageClient() {
             } else {
               console.log('[弹幕记忆] 使用保存的动漫ID匹配失败，跳过自动加载');
               // 不再降级到关键词搜索，避免打开选择面板遮挡视频
+              // 清除之前的弹幕选择状态，避免显示错误的集数信息
+              setCurrentDanmakuSelection(null);
               setDanmakuLoading(false);
               return;
             }
           }
         } catch (error) {
           console.error('[弹幕记忆] 使用保存的动漫ID失败:', error);
+          // 清除之前的弹幕选择状态
+          setCurrentDanmakuSelection(null);
           setDanmakuLoading(false);
           return;
         }
@@ -1086,6 +1107,10 @@ function PlayPageClient() {
 
       // 不再自动搜索，避免打开选择面板遮挡视频
       // 用户需要手动选择弹幕源
+      // 清除之前的弹幕选择状态，避免显示错误的集数信息
+      setCurrentDanmakuSelection(null);
+      // 清空集数列表
+      setDanmakuEpisodesList([]);
       console.log('[弹幕] 跳过自动搜索，等待用户手动选择');
       setDanmakuLoading(false);
       return;
