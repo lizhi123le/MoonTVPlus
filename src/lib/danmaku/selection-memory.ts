@@ -234,3 +234,46 @@ export function getDanmakuAnimeId(title: string): number | null {
 
   return null;
 }
+
+/**
+ * 保存多个弹幕源候选（用于匹配失败时自动尝试下一个）
+ * @param title 视频标题
+ * @param animeIds 弹幕动漫ID列表
+ */
+export function saveDanmakuAnimeCandidates(title: string, animeIds: number[]): void {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const key = `${STORAGE_KEY_PREFIX}candidates_${title}`;
+    sessionStorage.setItem(key, JSON.stringify(animeIds));
+    console.log(`[弹幕记忆] 保存弹幕源候选: ${title} -> ${animeIds.join(', ')}`);
+  } catch (error) {
+    console.error('[弹幕记忆] 保存候选失败:', error);
+  }
+}
+
+/**
+ * 获取多个弹幕源候选
+ * @param title 视频标题
+ * @returns 弹幕动漫ID列表，如果没有记录则返回空数组
+ */
+export function getDanmakuAnimeCandidates(title: string): number[] {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const key = `${STORAGE_KEY_PREFIX}candidates_${title}`;
+    const value = sessionStorage.getItem(key);
+
+    if (value !== null) {
+      const candidates = JSON.parse(value);
+      if (Array.isArray(candidates)) {
+        console.log(`[弹幕记忆] 读取弹幕源候选: ${title} -> ${candidates.join(', ')}`);
+        return candidates;
+      }
+    }
+  } catch (error) {
+    console.error('[弹幕记忆] 读取候选失败:', error);
+  }
+
+  return [];
+}
