@@ -4790,9 +4790,13 @@ function PlayPageClient() {
         const success = await tryLoadDanmaku(filteredAnimes);
         
         if (!success) {
-          console.warn('[弹幕] 所有弹幕源都匹配失败');
+          console.warn('[弹幕] 所有弹幕源都匹配失败，弹出选择框');
+          // 所有源都匹配失败，弹出选择框让用户选择
+          setDanmakuMatches(filteredAnimes);
+          setCurrentSearchKeyword(searchKeyword);
+          setShowDanmakuSourceSelector(true);
           if (artPlayerRef.current) {
-            artPlayerRef.current.notice.show = '未找到匹配的弹幕，可在弹幕选项卡手动搜索';
+            artPlayerRef.current.notice.show = `找到 ${filteredAnimes.length} 个弹幕源，请选择`;
           }
         }
       } else {
