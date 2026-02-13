@@ -5090,6 +5090,7 @@ function PlayPageClient() {
         fontSize: currentSettings.fontSize,
         margin: [currentSettings.marginTop, currentSettings.marginBottom],
         synchronousPlayback: currentSettings.synchronousPlayback,
+        unlimited: currentSettings.unlimited ?? false,
       });
       danmakuPluginRef.current.load();
 
