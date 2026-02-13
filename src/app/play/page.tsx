@@ -4719,27 +4719,11 @@ function PlayPageClient() {
           videoYear
         );
 
-        // 如果有多个匹配结果，让用户选择
-        if (filteredAnimes.length > 1) {
-          console.log(`找到 ${filteredAnimes.length} 个弹幕源，等待用户选择`);
-          setDanmakuMatches(filteredAnimes);
-          setCurrentSearchKeyword(searchKeyword); // 保存当前搜索关键词
-          setShowDanmakuSourceSelector(true);
-          setDanmakuLoading(false);
-          if (artPlayerRef.current) {
-            artPlayerRef.current.notice.show = `找到 ${filteredAnimes.length} 个弹幕源，请选择`;
-          }
-          return;
-        }
-
-        // 只有一个结果，直接使用
-        const anime = filteredAnimes[0];
-
         // 保存弹幕候选源（用于匹配失败时自动尝试下一个）
+        // 无论有多少个结果，都保存候选（除第一个外）
         if (title && filteredAnimes.length > 1) {
           const candidates = filteredAnimes
-            .filter(m => m.animeId !== anime.animeId) // 排除当前选择的
-            .slice(0, 4) // 最多保存4个候选
+            .slice(1, 5) // 最多保存4个候选
             .map(m => m.animeId);
           
           if (candidates.length > 0) {
@@ -4748,38 +4732,67 @@ function PlayPageClient() {
           }
         }
 
-        // 获取剧集列表
-        const episodesResult = await getEpisodes(anime.animeId);
-
-        if (
-          episodesResult.success &&
-          episodesResult.bangumi.episodes.length > 0
-        ) {
-          // 根据当前集数选择对应的弹幕
-          const currentEp = currentEpisodeIndexRef.current;
-          const videoEpTitle = detailRef.current?.episodes_titles?.[currentEp];
-          const episode = matchDanmakuEpisode(currentEp, episodesResult.bangumi.episodes, videoEpTitle);
-
-          if (episode) {
-            const selection: DanmakuSelection = {
-              animeId: anime.animeId,
-              episodeId: episode.episodeId,
-              animeTitle: anime.animeTitle,
-              episodeTitle: episode.episodeTitle,
-            };
-
-            // 设置剧集列表
-            setDanmakuEpisodesList(episodesResult.bangumi.episodes);
-
-            console.log('自动搜索弹幕成功:', selection);
-
-            // 通过统一的 handleDanmakuSelect 处理弹幕加载
-            await handleDanmakuSelect(selection);
+        // 直接使用第一个弹幕源，匹配失败时自动尝试候选
+        const tryLoadDanmaku = async (animeList: DanmakuAnime[], isFallback = false): Promise<boolean> => {
+          if (animeList.length === 0) {
+            return false;
           }
-        } else {
-          console.warn('未找到剧集信息');
+
+          const anime = animeList[0];
+          const remaining = animeList.slice(1);
+          
+          console.log(`[弹幕] ${isFallback ? '候选' : '主'}弹幕源: ${anime.animeTitle}`);
+
+          try {
+            const episodesResult = await getEpisodes(anime.animeId);
+
+            if (episodesResult.success && episodesResult.bangumi.episodes.length > 0) {
+              // 根据当前集数选择对应的弹幕
+              const currentEp = currentEpisodeIndexRef.current;
+              const videoEpTitle = detailRef.current?.episodes_titles?.[currentEp];
+              const episode = matchDanmakuEpisode(currentEp, episodesResult.bangumi.episodes, videoEpTitle);
+
+              if (episode) {
+                const selection: DanmakuSelection = {
+                  animeId: anime.animeId,
+                  episodeId: episode.episodeId,
+                  animeTitle: anime.animeTitle,
+                  episodeTitle: episode.episodeTitle,
+                };
+
+                // 设置剧集列表
+                setDanmakuEpisodesList(episodesResult.bangumi.episodes);
+
+                // 保存主动画ID
+                saveDanmakuAnimeId(title, anime.animeId);
+
+                console.log(`[弹幕] ${isFallback ? '候选' : '主'}弹幕源匹配成功:`, selection);
+
+                // 通过 handleDanmakuSelect 处理弹幕加载
+                await handleDanmakuSelect(selection, !isFallback);
+                return true;
+              } else {
+                console.log(`[弹幕] ${anime.animeTitle} 集数匹配失败，尝试下一个`);
+                // 尝试下一个候选
+                return await tryLoadDanmaku(remaining, true);
+              }
+            } else {
+              console.log(`[弹幕] ${anime.animeTitle} 获取剧集列表失败`);
+              return await tryLoadDanmaku(remaining, true);
+            }
+          } catch (error) {
+            console.error(`[弹幕] ${anime.animeTitle} 加载失败:`, error);
+            return await tryLoadDanmaku(remaining, true);
+          }
+        };
+
+        // 开始尝试加载弹幕
+        const success = await tryLoadDanmaku(filteredAnimes);
+        
+        if (!success) {
+          console.warn('[弹幕] 所有弹幕源都匹配失败');
           if (artPlayerRef.current) {
-            artPlayerRef.current.notice.show = '弹幕加载失败：未找到剧集信息';
+            artPlayerRef.current.notice.show = '未找到匹配的弹幕，可在弹幕选项卡手动搜索';
           }
         }
       } else {
