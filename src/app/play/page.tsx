@@ -51,6 +51,7 @@ import {
   saveManualDanmakuSelection,
   getDanmakuAnimeCandidates,
   saveDanmakuAnimeCandidates,
+  clearDanmakuSelectionMemory,
 } from '@/lib/danmaku/selection-memory';
 import type { DanmakuAnime, DanmakuComment,DanmakuSelection, DanmakuSettings } from '@/lib/danmaku/types';
 import {
@@ -3736,6 +3737,17 @@ function PlayPageClient() {
       setDetail(newDetail);
       setSourceProxyMode(newDetail.proxyMode || false); // 从 detail 数据中读取代理模式
       setCurrentEpisodeIndex(targetIndex);
+
+      // 换源后清除弹幕选择记忆，触发重新搜索
+      const title = newDetail.title || newTitle;
+      if (title) {
+        clearDanmakuSelectionMemory(title);
+        console.log('[换源] 清除弹幕记忆，触发重新搜索');
+        // 触发弹幕重新搜索
+        setTimeout(async () => {
+          await autoSearchDanmaku();
+        }, 500);
+      }
     } catch (err) {
       // 隐藏换源加载状态
       setIsVideoLoading(false);
@@ -4722,6 +4734,19 @@ function PlayPageClient() {
 
         // 只有一个结果，直接使用
         const anime = filteredAnimes[0];
+
+        // 保存弹幕候选源（用于匹配失败时自动尝试下一个）
+        if (title && filteredAnimes.length > 1) {
+          const candidates = filteredAnimes
+            .filter(m => m.animeId !== anime.animeId) // 排除当前选择的
+            .slice(0, 4) // 最多保存4个候选
+            .map(m => m.animeId);
+          
+          if (candidates.length > 0) {
+            saveDanmakuAnimeCandidates(title, candidates);
+            console.log(`[弹幕记忆] 自动搜索保存了 ${candidates.length} 个候选弹幕源: ${candidates.join(', ')}`);
+          }
+        }
 
         // 获取剧集列表
         const episodesResult = await getEpisodes(anime.animeId);
