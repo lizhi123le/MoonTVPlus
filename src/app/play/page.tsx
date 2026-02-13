@@ -603,6 +603,9 @@ function PlayPageClient() {
   const danmakuPluginRef = useRef<any>(null);
   const danmakuSettingsRef = useRef(danmakuSettings);
 
+  // 弹幕发射频率限制（用于性能优化）
+  const danmakuEmissionTimesRef = useRef<number[]>([]);
+
   // 弹幕显示状态的 ref，初始化时从 localStorage 读取
   const danmakuDisplayStateRef = useRef<boolean>(
     (() => {
@@ -5295,6 +5298,23 @@ function PlayPageClient() {
             // 移动端：确保弹幕在安全区域内
             bottom: 'env(safe-area-inset-bottom, 10px)',
             filter: (danmu: any) => {
+              // 弹幕发射频率限制（性能优化）
+              const maxPerSecond = danmakuSettingsRef.current.maxPerSecond ?? 10;
+              if (maxPerSecond > 0) {
+                const now = Date.now();
+                const times = danmakuEmissionTimesRef.current;
+                // 清理1秒前的记录
+                while (times.length > 0 && times[0] < now - 1000) {
+                  times.shift();
+                }
+                // 如果当前秒内弹幕数超过限制，则跳过
+                if (times.length >= maxPerSecond) {
+                  return false;
+                }
+                // 记录当前发射时间
+                times.push(now);
+              }
+
               // 应用过滤规则
               const filterConfig = danmakuFilterConfigRef.current;
               if (filterConfig && filterConfig.rules.length > 0) {
