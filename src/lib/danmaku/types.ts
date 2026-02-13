@@ -58,6 +58,7 @@ export interface DanmakuSettings {
   unlimited: boolean; // 无限弹幕
   synchronousPlayback: boolean; // 同步播放
   maxCount?: number; // 弹幕加载上限
+  maxPerSecond?: number; // 每秒最大发射弹幕数（性能优化）
 }
 
 // 自动匹配请求

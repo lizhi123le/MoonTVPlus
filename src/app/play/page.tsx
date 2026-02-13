@@ -676,6 +676,9 @@ function PlayPageClient() {
   const danmakuPluginRef = useRef<any>(null);
   const danmakuSettingsRef = useRef(danmakuSettings);
 
+  // 弹幕发射频率限制（用于性能优化）
+  const danmakuEmissionTimesRef = useRef<number[]>([]);
+
   // 弹幕显示状态的 ref，初始化时从 localStorage 读取
   const danmakuDisplayStateRef = useRef<boolean>(
     (() => {
