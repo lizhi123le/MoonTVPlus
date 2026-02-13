@@ -119,7 +119,11 @@ async function verifySignature(
       return false;
     }
 
-    return timingSafeEqual(sigBuffer, expectedBuffer);
+    // 转换为 Uint8Array 以兼容 timingSafeEqual
+    const sigUint8 = new Uint8Array(sigBuffer);
+    const expectedUint8 = new Uint8Array(expectedBuffer);
+
+    return timingSafeEqual(sigUint8, expectedUint8);
   } catch (error) {
     console.error('签名验证失败:', error);
     return false;
