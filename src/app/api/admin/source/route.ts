@@ -9,7 +9,7 @@ import { db } from '@/lib/db';
 export const runtime = 'nodejs';
 
 // 支持的操作类型
-type Action = 'add' | 'disable' | 'enable' | 'delete' | 'sort' | 'batch_disable' | 'batch_enable' | 'batch_delete' | 'toggle_proxy_mode' | 'update_weight';
+type Action = 'add' | 'disable' | 'enable' | 'delete' | 'sort' | 'batch_disable' | 'batch_enable' | 'batch_delete' | 'batch_top' | 'toggle_proxy_mode' | 'update_weight';
 
 interface BaseBody {
   action?: Action;
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     const username = authInfo.username;
 
     // 基础校验
-    const ACTIONS: Action[] = ['add', 'disable', 'enable', 'delete', 'sort', 'batch_disable', 'batch_enable', 'batch_delete', 'toggle_proxy_mode', 'update_weight'];
+    const ACTIONS: Action[] = ['add', 'disable', 'enable', 'delete', 'sort', 'batch_disable', 'batch_enable', 'batch_delete', 'batch_top', 'toggle_proxy_mode', 'update_weight'];
     if (!username || !action || !ACTIONS.includes(action)) {
       return NextResponse.json({ error: '参数格式错误' }, { status: 400 });
     }
@@ -266,6 +266,27 @@ export async function POST(request: NextRequest) {
         if (!entry)
           return NextResponse.json({ error: '源不存在' }, { status: 404 });
         entry.weight = weight;
+        break;
+      }
+      case 'batch_top': {
+        const { keys } = body as { keys?: string[] };
+        if (!Array.isArray(keys) || keys.length === 0) {
+          return NextResponse.json({ error: '缺少 keys 参数或为空' }, { status: 400 });
+        }
+        // 找到所有需要置顶的源并移除，然后添加到列表最前面
+        const sourcesToTop: typeof adminConfig.SourceConfig = [];
+        const remainingSources: typeof adminConfig.SourceConfig = [];
+        
+        adminConfig.SourceConfig.forEach(source => {
+          if (keys.includes(source.key)) {
+            sourcesToTop.push(source);
+          } else {
+            remainingSources.push(source);
+          }
+        });
+        
+        // 重新排列：置顶的源在最前面
+        adminConfig.SourceConfig = [...sourcesToTop, ...remainingSources];
         break;
       }
       default:
