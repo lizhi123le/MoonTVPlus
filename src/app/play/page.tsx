@@ -605,6 +605,8 @@ function PlayPageClient() {
 
   // 弹幕发射频率限制（用于性能优化）
   const danmakuEmissionTimesRef = useRef<number[]>([]);
+  // 当前弹幕发射限制（逐渐增加）
+  const danmakuCurrentLimitRef = useRef<number>(1);
 
   // 弹幕显示状态的 ref，初始化时从 localStorage 读取
   const danmakuDisplayStateRef = useRef<boolean>(
@@ -4033,6 +4035,10 @@ function PlayPageClient() {
         setDanmakuOriginalCount(0);
       }
 
+      // 重置弹幕发射限制（每次加载新弹幕时重新从1开始）
+      danmakuEmissionTimesRef.current = [];
+      danmakuCurrentLimitRef.current = 1;
+
       // 加载弹幕到插件，同时应用当前的弹幕设置
       const currentSettings = danmakuSettingsRef.current;
       danmakuPluginRef.current.config({
@@ -5299,16 +5305,26 @@ function PlayPageClient() {
             bottom: 'env(safe-area-inset-bottom, 10px)',
             filter: (danmu: any) => {
               // 弹幕发射频率限制（性能优化）
-              const maxPerSecond = danmakuSettingsRef.current.maxPerSecond ?? 10;
-              if (maxPerSecond > 0) {
+              // 逐渐增加发射限制：从1条逐渐增加到maxPerSecond
+              const targetLimit = danmakuSettingsRef.current.maxPerSecond ?? 10;
+              const currentLimit = danmakuCurrentLimitRef.current;
+              
+              if (targetLimit > 0) {
                 const now = Date.now();
                 const times = danmakuEmissionTimesRef.current;
+                
+                // 逐渐增加限制：每500ms增加1条，直到达到目标限制
+                if (currentLimit < targetLimit) {
+                  danmakuCurrentLimitRef.current = Math.min(currentLimit + 0.5, targetLimit);
+                }
+                
                 // 清理1秒前的记录
                 while (times.length > 0 && times[0] < now - 1000) {
                   times.shift();
                 }
-                // 如果当前秒内弹幕数超过限制，则跳过
-                if (times.length >= maxPerSecond) {
+                
+                // 如果当前秒内弹幕数超过当前限制，则跳过
+                if (times.length >= Math.floor(danmakuCurrentLimitRef.current)) {
                   return false;
                 }
                 // 记录当前发射时间
