@@ -678,6 +678,8 @@ function PlayPageClient() {
 
   // 弹幕发射频率限制（用于性能优化）
   const danmakuEmissionTimesRef = useRef<number[]>([]);
+  // 当前弹幕发射限制（逐渐增加）
+  const danmakuCurrentLimitRef = useRef<number>(1);
 
   // 弹幕显示状态的 ref，初始化时从 localStorage 读取
   const danmakuDisplayStateRef = useRef<boolean>(
@@ -5083,6 +5085,10 @@ function PlayPageClient() {
       } else {
         setDanmakuOriginalCount(0);
       }
+
+      // 重置弹幕发射限制（每次加载新弹幕时重新从1开始）
+      danmakuEmissionTimesRef.current = [];
+      danmakuCurrentLimitRef.current = 1;
 
       // 加载弹幕到插件，同时应用当前的弹幕设置
       const currentSettings = danmakuSettingsRef.current;
