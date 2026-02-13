@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 import { getAuthInfoFromCookie } from '@/lib/auth';
 import { TOKEN_CONFIG } from '@/lib/refresh-token';
@@ -97,39 +98,28 @@ async function verifySignature(
   signature: string,
   secret: string
 ): Promise<boolean> {
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(secret);
-
-  // 构造与生成签名时相同的数据结构
-  const dataToSign = JSON.stringify({
-    username,
-    role,
-    timestamp
-  });
-  const messageData = encoder.encode(dataToSign);
-
   try {
-    // 导入密钥
-    const key = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['verify']
-    );
+    // 构造与生成签名时相同的数据结构
+    const dataToSign = JSON.stringify({
+      username,
+      role,
+      timestamp
+    });
 
-    // 将十六进制字符串转换为Uint8Array
-    const signatureBuffer = new Uint8Array(
-      signature.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) || []
-    );
+    // 使用 Node.js 原生 crypto 计算 HMAC-SHA256
+    const hmac = createHmac('sha256', secret);
+    const expectedSignature = hmac.update(dataToSign).digest('hex');
 
-    // 验证签名
-    return await crypto.subtle.verify(
-      'HMAC',
-      key,
-      signatureBuffer,
-      messageData
-    );
+    // 使用 timingSafeEqual 进行安全比较，防止时序攻击
+    const sigBuffer = Buffer.from(signature, 'hex');
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+
+    // 签名长度必须匹配
+    if (sigBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+
+    return timingSafeEqual(sigBuffer, expectedBuffer);
   } catch (error) {
     console.error('签名验证失败:', error);
     return false;
@@ -172,6 +162,6 @@ function shouldSkipAuth(pathname: string): boolean {
 // 配置middleware匹配规则
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|login|register|oidc-register|warning|api/login|api/register|api/logout|api/auth/oidc|api/auth/refresh|api/cron/|api/server-config|api/proxy-m3u8|api/cms-proxy|api/tvbox/subscribe|api/theme/css|api/openlist/cms-proxy|api/openlist/play|api/emby/cms-proxy|api/emby/play|api/emby/sources).*)',
+    '/((?!_next/static|_next/image|favicon.ico|login|register|oidc-register|warning|api/login|api/register|api/logout|api/auth/oidc|api/auth/refresh|api/cron/|api/server-config|api/proxy-m3u8|api/cms-proxy|api/tvbox/subscribe|api/theme/css|api/openlist/cms-proxy|api/openlist/play|api/emby/cms-proxy|api/emby/play|api/emby/sources|api/douban-recommendations|api/tmdb-details).*)',
   ],
 };

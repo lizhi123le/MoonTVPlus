@@ -22,27 +22,40 @@ function isCloudflareEnvironment(): boolean {
 async function universalFetch(url: string, proxy?: string): Promise<Response> {
   const isCloudflare = isCloudflareEnvironment();
 
-  if (isCloudflare) {
-    // Cloudflare 环境：使用原生 fetch，忽略 proxy 参数
-    const response = await fetch(url, {
-      signal: AbortSignal.timeout(15000),
-    });
-    return response as unknown as Response;
-  } else {
-    // Node.js 环境：使用 node-fetch，支持 proxy
-    const fetchOptions: any = proxy
-      ? {
-          agent: new HttpsProxyAgent(proxy, {
-            timeout: 30000,
-            keepAlive: false,
-          }),
-          signal: AbortSignal.timeout(30000),
-        }
-      : {
-          signal: AbortSignal.timeout(15000),
-        };
+  // 使用 AbortController 实现超时
+  const controller = new AbortController();
+  const timeoutMs = isCloudflare ? 15000 : (proxy ? 30000 : 15000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    return nodeFetch(url, fetchOptions) as unknown as Response;
+  try {
+    if (isCloudflare) {
+      // Cloudflare 环境：使用原生 fetch，忽略 proxy 参数
+      const response = await fetch(url, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return response as unknown as Response;
+    } else {
+      // Node.js 环境：使用 node-fetch，支持 proxy
+      const fetchOptions: any = proxy
+        ? {
+            agent: new HttpsProxyAgent(proxy, {
+              timeout: 30000,
+              keepAlive: false,
+            }),
+            signal: controller.signal,
+          }
+        : {
+            signal: controller.signal,
+          };
+
+      const response = await nodeFetch(url, fetchOptions) as unknown as Response;
+      clearTimeout(timeoutId);
+      return response;
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
   }
 }
 
