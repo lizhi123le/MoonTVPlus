@@ -2988,6 +2988,7 @@ function PlayPageClient() {
         // 先检查 sessionStorage 中是否有缓存
         const cacheKey = `search_cache_${query.trim()}`;
         let results: SearchResult[] = [];
+        let allResults: SearchResult[] = []; // 保存所有原始结果用于备选
 
         if (typeof window !== 'undefined') {
           try {
@@ -2995,26 +2996,57 @@ function PlayPageClient() {
             if (cached) {
               console.log('[Play] 使用 sessionStorage 缓存的搜索结果');
               const cachedData = JSON.parse(cached);
+              allResults = cachedData;
 
               // 处理缓存的搜索结果，根据规则过滤
-           results = cachedData.filter(
+              results = cachedData.filter(
                 (result: SearchResult) =>
                   normalizeTitle(result.title).toLowerCase() ===
                     normalizeTitle(videoTitleRef.current).toLowerCase() &&
                   (videoYearRef.current
                     ? result.year.toLowerCase() === videoYearRef.current.toLowerCase() ||
-              !result.year ||
+                      !result.year ||
                       result.year.trim() === '' ||
                       result.year === 'unknown' ||
-                 !/^\d{4}$/.test(result.year)
-              : true) &&
-            (searchType
+                      !/^\d{4}$/.test(result.year)
+                    : true) &&
+                  (searchType
                     ? getType(result) === searchType
                     : true)
               );
 
-              setAvailableSources(applyCorrectionsToSources(results));
-              return results;
+              // 如果精确过滤没有结果，尝试宽松匹配
+              if (results.length === 0 && cachedData.length > 0) {
+                console.log('[Play] 精确匹配无结果，尝试宽松匹配...');
+                // 尝试忽略年份的匹配
+                results = cachedData.filter(
+                  (result: SearchResult) =>
+                    normalizeTitle(result.title).toLowerCase() ===
+                      normalizeTitle(videoTitleRef.current).toLowerCase() &&
+                    (searchType
+                      ? getType(result) === searchType
+                      : true)
+                );
+
+                // 仍然没有？尝试部分标题匹配
+                if (results.length === 0) {
+                  const searchTitle = normalizeTitle(videoTitleRef.current);
+                  results = cachedData.filter(
+                    (result: SearchResult) => {
+                      const resultTitle = normalizeTitle(result.title);
+                      // 包含匹配或模糊匹配
+                      return (
+                        resultTitle.includes(searchTitle) ||
+                        searchTitle.includes(resultTitle) ||
+                        resultTitle.substring(0, Math.min(6, resultTitle.length)) === searchTitle.substring(0, Math.min(6, searchTitle.length))
+                      ) && (searchType ? getType(result) === searchType : true);
+                    }
+                  );
+                }
+              }
+
+              setAvailableSources(applyCorrectionsToSources(results.length > 0 ? results : cachedData));
+              return results.length > 0 ? results : cachedData;
             }
           } catch (error) {
             console.error('[Play] 读取缓存失败:', error);
@@ -3031,8 +3063,10 @@ function PlayPageClient() {
         }
         const data = await response.json();
 
+        allResults = data.results || [];
+
         // 处理搜索结果，根据规则过滤
-        results = data.results.filter(
+        results = allResults.filter(
           (result: SearchResult) =>
             normalizeTitle(result.title).toLowerCase() ===
               normalizeTitle(videoTitleRef.current).toLowerCase() &&
@@ -3042,13 +3076,48 @@ function PlayPageClient() {
                 result.year.trim() === '' ||
                 result.year === 'unknown' ||
                 !/^\d{4}$/.test(result.year)
-          : true) &&
+              : true) &&
             (searchType
               ? getType(result) === searchType
               : true)
         );
-        setAvailableSources(applyCorrectionsToSources(results));
-        return results;
+
+        // 如果精确过滤没有结果，尝试宽松匹配
+        if (results.length === 0 && allResults.length > 0) {
+          console.log('[Play] 精确匹配无结果，尝试宽松匹配...');
+          // 尝试忽略年份的匹配
+          results = allResults.filter(
+            (result: SearchResult) =>
+              normalizeTitle(result.title).toLowerCase() ===
+                normalizeTitle(videoTitleRef.current).toLowerCase() &&
+              (searchType
+                ? getType(result) === searchType
+                : true)
+          );
+
+          // 仍然没有？尝试部分标题匹配
+          if (results.length === 0) {
+            const searchTitle = normalizeTitle(videoTitleRef.current);
+            results = allResults.filter(
+              (result: SearchResult) => {
+                const resultTitle = normalizeTitle(result.title);
+                // 包含匹配或模糊匹配
+                return (
+                  resultTitle.includes(searchTitle) ||
+                  searchTitle.includes(resultTitle) ||
+                  resultTitle.substring(0, Math.min(6, resultTitle.length)) === searchTitle.substring(0, Math.min(6, searchTitle.length))
+                ) && (searchType ? getType(result) === searchType : true);
+              }
+            );
+          }
+        }
+
+        // 如果有结果就使用过滤后的，否则使用全部结果（确保用户能看到内容）
+        const finalResults = results.length > 0 ? results : allResults;
+        console.log(`[Play] 搜索结果: 精确匹配=${results.length}, 全部=${allResults.length}, 最终=${finalResults.length}`);
+        
+        setAvailableSources(applyCorrectionsToSources(finalResults));
+        return finalResults;
       } catch (err) {
         setSourceSearchError(err instanceof Error ? err.message : '搜索失败');
         setAvailableSources([]);
