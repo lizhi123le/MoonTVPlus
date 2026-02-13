@@ -3861,8 +3861,11 @@ function PlayPageClient() {
         return { num: parseInt(embyMatch[2], 10), isSpecial: false };
       }
 
-      // 2. 匹配 EP/Ep 格式：EP18, EP03, ep1
-      const epMatch = trimmedTitle.match(/^[Ee][Pp](\d+)$/);
+      // 2. 匹配 EP/Ep 格式：EP18, EP03, ep1（独立或混合标题中）
+      let epMatch = trimmedTitle.match(/^[Ee][Pp](\d+)$/);
+      if (!epMatch) {
+        epMatch = trimmedTitle.match(/[Ee][Pp](\d+)/);
+      }
       if (epMatch) {
         return { num: parseInt(epMatch[1], 10), isSpecial: false };
       }
@@ -3873,20 +3876,29 @@ function PlayPageClient() {
         return { num: parseInt(volMatch[1], 10), isSpecial: false };
       }
 
-      // 4. 匹配 "第X集/话/話" 格式
-      const chineseMatch = trimmedTitle.match(/^第\s*(\d+)\s*[集話話]$/);
+      // 4. 匹配 "第X集/话/話" 格式（可在任意位置）
+      let chineseMatch = trimmedTitle.match(/^第\s*(\d+)\s*[集話話]$/);
+      if (!chineseMatch) {
+        chineseMatch = trimmedTitle.match(/第\s*(\d+)\s*[集話話]/);
+      }
       if (chineseMatch) {
         return { num: parseInt(chineseMatch[1], 10), isSpecial: false };
       }
 
-      // 5. 匹配 "第X话" 简写（如 "第3话"）
-      const huaMatch = trimmedTitle.match(/^第\s*(\d+)\s*话$/);
+      // 5. 匹配 "第X话" 简写（可在任意位置）
+      let huaMatch = trimmedTitle.match(/^第\s*(\d+)\s*话$/);
+      if (!huaMatch) {
+        huaMatch = trimmedTitle.match(/第\s*(\d+)\s*话/);
+      }
       if (huaMatch) {
         return { num: parseInt(huaMatch[1], 10), isSpecial: false };
       }
 
       // 6. 匹配 "第X部" 格式
-      const buMatch = trimmedTitle.match(/^第\s*(\d+)\s*部$/);
+      let buMatch = trimmedTitle.match(/^第\s*(\d+)\s*部$/);
+      if (!buMatch) {
+        buMatch = trimmedTitle.match(/第\s*(\d+)\s*部/);
+      }
       if (buMatch) {
         return { num: parseInt(buMatch[1], 10), isSpecial: false };
       }
@@ -3921,8 +3933,16 @@ function PlayPageClient() {
         }
       }
 
-      // 10. 尝试从混合标题中提取（如 "03 标题名"）
-      const hybridMatch = trimmedTitle.match(/^(\d+)\s+/);
+      // 10. 尝试从混合标题中提取（如 "03 标题名" 或 "【qiyi】标题第2集"）
+      let hybridMatch = trimmedTitle.match(/^(\d+)\s+/);
+      if (!hybridMatch) {
+        // 支持 "标题第2集" 格式
+        hybridMatch = trimmedTitle.match(/第(\d+)\s*集/);
+      }
+      if (!hybridMatch) {
+        // 支持 "标题第2话" 格式
+        hybridMatch = trimmedTitle.match(/第(\d+)\s*话/);
+      }
       if (hybridMatch) {
         return { num: parseInt(hybridMatch[1], 10), isSpecial: false };
       }
