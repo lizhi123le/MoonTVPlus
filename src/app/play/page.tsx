@@ -1023,7 +1023,7 @@ function PlayPageClient() {
                 };
 
                 setDanmakuEpisodesList(episodesResult.bangumi.episodes);
-                await handleDanmakuSelect(selection);
+                await handleDanmakuSelect(selection, true);
                 console.log('[弹幕记忆] 使用手动选择的弹幕成功');
                 return;
               }
@@ -1088,7 +1088,7 @@ function PlayPageClient() {
                 setDanmakuEpisodesList(episodesResult.bangumi.episodes);
 
                 // 通过统一的 handleDanmakuSelect 处理弹幕加载
-                await handleDanmakuSelect(selection);
+                await handleDanmakuSelect(selection, false);
                 return true; // 匹配成功
               } else {
                 console.log(`[弹幕记忆] ${isFirstAttempt ? '主' : '候选'}弹幕源集数匹配失败，尝试下一个`);
@@ -4568,18 +4568,24 @@ function PlayPageClient() {
           videoYear
         );
 
-        // 如果有多个匹配结果，让用户选择
-        if (filteredAnimes.length > 1) {
-          console.log(`[弹幕] 找到 ${filteredAnimes.length} 个弹幕源`);
-          setDanmakuMatches(filteredAnimes);
-          setShowDanmakuSourceSelector(true);
+        // 直接使用第一个弹幕源，不再弹出让用户选择
+        if (filteredAnimes.length > 0) {
+          // 保存弹幕候选源
+          if (filteredAnimes.length > 1) {
+            const candidates = filteredAnimes.slice(1, 5).map(m => m.animeId);
+            saveDanmakuAnimeCandidates(title, candidates);
+          }
+          
+          // 使用第一个结果
+          const anime = filteredAnimes[0];
+          await handleDanmakuSourceSelect(anime, 0, true);
+        } else {
+          console.warn('[弹幕] 过滤后无匹配结果');
+          if (artPlayerRef.current) {
+            artPlayerRef.current.notice.show = '未找到匹配的弹幕';
+          }
           setDanmakuLoading(false);
-          return;
         }
-
-        // 只有一个结果，直接使用
-        const anime = filteredAnimes[0];
-        await handleDanmakuSourceSelect(anime);
       } else {
         console.warn('[弹幕] 未找到匹配的弹幕');
         if (artPlayerRef.current) {
@@ -4730,7 +4736,7 @@ function PlayPageClient() {
 
         // 保存弹幕候选源（用于匹配失败时自动尝试下一个）
         // 无论有多少个结果，都保存候选（除第一个外）
-        if (title && filteredAnimes.length > 1) {
+        if (title && filteredAnimes.length > 0) {
           const candidates = filteredAnimes
             .slice(1, 5) // 最多保存4个候选
             .map(m => m.animeId);
@@ -4799,13 +4805,12 @@ function PlayPageClient() {
         const success = await tryLoadDanmaku(filteredAnimes);
 
         if (!success) {
-          console.warn('[弹幕] 所有弹幕源都匹配失败，弹出选择框');
-          // 所有源都匹配失败，弹出选择框让用户选择
-          setDanmakuMatches(filteredAnimes);
-          setCurrentSearchKeyword(searchKeyword);
-          setShowDanmakuSourceSelector(true);
+          console.warn('[弹幕] 所有弹幕源都匹配失败，跳过选择框，等待用户手动搜索');
+          // 不再弹出让用户选择，用户可以之后在弹幕面板手动搜索
+          // 清空选择状态
+          setCurrentDanmakuSelection(null);
           if (artPlayerRef.current) {
-            artPlayerRef.current.notice.show = `找到 ${filteredAnimes.length} 个弹幕源，请选择`;
+            artPlayerRef.current.notice.show = '未找到匹配的弹幕，可在弹幕选项卡手动搜索';
           }
         }
       } else {
