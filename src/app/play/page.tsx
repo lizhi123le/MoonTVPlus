@@ -941,11 +941,15 @@ function PlayPageClient() {
         if (cachedData && cachedData.comments.length > 0) {
           console.log(`[弹幕] 使用缓存: title="${title}", episodeIndex=${episodeIndex}, 数量=${cachedData.comments.length}`);
 
-          // 如果弹幕插件还未初始化，等待初始化
+          // 如果弹幕插件还未初始化，等待初始化后重试
           if (!danmakuPluginRef.current) {
-            console.log('[弹幕] 弹幕插件未初始化，等待初始化...');
-            // 缓存命中但插件未初始化，不执行搜索，等待下次触发
-            return;
+            console.log('[弹幕] 弹幕插件未初始化，延迟后重试...');
+            // 等待一段时间后重试
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            if (!danmakuPluginRef.current) {
+              console.log('[弹幕] 弹幕插件仍未初始化，跳过此次加载');
+              return;
+            }
           }
 
           setDanmakuLoading(true);
