@@ -900,7 +900,38 @@ function PlayPageClient() {
       // 重置加载状态，确保切换集数后能正确加载
       loadingDanmakuEpisodeIdRef.current = null;
 
-      // 先尝试从 IndexedDB 缓存加载
+      // 优先检查记忆（animeId）- 即使有缓存也优先使用记忆的源
+      const savedAnimeId = getDanmakuAnimeId(title);
+      if (savedAnimeId) {
+        console.log(`[弹幕记忆] 检测到保存的动漫ID: ${savedAnimeId}，优先使用记忆加载`);
+        
+        try {
+          const episodesResult = await getEpisodes(savedAnimeId);
+          if (episodesResult.success && episodesResult.bangumi.episodes.length > 0) {
+            const videoEpTitle = detailRef.current?.episodes_titles?.[episodeIndex];
+            const episode = matchDanmakuEpisode(episodeIndex, episodesResult.bangumi.episodes, videoEpTitle);
+
+            if (episode) {
+              const selection: DanmakuSelection = {
+                animeId: savedAnimeId,
+                episodeId: episode.episodeId,
+                animeTitle: episodesResult.bangumi.animeTitle,
+                episodeTitle: episode.episodeTitle,
+              };
+
+              setDanmakuEpisodesList(episodesResult.bangumi.episodes);
+              // 使用 isManual=false，因为这是自动读取记忆
+              await handleDanmakuSelect(selection, false);
+              console.log('[弹幕记忆] 使用保存的动漫ID加载成功');
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('[弹幕记忆] 使用保存的动漫ID加载失败:', error);
+        }
+      }
+
+      // 没有记忆时，尝试从 IndexedDB 缓存加载
       try {
         const cachedData = await getDanmakuFromCache(title, episodeIndex);
         if (cachedData && cachedData.comments.length > 0) {
