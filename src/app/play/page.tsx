@@ -7764,7 +7764,7 @@ function PlayPageClient() {
           if (artPlayerRef.current?.plugins?.artplayerPluginDanmuku) {
             danmakuPluginRef.current = artPlayerRef.current.plugins.artplayerPluginDanmuku;
 
-            // 监听弹幕配置变化事件
+            // 监听弹幕配置变化事件（用户通过播放器UI修改设置时触发）
             artPlayerRef.current.on('artplayerPluginDanmuku:config', () => {
               if (danmakuPluginRef.current?.option) {
                 const newSettings = {
