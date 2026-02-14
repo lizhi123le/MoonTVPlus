@@ -823,6 +823,8 @@ function PlayPageClient() {
   useEffect(() => {
     nextEpisodePreCacheTriggeredRef.current = false;
     nextEpisodeDanmakuPreloadTriggeredRef.current = false;
+    lastLoadedEpisodeIndexForDanmakuRef.current = null;
+    lastAutoSearchDanmakuIndexRef.current = null; // 清理防重标记，允许新集数加载
     // 清理之前的预缓存 HLS 实例
     if (nextEpisodePreCacheHlsRef.current) {
       try {
@@ -837,6 +839,8 @@ function PlayPageClient() {
   // 监听剧集切换，自动加载对应的弹幕
   const lastLoadedEpisodeIndexForDanmakuRef = useRef<number | null>(null);
   const loadingDanmakuEpisodeIdRef = useRef<number | null>(null);
+  // 防止 autoSearchDanmaku 重复加载同一集（与 useEffect 中的加载逻辑配合使用）
+  const lastAutoSearchDanmakuIndexRef = useRef<number | null>(null);
 
   useEffect(() => {
     // 等待初始化完成（播放记录恢复完成）
@@ -4592,6 +4596,14 @@ function PlayPageClient() {
     }
 
     const currentEpisodeIndex = currentEpisodeIndexRef.current;
+
+    // 防止与 useEffect 中的 loadDanmakuForCurrentEpisode 重复加载同一集
+    if (lastAutoSearchDanmakuIndexRef.current === currentEpisodeIndex) {
+      console.log(`[弹幕] autoSearchDanmaku 跳过重复加载: 第${currentEpisodeIndex + 1}集`);
+      return;
+    }
+    lastAutoSearchDanmakuIndexRef.current = currentEpisodeIndex;
+
     console.log('[弹幕] 开始加载弹幕 - 视频标题:', title, '集数:', currentEpisodeIndex);
 
     // 先尝试从 IndexedDB 缓存加载
