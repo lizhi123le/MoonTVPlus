@@ -6428,7 +6428,7 @@ function PlayPageClient() {
           if (artPlayerRef.current?.plugins?.artplayerPluginDanmuku) {
             danmakuPluginRef.current = artPlayerRef.current.plugins.artplayerPluginDanmuku;
 
-            // 监听弹幕配置变化事件
+            // 监听弹幕配置变化事件（用户通过播放器UI修改设置时触发）
             artPlayerRef.current.on('artplayerPluginDanmuku:config', () => {
               if (danmakuPluginRef.current?.option) {
                 const newSettings = {
@@ -6447,21 +6447,8 @@ function PlayPageClient() {
                   artPlayerRef.current.storage.set('danmaku_settings', newSettings);
                 }
 
-                // 重新应用弹幕配置到插件，确保设置立即生效
-                // 修复：更改字体大小等设置后弹幕不显示的问题
-                if (danmakuPluginRef.current.option.danmuku && danmakuPluginRef.current.option.danmuku.length > 0) {
-                  danmakuPluginRef.current.config({
-                    danmuku: danmakuPluginRef.current.option.danmuku,
-                    speed: newSettings.speed,
-                    opacity: newSettings.opacity,
-                    fontSize: newSettings.fontSize,
-                    margin: [newSettings.marginTop, newSettings.marginBottom],
-                    synchronousPlayback: newSettings.synchronousPlayback,
-                    unlimited: newSettings.unlimited ?? false,
-                  });
-                  danmakuPluginRef.current.load();
-                }
-
+                // 注意：不要在这里重新调用 config() 和 load()，会造成循环触发
+                // 这个事件只在用户通过UI修改设置时触发，不需要重新加载弹幕数据
                 console.log('弹幕设置已更新并保存:', newSettings);
               }
             });
