@@ -86,28 +86,94 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     return processImageUrl(getTMDBImageUrl(path, 'original'));
   };
 
-  // 视频URL缓存，避免重复生成代理URL导致重新请求
-  const videoUrlCacheRef = useRef<Map<string, string>>(new Map());
+  // 第三方 CORS 代理配置（按优先级排序）
+  const CORS_PROXIES = [
+    { name: 'corsproxy.io', url: 'https://corsproxy.io/?' },
+    { name: 'allorigins', url: 'https://api.allorigins.win/raw?url=' },
+    { name: 'cors.sh', url: 'https://cors.sh/?' },
+  ];
 
-  // 获取视频URL（处理豆瓣视频代理）- 使用缓存避免重复生成
-  const getVideoUrl = useCallback((url: string | null) => {
-    if (!url) return null;
-    
-    // 检查缓存
-    const cached = videoUrlCacheRef.current.get(url);
-    if (cached) return cached;
-    
-    // 豆瓣视频直接使用服务器代理
-    let result: string;
-    if (url.includes('doubanio.com')) {
-      result = `/api/video-proxy?url=${encodeURIComponent(url)}`;
-    } else {
-      result = url;
+  // 代理管理器
+  const proxyManagerRef = useRef({
+    currentIndex: 0,
+    failedProxies: new Set<string>(),
+    lastSuccessProxy: null as string | null,
+  });
+
+  // 获取可用的代理URL
+  const getProxyUrl = (originalUrl: string): string | null => {
+    const manager = proxyManagerRef.current;
+
+    // 优先使用上次成功的代理
+    if (manager.lastSuccessProxy) {
+      return manager.lastSuccessProxy + encodeURIComponent(originalUrl);
     }
-    
-    // 缓存结果
-    videoUrlCacheRef.current.set(url, result);
-    return result;
+
+    // 遍历寻找未失败的代理
+    for (let i = 0; i < CORS_PROXIES.length; i++) {
+      const proxy = CORS_PROXIES[(manager.currentIndex + i) % CORS_PROXIES.length];
+      if (!manager.failedProxies.has(proxy.name)) {
+        manager.currentIndex = (manager.currentIndex + i) % CORS_PROXIES.length;
+        return proxy.url + encodeURIComponent(originalUrl);
+      }
+    }
+
+    // 所有代理都失败
+    return null;
+  };
+
+  // 标记代理失败
+  const markProxyFailed = (proxyUrl: string) => {
+    const proxy = CORS_PROXIES.find(p => proxyUrl.startsWith(p.url));
+    if (proxy) {
+      proxyManagerRef.current.failedProxies.add(proxy.name);
+      console.log(`[BannerCarousel] 代理 ${proxy.name} 标记为失败`);
+
+      // 如果上次成功的代理失败了，清除记录
+      if (proxyManagerRef.current.lastSuccessProxy === proxy.url) {
+        proxyManagerRef.current.lastSuccessProxy = null;
+      }
+    }
+  };
+
+  // 标记代理成功
+  const markProxySuccess = (proxyUrl: string) => {
+    const proxy = CORS_PROXIES.find(p => proxyUrl.startsWith(p.url));
+    if (proxy) {
+      proxyManagerRef.current.lastSuccessProxy = proxy.url;
+    }
+  };
+
+  // 获取视频URL（使用第三方代理，避免Workers CPU超限）
+  const getVideoUrl = useCallback((url: string | null): string | null => {
+    if (!url) return null;
+
+    // 豆瓣视频使用第三方代理
+    if (url.includes('doubanio.com')) {
+      const proxyUrl = getProxyUrl(url);
+      if (proxyUrl) {
+        console.log(`[BannerCarousel] 使用代理: ${proxyUrl.substring(0, 60)}...`);
+        return proxyUrl;
+      }
+
+      // 所有代理都失败，返回null（降级为图片）
+      console.warn('[BannerCarousel] 所有代理都失败，降级为图片');
+      return null;
+    }
+
+    return url;
+  }, []);
+
+  // 定期重置失败记录（每5分钟），允许重试
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (proxyManagerRef.current.failedProxies.size > 0) {
+        console.log('[BannerCarousel] 重置代理失败记录');
+        proxyManagerRef.current.failedProxies.clear();
+      }
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // 标记组件已挂载（用于localStorage访问）
@@ -333,6 +399,41 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     }
   }, []);
 
+  // 视频错误处理：代理失败时切换到下一个代理
+  const handleVideoError = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+    const currentSrc = video.src;
+
+    console.warn('[BannerCarousel] 视频加载失败:', currentSrc.substring(0, 60));
+
+    // 标记当前代理失败
+    markProxyFailed(currentSrc);
+
+    // 尝试下一个代理
+    const originalUrl = items[currentIndex]?.trailer_url;
+    if (originalUrl) {
+      const nextProxyUrl = getProxyUrl(originalUrl);
+      if (nextProxyUrl && nextProxyUrl !== currentSrc) {
+        console.log('[BannerCarousel] 切换到下一个代理');
+        video.src = nextProxyUrl;
+        video.load();
+        return;
+      }
+    }
+
+    // 没有可用代理了，强制重新渲染显示图片
+    console.warn('[BannerCarousel] 无可用代理，显示图片');
+    video.style.display = 'none';
+  }, [currentIndex, items]);
+
+  // 视频加载成功
+  const handleVideoLoad = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+    const currentSrc = video.src;
+    markProxySuccess(currentSrc);
+    video.style.display = 'block';
+  }, []);
+
   // 控制视频播放/暂停和静音状态
   useEffect(() => {
     // 只控制当前显示的视频
@@ -340,7 +441,7 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     if (currentVideo && hasStarted) {
       currentVideo.muted = isMuted;
       // 只有当视频真正需要播放时才调用 play
-      if (currentVideo.paused) {
+      if (currentVideo.paused && currentVideo.style.display !== 'none') {
         currentVideo.play().catch(() => {
           // 忽略自动播放失败的错误
         });
@@ -367,6 +468,9 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
               key={`video-${currentItem.id}`}
               ref={(el) => setVideoRef(el, currentIndex)}
               src={getVideoUrl(currentItem.trailer_url) || undefined}
+              onError={handleVideoError}
+              onLoadedData={handleVideoLoad}
+              crossOrigin="anonymous"
               className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full w-auto h-auto object-cover"
               muted={isMuted}
               loop
