@@ -841,6 +841,8 @@ function PlayPageClient() {
   const isLoadingDanmakuRef = useRef<boolean>(false);
 
   useEffect(() => {
+    console.log('[弹幕] useEffect 触发', { loading, isDirectPlay, currentEpisodeIndex, videoTitle, ref: lastLoadedEpisodeIndexForDanmakuRef.current });
+    
     // 等待初始化完成（播放记录恢复完成）
     if (loading) {
       console.log('[弹幕] 等待初始化完成，loading=true');
@@ -865,20 +867,10 @@ function PlayPageClient() {
       return;
     }
 
-    console.log(`[弹幕] ====== 准备加载弹幕 ======`);
-    console.log(`[弹幕] lastLoadedEpisodeIndexForDanmakuRef.current=${lastLoadedEpisodeIndexForDanmakuRef.current}, currentEpisodeIndex=${currentEpisodeIndex}`);
-
-    // 如果集数已经加载过，跳过（但允许在页面刷新后首次加载时重新加载）
-    // 修改：只有在明确加载过同一集的情况下才跳过
-    // 使用一个特殊的标记来区分"页面刷新后首次加载"和"切换集数"
-    if (lastLoadedEpisodeIndexForDanmakuRef.current === currentEpisodeIndex && lastLoadedEpisodeIndexForDanmakuRef.current !== null) {
-      console.log(`[弹幕] 第 ${currentEpisodeIndex + 1} 集已经加载过，跳过`);
-      return;
-    }
-
-    // 如果正在加载中，跳过（防止 useEffect 重复触发导致的并发加载）
+    // 始终尝试加载弹幕，不跳过（页面刷新后也应该加载）
+    // 只用 isLoadingDanmakuRef 防止并发加载
     if (isLoadingDanmakuRef.current) {
-      console.log(`[弹幕] 第 ${currentEpisodeIndex + 1} 集正在加载中，跳过重复触发`);
+      console.log(`[弹幕] 正在加载中，跳过`);
       return;
     }
 
@@ -941,8 +933,11 @@ function PlayPageClient() {
       }
 
       // 没有记忆时，尝试从 IndexedDB 缓存加载
+      console.log('[弹幕] 检查缓存...');
       try {
         const cachedData = await getDanmakuFromCache(title, episodeIndex);
+        console.log('[弹幕] 缓存结果:', cachedData ? `有缓存, ${cachedData.comments.length} 条` : '无缓存');
+        
         if (cachedData && cachedData.comments.length > 0) {
           console.log(`[弹幕] 使用缓存: title="${title}", episodeIndex=${episodeIndex}, 数量=${cachedData.comments.length}`);
 
