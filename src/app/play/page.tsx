@@ -843,10 +843,12 @@ function PlayPageClient() {
   useEffect(() => {
     // 等待初始化完成（播放记录恢复完成）
     if (loading) {
+      console.log('[弹幕] 等待初始化完成，loading=true');
       return;
     }
 
     if (isDirectPlay) {
+      console.log('[弹幕] 直链播放，跳过自动加载');
       return;
     }
 
@@ -859,11 +861,18 @@ function PlayPageClient() {
 
     // 检查集数是否有效且是否已改变
     if (currentEpisodeIndex < 0 || !videoTitle) {
+      console.log(`[弹幕] 视频标题或集数无效: currentEpisodeIndex=${currentEpisodeIndex}, videoTitle="${videoTitle}"`);
       return;
     }
 
-    // 如果集数已经加载过，跳过
-    if (lastLoadedEpisodeIndexForDanmakuRef.current === currentEpisodeIndex) {
+    console.log(`[弹幕] ====== 准备加载弹幕 ======`);
+    console.log(`[弹幕] lastLoadedEpisodeIndexForDanmakuRef.current=${lastLoadedEpisodeIndexForDanmakuRef.current}, currentEpisodeIndex=${currentEpisodeIndex}`);
+
+    // 如果集数已经加载过，跳过（但允许在页面刷新后首次加载时重新加载）
+    // 修改：只有在明确加载过同一集的情况下才跳过
+    // 使用一个特殊的标记来区分"页面刷新后首次加载"和"切换集数"
+    if (lastLoadedEpisodeIndexForDanmakuRef.current === currentEpisodeIndex && lastLoadedEpisodeIndexForDanmakuRef.current !== null) {
+      console.log(`[弹幕] 第 ${currentEpisodeIndex + 1} 集已经加载过，跳过`);
       return;
     }
 
