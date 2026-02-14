@@ -4119,9 +4119,8 @@ function PlayPageClient() {
     try {
       // 先清空当前弹幕（使用 reset 方法，不触发显示/隐藏事件）
       danmakuPluginRef.current.reset();
-      // 强制清空屏幕上的弹幕
-      danmakuPluginRef.current.config({ danmuku: [] });
-      danmakuPluginRef.current.load();
+      // 注意：不要在 config 空数组后立即 load，这可能导致重复显示
+      // 等获取到新数据后再统一 load
       setDanmakuCount(0);
 
       // 获取弹幕数据（使用 title + episodeIndex 缓存）
