@@ -837,6 +837,8 @@ function PlayPageClient() {
   // 监听剧集切换，自动加载对应的弹幕
   const lastLoadedEpisodeIndexForDanmakuRef = useRef<number | null>(null);
   const loadingDanmakuEpisodeIdRef = useRef<number | null>(null);
+  // 防止并发加载同一集弹幕的锁
+  const isLoadingDanmakuRef = useRef<boolean>(false);
 
   useEffect(() => {
     // 等待初始化完成（播放记录恢复完成）
@@ -865,8 +867,15 @@ function PlayPageClient() {
       return;
     }
 
-    // 标记当前集数已加载
+    // 如果正在加载中，跳过（防止 useEffect 重复触发导致的并发加载）
+    if (isLoadingDanmakuRef.current) {
+      console.log(`[弹幕] 第 ${currentEpisodeIndex + 1} 集正在加载中，跳过重复触发`);
+      return;
+    }
+
+    // 标记当前集数已加载并加锁
     lastLoadedEpisodeIndexForDanmakuRef.current = currentEpisodeIndex;
+    isLoadingDanmakuRef.current = true;
 
     console.log(`[弹幕] 剧集切换到第 ${currentEpisodeIndex + 1} 集，自动加载弹幕`);
 
@@ -1126,7 +1135,19 @@ function PlayPageClient() {
       await autoSearchDanmaku();
     };
 
-    loadDanmakuForCurrentEpisode();
+    // 包装加载函数，确保无论成功与否都解锁
+    const loadWithLock = async () => {
+      try {
+        await loadDanmakuForCurrentEpisode();
+      } finally {
+        // 延迟解锁，确保所有异步操作完成
+        setTimeout(() => {
+          isLoadingDanmakuRef.current = false;
+        }, 100);
+      }
+    };
+
+    loadWithLock();
   }, [currentEpisodeIndex, videoTitle, loading, isDirectPlay]);
 
   // 获取豆瓣评分数据
