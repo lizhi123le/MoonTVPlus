@@ -86,15 +86,29 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     return processImageUrl(getTMDBImageUrl(path, 'original'));
   };
 
-  // 获取视频URL（处理豆瓣视频代理）
-  const getVideoUrl = (url: string | null) => {
+  // 视频URL缓存，避免重复生成代理URL导致重新请求
+  const videoUrlCacheRef = useRef<Map<string, string>>(new Map());
+
+  // 获取视频URL（处理豆瓣视频代理）- 使用缓存避免重复生成
+  const getVideoUrl = useCallback((url: string | null) => {
     if (!url) return null;
+    
+    // 检查缓存
+    const cached = videoUrlCacheRef.current.get(url);
+    if (cached) return cached;
+    
     // 豆瓣视频直接使用服务器代理
+    let result: string;
     if (url.includes('doubanio.com')) {
-      return `/api/video-proxy?url=${encodeURIComponent(url)}`;
+      result = `/api/video-proxy?url=${encodeURIComponent(url)}`;
+    } else {
+      result = url;
     }
-    return url;
-  };
+    
+    // 缓存结果
+    videoUrlCacheRef.current.set(url, result);
+    return result;
+  }, []);
 
   // 标记组件已挂载（用于localStorage访问）
   useEffect(() => {
@@ -334,35 +348,39 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     }
   }, [currentIndex, isMuted, hasStarted]);
 
+  // 获取当前项
+  const currentItem = items[currentIndex];
+
   // 缓存当前显示的背景内容，避免不必要的重新渲染
   const bannerBackground = useMemo(() => {
-    const item = items[currentIndex];
-    if (!item) return null;
+    if (!currentItem) return null;
 
     return (
       <div
-        key={`banner-${item.id}`}
+        key={`banner-${currentItem.id}`}
         className="absolute inset-0"
       >
-        {item.trailer_url && enableTrailers ? (
+        {currentItem.trailer_url && enableTrailers ? (
           /* 显示豆瓣直链视频 */
           <div className="absolute inset-0 overflow-hidden">
             <video
+              key={`video-${currentItem.id}`}
               ref={(el) => setVideoRef(el, currentIndex)}
-              src={getVideoUrl(item.trailer_url) || undefined}
+              src={getVideoUrl(currentItem.trailer_url) || undefined}
               className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full w-auto h-auto object-cover"
               muted={isMuted}
               loop
               playsInline
-              preload="none"
+              preload="metadata"
             />
           </div>
-        ) : item.video_key && isYouTubeAccessible && enableTrailers ? (
+        ) : currentItem.video_key && isYouTubeAccessible && enableTrailers ? (
           /* 显示YouTube视频 */
           <div className="absolute inset-0 overflow-hidden">
             <iframe
-              title={`${item.title} trailer`}
-              src={`https://www.youtube.com/embed/${item.video_key}?listType=playlist&autoplay=1&mute=1&controls=0&loop=1&playlist=${item.video_key}&modestbranding=1&rel=0&showinfo=0&vq=hd1080&hd=1&disablekb=1&fs=0&iv_load_policy=3`}
+              key={`youtube-${currentItem.id}`}
+              title={`${currentItem.title} trailer`}
+              src={`https://www.youtube.com/embed/${currentItem.video_key}?listType=playlist&autoplay=1&mute=1&controls=0&loop=1&playlist=${currentItem.video_key}&modestbranding=1&rel=0&showinfo=0&vq=hd1080&hd=1&disablekb=1&fs=0&iv_load_policy=3`}
               className="absolute top-1/2 left-1/2 pointer-events-none"
               allow="autoplay; encrypted-media"
               style={{
@@ -378,8 +396,9 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
         ) : (
           /* 显示图片 */
           <Image
-            src={getImageUrl(item.backdrop_path || item.poster_path)}
-            alt={item.title}
+            key={`image-${currentItem.id}`}
+            src={getImageUrl(currentItem.backdrop_path || currentItem.poster_path)}
+            alt={currentItem.title}
             fill
             className="object-cover"
             priority
@@ -391,9 +410,17 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
       </div>
     );
-    // 只在关键依赖变化时重新渲染
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, items, enableTrailers, isMuted, isYouTubeAccessible]);
+  }, [
+    currentIndex,
+    currentItem,
+    enableTrailers,
+    isMuted,
+    isYouTubeAccessible,
+    getVideoUrl,
+    getImageUrl,
+    setVideoRef,
+  ]);
 
   // 页面加载完成后开始播放（避免 CPU 超时）
   useEffect(() => {
@@ -510,8 +537,6 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
   if (!items.length) {
     return null;
   }
-
-  const currentItem = items[currentIndex];
 
   return (
     <div
