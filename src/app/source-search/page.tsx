@@ -61,27 +61,39 @@ function SourceSearchPageClient() {
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [searchInputValue, setSearchInputValue] = useState<string>('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);  // 标记是否已初始化
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const isFirstRender = useRef(true);  // 标记是否是首次渲染
 
-  // 保存源和分类到 sessionStorage
+  // 保存源和分类到 sessionStorage（仅在初始化后保存）
   const saveSourceCategoryToStorage = (source: string, category: string) => {
+    if (!isInitialized) {
+      console.log('[源站寻片] 跳过保存 - 尚未初始化完成');
+      return;
+    }
     try {
+      console.log('[源站寻片] 保存到 sessionStorage:', { source, category });
       sessionStorage.setItem('sourceSearch_source', source);
       sessionStorage.setItem('sourceSearch_category', category);
     } catch (e) {
-      console.error('保存源和分类失败:', e);
+      console.error('[源站寻片] 保存源和分类失败:', e);
     }
   };
 
   // 从 sessionStorage 恢复源和分类
   const restoreSourceCategoryFromStorage = (): { source: string; category: string } => {
     try {
-      return {
-        source: sessionStorage.getItem('sourceSearch_source') || '',
-        category: sessionStorage.getItem('sourceSearch_category') || '',
-      };
+      // 检查是否在浏览器环境中
+      if (typeof window === 'undefined') {
+        console.log('[源站寻片] 服务端环境，跳过 sessionStorage 读取');
+        return { source: '', category: '' };
+      }
+      const source = sessionStorage.getItem('sourceSearch_source') || '';
+      const category = sessionStorage.getItem('sourceSearch_category') || '';
+      console.log('[源站寻片] 从 sessionStorage 恢复:', { source, category });
+      return { source, category };
     } catch (e) {
-      console.error('读取源和分类失败:', e);
+      console.error('[源站寻片] 读取源和分类失败:', e);
       return { source: '', category: '' };
     }
   };
@@ -90,18 +102,22 @@ function SourceSearchPageClient() {
   useEffect(() => {
     const fetchApiSites = async () => {
       setIsLoadingSources(true);
+      console.log('[源站寻片] 开始加载源列表');
       try {
         const response = await fetch('/api/source-search/sources');
         const data = await response.json();
         if (data.sources && Array.isArray(data.sources)) {
           setApiSites(data.sources);
+          console.log('[源站寻片] 源加载完成, 共', data.sources.length, '个');
           
           // 尝试恢复之前保存的源和分类
           const saved = restoreSourceCategoryFromStorage();
+          console.log('[源站寻片] 恢复的源和分类:', saved);
           const savedSourceExists = data.sources.some((s: ApiSite) => s.key === saved.source);
           
           if (savedSourceExists && saved.source) {
             // 恢复保存的源
+            console.log('[源站寻片] 恢复保存的源:', saved.source);
             setSelectedSource(saved.source);
             const sourceItem = data.sources.find((s: ApiSite) => s.key === saved.source);
             if (sourceItem) {
@@ -110,6 +126,7 @@ function SourceSearchPageClient() {
             // 分类会在 useEffect 中自动恢复
           } else {
             // 默认选择第一个源，并显示分类下拉
+            console.log('[源站寻片] 使用默认源');
             if (data.sources.length > 0) {
               setSelectedSource(data.sources[0].key);
               setSelectedSourceName(data.sources[0].name);
@@ -118,7 +135,7 @@ function SourceSearchPageClient() {
           }
         }
       } catch (error) {
-        console.error('Failed to load API sources:', error);
+        console.error('[源站寻片] 加载源失败:', error);
       } finally {
         setIsLoadingSources(false);
       }
@@ -131,13 +148,16 @@ function SourceSearchPageClient() {
   useEffect(() => {
     if (!selectedSource) return;
 
+    console.log('[源站寻片] selectedSource 变化:', selectedSource);
+
     const fetchCategories = async () => {
       setIsLoadingCategories(true);
       setCategories([]);
-      setSelectedCategory('');
+      setSelectedCategory('');  // 先清空
       setVideos([]);
       setCurrentPage(1);
       setHasMore(true);
+      console.log('[源站寻片] 开始加载分类, selectedSource:', selectedSource);
       try {
         const response = await fetch(
           `/api/source-search/categories?source=${encodeURIComponent(selectedSource)}`
@@ -145,21 +165,27 @@ function SourceSearchPageClient() {
         const data = await response.json();
         if (data.categories && Array.isArray(data.categories)) {
           setCategories(data.categories);
+          console.log('[源站寻片] 分类加载完成, 共', data.categories.length, '个');
           
           // 尝试恢复之前保存的分类
           const saved = restoreSourceCategoryFromStorage();
+          console.log('[源站寻片] 尝试恢复分类, saved:', saved);
           const savedCategoryExists = data.categories.some((c: Category) => c.id === saved.category);
           
           if (savedCategoryExists && saved.category) {
-            // 恢复保存的分类
+            console.log('[源站寻片] 恢复保存的分类:', saved.category);
             setSelectedCategory(saved.category);
           } else if (data.categories.length > 0) {
-            // 默认选择第一个分类
+            console.log('[源站寻片] 使用默认分类:', data.categories[0].id);
             setSelectedCategory(data.categories[0].id);
           }
+          
+          // 初始化完成后标记
+          setIsInitialized(true);
+          console.log('[源站寻片] 初始化完成');
         }
       } catch (error) {
-        console.error('Failed to load categories:', error);
+        console.error('[源站寻片] 加载分类失败:', error);
       } finally {
         setIsLoadingCategories(false);
       }
@@ -168,8 +194,14 @@ function SourceSearchPageClient() {
     fetchCategories();
   }, [selectedSource]);
 
-  // 当选择的分类变化时，保存到 sessionStorage
+  // 当选择的分类变化时，保存到 sessionStorage（仅在初始化后）
   useEffect(() => {
+    // 跳过首次渲染时的保存
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    
     if (selectedSource && selectedCategory) {
       saveSourceCategoryToStorage(selectedSource, selectedCategory);
     }
