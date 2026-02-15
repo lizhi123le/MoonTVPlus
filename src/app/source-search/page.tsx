@@ -63,6 +63,29 @@ function SourceSearchPageClient() {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
+  // 保存源和分类到 sessionStorage
+  const saveSourceCategoryToStorage = (source: string, category: string) => {
+    try {
+      sessionStorage.setItem('sourceSearch_source', source);
+      sessionStorage.setItem('sourceSearch_category', category);
+    } catch (e) {
+      console.error('保存源和分类失败:', e);
+    }
+  };
+
+  // 从 sessionStorage 恢复源和分类
+  const restoreSourceCategoryFromStorage = (): { source: string; category: string } => {
+    try {
+      return {
+        source: sessionStorage.getItem('sourceSearch_source') || '',
+        category: sessionStorage.getItem('sourceSearch_category') || '',
+      };
+    } catch (e) {
+      console.error('读取源和分类失败:', e);
+      return { source: '', category: '' };
+    }
+  };
+
   // 加载用户可用的视频源
   useEffect(() => {
     const fetchApiSites = async () => {
@@ -72,11 +95,29 @@ function SourceSearchPageClient() {
         const data = await response.json();
         if (data.sources && Array.isArray(data.sources)) {
           setApiSites(data.sources);
-          // 默认选择第一个源，并显示分类下拉
-          if (data.sources.length > 0) {
-            setSelectedSource(data.sources[0].key);
-            setSelectedSourceName(data.sources[0].name);
-            setShowCategoryDropdown(true);
+          
+          // 尝试恢复之前保存的源和分类
+          const saved = restoreSourceCategoryFromStorage();
+          const savedSourceExists = data.sources.some((s: ApiSite) => s.key === saved.source);
+          
+          if (savedSourceExists && saved.source) {
+            // 恢复保存的源
+            setSelectedSource(saved.source);
+            const sourceItem = data.sources.find((s: ApiSite) => s.key === saved.source);
+            if (sourceItem) {
+              setSelectedSourceName(sourceItem.name);
+            }
+            // 延迟设置分类，等分类加载完成后判断
+            setTimeout(() => {
+              setSelectedCategory(saved.category);
+            }, 100);
+          } else {
+            // 默认选择第一个源，并显示分类下拉
+            if (data.sources.length > 0) {
+              setSelectedSource(data.sources[0].key);
+              setSelectedSourceName(data.sources[0].name);
+              setShowCategoryDropdown(true);
+            }
           }
         }
       } catch (error) {
@@ -121,6 +162,13 @@ function SourceSearchPageClient() {
 
     fetchCategories();
   }, [selectedSource]);
+
+  // 当选择的分类变化时，保存到 sessionStorage
+  useEffect(() => {
+    if (selectedSource && selectedCategory) {
+      saveSourceCategoryToStorage(selectedSource, selectedCategory);
+    }
+  }, [selectedSource, selectedCategory]);
 
   // 当选择的分类或页码变化时，加载视频列表（浏览模式）
   useEffect(() => {
