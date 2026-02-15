@@ -65,32 +65,32 @@ function SourceSearchPageClient() {
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);  // 标记是否是首次渲染
 
-  // 保存源和分类到 sessionStorage（仅在初始化后保存）
+  // 保存源和分类到 localStorage（使用 localStorage 持久化保存，关闭浏览器后仍保留）
   const saveSourceCategoryToStorage = (source: string, category: string) => {
     if (!isInitialized) {
       console.log('[源站寻片] 跳过保存 - 尚未初始化完成');
       return;
     }
     try {
-      console.log('[源站寻片] 保存到 sessionStorage:', { source, category });
-      sessionStorage.setItem('sourceSearch_source', source);
-      sessionStorage.setItem('sourceSearch_category', category);
+      console.log('[源站寻片] 保存到 localStorage:', { source, category });
+      localStorage.setItem('sourceSearch_source', source);
+      localStorage.setItem('sourceSearch_category', category);
     } catch (e) {
       console.error('[源站寻片] 保存源和分类失败:', e);
     }
   };
 
-  // 从 sessionStorage 恢复源和分类
+  // 从 localStorage 恢复源和分类
   const restoreSourceCategoryFromStorage = (): { source: string; category: string } => {
     try {
       // 检查是否在浏览器环境中
       if (typeof window === 'undefined') {
-        console.log('[源站寻片] 服务端环境，跳过 sessionStorage 读取');
+        console.log('[源站寻片] 服务端环境，跳过 localStorage 读取');
         return { source: '', category: '' };
       }
-      const source = sessionStorage.getItem('sourceSearch_source') || '';
-      const category = sessionStorage.getItem('sourceSearch_category') || '';
-      console.log('[源站寻片] 从 sessionStorage 恢复:', { source, category });
+      const source = localStorage.getItem('sourceSearch_source') || '';
+      const category = localStorage.getItem('sourceSearch_category') || '';
+      console.log('[源站寻片] 从 localStorage 恢复:', { source, category });
       return { source, category };
     } catch (e) {
       console.error('[源站寻片] 读取源和分类失败:', e);
