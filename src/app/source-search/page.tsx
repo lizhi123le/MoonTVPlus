@@ -107,10 +107,7 @@ function SourceSearchPageClient() {
             if (sourceItem) {
               setSelectedSourceName(sourceItem.name);
             }
-            // 延迟设置分类，等分类加载完成后判断
-            setTimeout(() => {
-              setSelectedCategory(saved.category);
-            }, 100);
+            // 分类会在 useEffect 中自动恢复
           } else {
             // 默认选择第一个源，并显示分类下拉
             if (data.sources.length > 0) {
@@ -148,8 +145,16 @@ function SourceSearchPageClient() {
         const data = await response.json();
         if (data.categories && Array.isArray(data.categories)) {
           setCategories(data.categories);
-          // 默认选择第一个分类
-          if (data.categories.length > 0) {
+          
+          // 尝试恢复之前保存的分类
+          const saved = restoreSourceCategoryFromStorage();
+          const savedCategoryExists = data.categories.some((c: Category) => c.id === saved.category);
+          
+          if (savedCategoryExists && saved.category) {
+            // 恢复保存的分类
+            setSelectedCategory(saved.category);
+          } else if (data.categories.length > 0) {
+            // 默认选择第一个分类
             setSelectedCategory(data.categories[0].id);
           }
         }
