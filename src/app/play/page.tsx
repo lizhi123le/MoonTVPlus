@@ -908,9 +908,69 @@ function PlayPageClient() {
         
         try {
           const episodesResult = await getEpisodes(savedAnimeId);
-          if (episodesResult.success && episodesResult.bangumi.episodes.length > 0) {
+          console.log('[弹幕记忆] 获取剧集结果:', episodesResult.success, '集数:', episodesResult.bangumi?.episodes?.length);
+          
+          // 检查是否获取到剧集列表
+          if (!episodesResult.success || !episodesResult.bangumi.episodes || episodesResult.bangumi.episodes.length === 0) {
+            console.log('[弹幕记忆] 获取剧集列表失败或为空，尝试候选源...');
+            const candidates = getDanmakuAnimeCandidates(title);
+            console.log('[弹幕记忆] 候选源列表:', candidates);
+            if (candidates && candidates.length > 0) {
+              // ... 尝试候选源的逻辑（复用下面的代码）
+              const tryNextCandidate = async (candidateList: number[], isFallback = false): Promise<boolean> => {
+                if (candidateList.length === 0) {
+                  console.log('[弹幕记忆] 所有候选源都已尝试完毕');
+                  return false;
+                }
+                
+                const nextAnimeId = candidateList[0];
+                const remaining = candidateList.slice(1);
+                
+                console.log(`[弹幕记忆] 尝试候选源: ${nextAnimeId}`);
+                
+                try {
+                  const result = await getEpisodes(nextAnimeId);
+                  if (result.success && result.bangumi.episodes.length > 0) {
+                    const videoEpTitle = detailRef.current?.episodes_titles?.[episodeIndex];
+                    const matchedEpisode = matchDanmakuEpisode(episodeIndex, result.bangumi.episodes, videoEpTitle);
+                    
+                    if (matchedEpisode) {
+                      const selection: DanmakuSelection = {
+                        animeId: nextAnimeId,
+                        episodeId: matchedEpisode.episodeId,
+                        animeTitle: result.bangumi.animeTitle,
+                        episodeTitle: matchedEpisode.episodeTitle,
+                      };
+                      
+                      setDanmakuEpisodesList(result.bangumi.episodes);
+                      saveDanmakuAnimeId(title, nextAnimeId);
+                      await handleDanmakuSelect(selection, false);
+                      console.log(`[弹幕记忆] 候选源匹配成功: ${result.bangumi.animeTitle}`);
+                      return true;
+                    } else {
+                      console.log(`[弹幕记忆] 候选源 ${nextAnimeId} 集数匹配失败，尝试下一个`);
+                      return await tryNextCandidate(remaining, true);
+                    }
+                  } else {
+                    console.log(`[弹幕记忆] 候选源 ${nextAnimeId} 获取剧集列表失败`);
+                    return await tryNextCandidate(remaining, true);
+                  }
+                } catch (error) {
+                  console.error(`[弹幕记忆] 候选源 ${nextAnimeId} 加载失败:`, error);
+                  return await tryNextCandidate(remaining, true);
+                }
+              };
+              
+              const found = await tryNextCandidate(candidates);
+              if (found) {
+                return;
+              }
+            }
+            // 没有候选源或都失败，继续后续逻辑
+          } else if (episodesResult.bangumi.episodes.length > 0) {
             const videoEpTitle = detailRef.current?.episodes_titles?.[episodeIndex];
             const episode = matchDanmakuEpisode(episodeIndex, episodesResult.bangumi.episodes, videoEpTitle);
+            console.log('[弹幕记忆] 匹配结果:', episode ? `匹配成功: ${episode.episodeTitle}` : '匹配失败');
 
             if (episode) {
               const selection: DanmakuSelection = {
@@ -929,6 +989,7 @@ function PlayPageClient() {
               // 集数匹配失败，尝试下一个候选源
               console.log('[弹幕记忆] 保存的动漫ID集数匹配失败，尝试候选源...');
               const candidates = getDanmakuAnimeCandidates(title);
+              console.log('[弹幕记忆] 候选源列表:', candidates);
               if (candidates && candidates.length > 0) {
                 const tryNextCandidate = async (candidateList: number[], isFallback = false): Promise<boolean> => {
                   if (candidateList.length === 0) {
@@ -956,7 +1017,6 @@ function PlayPageClient() {
                         };
                         
                         setDanmakuEpisodesList(result.bangumi.episodes);
-                        // 保存新的动漫ID作为主选择
                         saveDanmakuAnimeId(title, nextAnimeId);
                         await handleDanmakuSelect(selection, false);
                         console.log(`[弹幕记忆] 候选源匹配成功: ${result.bangumi.animeTitle}`);
