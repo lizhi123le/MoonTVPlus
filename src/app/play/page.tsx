@@ -6694,20 +6694,29 @@ function PlayPageClient() {
                 }
 
                 if (progressBar && $el.parentElement) {
-                  const rect = progressBar.getBoundingClientRect();
-                  const parentRect = $el.parentElement.getBoundingClientRect();
+                  // 使用 offset 属性获取相对于父容器的位置
+                  // 这样无论是否全屏都能正确定位
+                  const progressLeft = progressBar.offsetLeft;
+                  const progressWidth = progressBar.offsetWidth;
+                  
+                  // 获取父容器的实际高度来计算 bottom
+                  const parentHeight = $el.parentElement.offsetHeight;
+                  const progressBottom = parentHeight - progressBar.offsetTop - progressBar.offsetHeight;
 
                   // 调整热力图位置以完全匹配进度条
-                  $el.style.left = `${rect.left - parentRect.left}px`;
-                  $el.style.bottom = `${parentRect.bottom - rect.bottom + 5}px`;
-                  $el.style.width = `${rect.width}px`;
+                  $el.style.left = `${progressLeft}px`;
+                  $el.style.bottom = `${progressBottom + 5}px`;
+                  $el.style.width = `${progressWidth}px`;
 
                   // 更新 canvas 分辨率
                   updateCanvasSize();
                 }
               };
 
-              // 初始调整
+              // 初始调整 - 使用多次尝试确保在非全屏状态下也能正确定位
+              adjustHeatmapPosition();
+              setTimeout(adjustHeatmapPosition, 100);
+              setTimeout(adjustHeatmapPosition, 300);
               setTimeout(adjustHeatmapPosition, 500);
 
               // 监听进度条尺寸变化
