@@ -435,7 +435,13 @@ function SourceSearchPageClient() {
                     value: category.id,
                   }))}
                   active={selectedCategory}
-                  onChange={setSelectedCategory}
+                  onChange={(categoryId) => {
+                    // 重置分页状态，确保切换分类后能正常加载
+                    setCurrentPage(1);
+                    setHasMore(true);
+                    setVideos([]);
+                    setSelectedCategory(categoryId);
+                  }}
                 />
               )}
             </div>
