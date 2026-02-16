@@ -56,6 +56,74 @@ import { RedisStorage } from './redis.db';
 import { DanmakuFilterConfig,Favorite, IStorage, PlayRecord, SkipConfig } from './types';
 import { UpstashRedisStorage } from './upstash.db';
 
+// No-Op 存储实现（用于 localstorage 模式 - 客户端使用）
+// 在服务端模式下，这些方法不应该被调用
+class NoOpStorage implements IStorage {
+  private throwError(method: string): never {
+    throw new Error(`IStorage.${method}() is not supported in localstorage mode on server side. This method should only be called from the client.`);
+  }
+
+  async getPlayRecord(userName: string, key: string): Promise<PlayRecord | null> { return this.throwError('getPlayRecord'); }
+  async setPlayRecord(userName: string, key: string, record: PlayRecord): Promise<void> { return this.throwError('setPlayRecord'); }
+  async getAllPlayRecords(userName: string): Promise<{ [key: string]: PlayRecord }> { return this.throwError('getAllPlayRecords'); }
+  async deletePlayRecord(userName: string, key: string): Promise<void> { return this.throwError('deletePlayRecord'); }
+  async cleanupOldPlayRecords(userName: string): Promise<void> { return this.throwError('cleanupOldPlayRecords'); }
+  async migratePlayRecords(userName: string): Promise<void> { return this.throwError('migratePlayRecords'); }
+
+  async getFavorite(userName: string, key: string): Promise<Favorite | null> { return this.throwError('getFavorite'); }
+  async setFavorite(userName: string, key: string, favorite: Favorite): Promise<void> { return this.throwError('setFavorite'); }
+  async getAllFavorites(userName: string): Promise<{ [key: string]: Favorite }> { return this.throwError('getAllFavorites'); }
+  async deleteFavorite(userName: string, key: string): Promise<void> { return this.throwError('deleteFavorite'); }
+  async migrateFavorites(userName: string): Promise<void> { return this.throwError('migrateFavorites'); }
+
+  async getMusicPlayRecord(userName: string, key: string): Promise<any | null> { return this.throwError('getMusicPlayRecord'); }
+  async setMusicPlayRecord(userName: string, key: string, record: any): Promise<void> { return this.throwError('setMusicPlayRecord'); }
+  async batchSetMusicPlayRecords(userName: string, records: { key: string; record: any }[]): Promise<void> { return this.throwError('batchSetMusicPlayRecords'); }
+  async getAllMusicPlayRecords(userName: string): Promise<{ [key: string]: any }> { return this.throwError('getAllMusicPlayRecords'); }
+  async deleteMusicPlayRecord(userName: string, key: string): Promise<void> { return this.throwError('deleteMusicPlayRecord'); }
+  async clearAllMusicPlayRecords(userName: string): Promise<void> { return this.throwError('clearAllMusicPlayRecords'); }
+
+  async verifyUser(userName: string, password: string): Promise<boolean> { return this.throwError('verifyUser'); }
+  async checkUserExist(userName: string): Promise<boolean> { return this.throwError('checkUserExist'); }
+  async changePassword(userName: string, newPassword: string): Promise<void> { return this.throwError('changePassword'); }
+  async deleteUser(userName: string): Promise<void> { return this.throwError('deleteUser'); }
+
+  async getSearchHistory(userName: string): Promise<string[]> { return this.throwError('getSearchHistory'); }
+  async addSearchHistory(userName: string, keyword: string): Promise<void> { return this.throwError('addSearchHistory'); }
+  async deleteSearchHistory(userName: string, keyword?: string): Promise<void> { return this.throwError('deleteSearchHistory'); }
+
+  async getAllUsers(): Promise<string[]> { return this.throwError('getAllUsers'); }
+
+  async getAdminConfig(): Promise<AdminConfig | null> { return this.throwError('getAdminConfig'); }
+  async setAdminConfig(config: AdminConfig): Promise<void> { return this.throwError('setAdminConfig'); }
+
+  async getSkipConfig(userName: string, source: string, id: string): Promise<SkipConfig | null> { return this.throwError('getSkipConfig'); }
+  async setSkipConfig(userName: string, source: string, id: string, config: SkipConfig): Promise<void> { return this.throwError('setSkipConfig'); }
+  async deleteSkipConfig(userName: string, source: string, id: string): Promise<void> { return this.throwError('deleteSkipConfig'); }
+  async getAllSkipConfigs(userName: string): Promise<{ [key: string]: SkipConfig }> { return this.throwError('getAllSkipConfigs'); }
+  async migrateSkipConfigs(userName: string): Promise<void> { return this.throwError('migrateSkipConfigs'); }
+
+  async getDanmakuFilterConfig(userName: string): Promise<DanmakuFilterConfig | null> { return this.throwError('getDanmakuFilterConfig'); }
+  async setDanmakuFilterConfig(userName: string, config: DanmakuFilterConfig): Promise<void> { return this.throwError('setDanmakuFilterConfig'); }
+  async deleteDanmakuFilterConfig(userName: string): Promise<void> { return this.throwError('deleteDanmakuFilterConfig'); }
+
+  async clearAllData(): Promise<void> { return this.throwError('clearAllData'); }
+
+  async getGlobalValue(key: string): Promise<string | null> { return this.throwError('getGlobalValue'); }
+  async setGlobalValue(key: string, value: string): Promise<void> { return this.throwError('setGlobalValue'); }
+  async deleteGlobalValue(key: string): Promise<void> { return this.throwError('deleteGlobalValue'); }
+
+  async getPlayerSettings(userId: string): Promise<string | null> { return this.throwError('getPlayerSettings'); }
+  async setPlayerSettings(userId: string, settings: string, updatedAt?: number): Promise<void> { return this.throwError('setPlayerSettings'); }
+  async deletePlayerSettings(userId: string): Promise<void> { return this.throwError('deletePlayerSettings'); }
+
+  async getSkipTime(titleNormalized: string): Promise<{ intro_time: number; outro_time: number; updated_at: number } | null> { return this.throwError('getSkipTime'); }
+  async setSkipTime(titleNormalized: string, intro_time: number, outro_time: number): Promise<void> { return this.throwError('setSkipTime'); }
+  async getAllSkipTimes(): Promise<Array<{ title_normalized: string; intro_time: number; outro_time: number; updated_at: number }>> { return this.throwError('getAllSkipTimes'); }
+  async bulkSetSkipTimes(skipTimes: Array<{ title_normalized: string; intro_time: number; outro_time: number; updated_at: number }>): Promise<void> { return this.throwError('bulkSetSkipTimes'); }
+  async deleteSkipTime(titleNormalized: string): Promise<void> { return this.throwError('deleteSkipTime'); }
+}
+
 // storage type 常量: 'localstorage' | 'redis' | 'upstash' | 'kvrocks' | 'd1' | 'postgres'，默认 'localstorage'
 const STORAGE_TYPE =
   (process.env.NEXT_PUBLIC_STORAGE_TYPE as
@@ -98,7 +166,7 @@ function createStorage(): IStorage {
     }
     case 'localstorage':
     default:
-      return null as unknown as IStorage;
+      return new NoOpStorage();
   }
 }
 

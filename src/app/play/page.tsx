@@ -4,7 +4,7 @@
 
 import { AlertCircle, Cloud, Heart, Sparkles, X } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Component, ErrorInfo, ReactNode, Suspense, useEffect, useRef, useState } from 'react';
 
 import { getAuthInfoFromBrowserCookie } from '@/lib/auth';
 import {
@@ -8713,10 +8713,75 @@ const FavoriteIcon = ({ filled }: { filled: boolean }) => {
   );
 };
 
+// 错误边界组件 - 用于捕获播放页面中的运行时错误
+interface ErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    console.error('PlayPage ErrorBoundary caught an error:', error, errorInfo);
+  }
+
+  render(): ReactNode {
+    if (this.state.hasError) {
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
+          <div className="mx-4 max-w-md rounded-lg bg-white p-6 text-center shadow-lg dark:bg-gray-800">
+            <AlertCircle className="mx-auto mb-4 h-12 w-12 text-red-500" />
+            <h1 className="mb-2 text-xl font-bold text-gray-900 dark:text-white">
+              播放页面出错
+            </h1>
+            <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
+              抱歉，播放页面遇到了一个错误。请尝试刷新页面。
+            </p>
+            {this.state.error && (
+              <p className="mb-4 break-all rounded bg-gray-100 p-2 text-xs text-gray-500 dark:bg-gray-700">
+                {this.state.error.message}
+              </p>
+            )}
+            <button
+              onClick={() => window.location.reload()}
+              className="rounded-lg bg-blue-500 px-4 py-2 text-white transition-colors hover:bg-blue-600"
+            >
+              刷新页面
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 export default function PlayPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <PlayPageClient />
-    </Suspense>
+    <ErrorBoundary>
+      <Suspense fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-center">
+            <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+            <p className="text-gray-600 dark:text-gray-300">加载中...</p>
+          </div>
+        </div>
+      }>
+        <PlayPageClient />
+      </Suspense>
+    </ErrorBoundary>
   );
 }

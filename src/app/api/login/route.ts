@@ -345,12 +345,13 @@ export async function POST(req: NextRequest) {
     const expires = new Date();
     expires.setDate(expires.getDate() + 60); // 60天过期（Refresh Token 有效期）
 
-  response.cookies.set('auth', cookieValue, {
-    path: '/',
-    expires,
-    sameSite: 'lax',
-    httpOnly: false, // 允许客户端访问
-  });
+    response.cookies.set('auth', cookieValue, {
+      path: '/',
+      expires,
+      sameSite: 'lax',
+      httpOnly: false,
+      secure: false,
+    });
 
     console.log(`Cookie已设置`);
 

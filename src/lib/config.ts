@@ -468,11 +468,16 @@ export function configSelfCheck(adminConfig: AdminConfig): AdminConfig {
   // 用户信息已迁移到新版数据库
   // 这里只保留站长用户用于兼容性，其他用户从数据库读取
   const ownerUser = process.env.USERNAME;
-  adminConfig.UserConfig.Users = [{
-    username: ownerUser!,
-    role: 'owner',
-    banned: false,
-  }];
+  if (ownerUser) {
+    adminConfig.UserConfig.Users = [{
+      username: ownerUser,
+      role: 'owner',
+      banned: false,
+    }];
+  } else {
+    // 如果没有配置 USERNAME，则不添加默认用户
+    adminConfig.UserConfig.Users = [];
+  }
 
   // 采集源去重
   const seenSourceKeys = new Set<string>();

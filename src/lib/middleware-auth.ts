@@ -26,6 +26,9 @@ export async function generateSignatureForMiddleware(
     .join('');
 }
 
+// 是否启用调试日志
+const DEBUG_MODE = process.env.NODE_ENV !== 'production';
+
 // 刷新 Access Token
 export async function refreshAccessToken(
   username: string,
@@ -38,7 +41,9 @@ export async function refreshAccessToken(
   const isValid = await verifyRefreshToken(username, tokenId, refreshToken);
 
   if (!isValid) {
-    console.log(`Refresh token invalid for ${username}:${tokenId}`);
+    if (DEBUG_MODE) {
+      console.log(`Refresh token invalid for ${username}:${tokenId}`);
+    }
     return null;
   }
 
@@ -66,7 +71,9 @@ export async function refreshAccessToken(
     signature
   };
 
-  console.log(`Refreshed access token for ${username}`);
+  if (DEBUG_MODE) {
+    console.log(`Refreshed access token for ${username}`);
+  }
 
   return encodeURIComponent(JSON.stringify(authData));
 }
