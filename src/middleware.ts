@@ -66,13 +66,12 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith('/api')) {
       return new NextResponse('Access token expired', { status: 401 });
     }
-    // 对于页面请求，也返回 401 让用户重新登录
+    // 对于页面请求，允许通过，让前端 TokenRefreshManager 在页面加载后刷新
     // 不能返回 401 或重定向，否则页面无法加载，前端代码无法运行
-    // 但我们必须验证签名，否则过期令牌可以被滥用
-    // 这里继续进行签名验证，如果签名无效则拒绝
+    console.log(`Allowing page request to pass, frontend will refresh token`);
   }
 
-  // 验证签名（无论 Access Token 是否过期都验证）
+  // Access Token 未过期，验证签名
   const isValidSignature = await verifySignature(
     authInfo.username,
     authInfo.role,
@@ -82,14 +81,7 @@ export async function middleware(request: NextRequest) {
   );
 
   if (!isValidSignature) {
-    console.log(`Invalid signature for ${authInfo.username}`);
     return handleAuthFailure(request, pathname);
-  }
-
-  // 签名验证通过，但 Access Token 已过期
-  // 对于页面请求，允许通过让前端刷新 token
-  if (age > ACCESS_TOKEN_AGE) {
-    console.log(`Allowing expired page request, frontend will refresh token`);
   }
 
   // 签名验证通过
