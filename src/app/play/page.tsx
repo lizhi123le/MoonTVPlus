@@ -4576,7 +4576,7 @@ function PlayPageClient() {
       if (title && danmakuMatches.length > 1) {
         const candidates = danmakuMatches
           .filter(m => m.animeId !== selectedAnime.animeId) // 排除当前选择的
-          .slice(0, 4) // 最多保存4个候选
+          .slice(0, 9) // 最多保存9个候选
           .map(m => m.animeId);
 
         if (candidates.length > 0) {
