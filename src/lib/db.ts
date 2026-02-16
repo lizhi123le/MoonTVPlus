@@ -53,7 +53,7 @@ import { AdminConfig } from './admin.types';
 import { MusicPlayRecord } from './db.client';
 import { KvrocksStorage } from './kvrocks.db';
 import { RedisStorage } from './redis.db';
-import { DanmakuFilterConfig,Favorite, IStorage, PlayRecord, SkipConfig } from './types';
+import { DanmakuFilterConfig, Favorite, IStorage, Notification, PlayRecord, SkipConfig, MovieRequest } from './types';
 import { UpstashRedisStorage } from './upstash.db';
 
 // No-Op 存储实现（用于 localstorage 模式 - 客户端使用）
@@ -112,6 +112,28 @@ class NoOpStorage implements IStorage {
   async getGlobalValue(key: string): Promise<string | null> { return this.throwError('getGlobalValue'); }
   async setGlobalValue(key: string, value: string): Promise<void> { return this.throwError('setGlobalValue'); }
   async deleteGlobalValue(key: string): Promise<void> { return this.throwError('deleteGlobalValue'); }
+
+  // 通知相关
+  async getNotifications(userName: string): Promise<Notification[]> { return this.throwError('getNotifications'); }
+  async addNotification(userName: string, notification: Notification): Promise<void> { return this.throwError('addNotification'); }
+  async markNotificationAsRead(userName: string, notificationId: string): Promise<void> { return this.throwError('markNotificationAsRead'); }
+  async deleteNotification(userName: string, notificationId: string): Promise<void> { return this.throwError('deleteNotification'); }
+  async clearAllNotifications(userName: string): Promise<void> { return this.throwError('clearAllNotifications'); }
+  async getUnreadNotificationCount(userName: string): Promise<number> { return this.throwError('getUnreadNotificationCount'); }
+
+  // 收藏更新检查相关
+  async getLastFavoriteCheckTime(userName: string): Promise<number> { return this.throwError('getLastFavoriteCheckTime'); }
+  async setLastFavoriteCheckTime(userName: string, timestamp: number): Promise<void> { return this.throwError('setLastFavoriteCheckTime'); }
+
+  // 求片相关
+  async getAllMovieRequests(): Promise<MovieRequest[]> { return this.throwError('getAllMovieRequests'); }
+  async getMovieRequest(requestId: string): Promise<MovieRequest | null> { return this.throwError('getMovieRequest'); }
+  async createMovieRequest(request: MovieRequest): Promise<void> { return this.throwError('createMovieRequest'); }
+  async updateMovieRequest(requestId: string, updates: Partial<MovieRequest>): Promise<void> { return this.throwError('updateMovieRequest'); }
+  async deleteMovieRequest(requestId: string): Promise<void> { return this.throwError('deleteMovieRequest'); }
+  async getUserMovieRequests(userName: string): Promise<string[]> { return this.throwError('getUserMovieRequests'); }
+  async addUserMovieRequest(userName: string, requestId: string): Promise<void> { return this.throwError('addUserMovieRequest'); }
+  async removeUserMovieRequest(userName: string, requestId: string): Promise<void> { return this.throwError('removeUserMovieRequest'); }
 
   async getPlayerSettings(userId: string): Promise<string | null> { return this.throwError('getPlayerSettings'); }
   async setPlayerSettings(userId: string, settings: string, updatedAt?: number): Promise<void> { return this.throwError('setPlayerSettings'); }
