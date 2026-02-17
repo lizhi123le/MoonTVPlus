@@ -67,28 +67,50 @@ export default function DanmakuPanel({
     }
   }, []);
 
-  // 选择动漫，加载剧集列表
+  // 选择动漫，自动匹配对应集数
   const handleAnimeSelect = useCallback(async (anime: DanmakuAnime) => {
-    setSelectedAnime(anime);
     setIsLoadingEpisodes(true);
 
     try {
       const response = await getEpisodes(anime.animeId);
 
       if (response.success && response.bangumi.episodes.length > 0) {
-        setEpisodes(response.bangumi.episodes);
+        const episodes = response.bangumi.episodes;
+        let matchedEpisode = null;
+
+        // 根据当前集数索引匹配对应弹幕集数
+        // 优先使用currentEpisodeIndex直接匹配（如果范围有效）
+        if (currentEpisodeIndex >= 0 && currentEpisodeIndex < episodes.length) {
+          matchedEpisode = episodes[currentEpisodeIndex];
+        } else if (episodes.length > 0) {
+          // 如果索引超出范围，使用第一集（有些弹幕源可能集数不全）
+          matchedEpisode = episodes[0];
+        }
+
+        if (matchedEpisode) {
+          const selection: DanmakuSelection = {
+            animeId: anime.animeId,
+            episodeId: matchedEpisode.episodeId,
+            animeTitle: anime.animeTitle,
+            episodeTitle: matchedEpisode.episodeTitle,
+            searchKeyword: searchKeyword.trim() || undefined,
+          };
+
+          // 直接调用选择回调，不显示剧集列表
+          onDanmakuSelect(selection);
+        } else {
+          setSearchError('无法匹配到对应集数');
+        }
       } else {
-        setEpisodes([]);
         setSearchError('该剧集暂无弹幕信息');
       }
     } catch (error) {
       console.error('获取剧集失败:', error);
-      setEpisodes([]);
       setSearchError('获取剧集失败');
     } finally {
       setIsLoadingEpisodes(false);
     }
-  }, []);
+  }, [currentEpisodeIndex, onDanmakuSelect, searchKeyword]);
 
   // 选择剧集
   const handleEpisodeSelect = useCallback(
