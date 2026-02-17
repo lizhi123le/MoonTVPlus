@@ -842,7 +842,10 @@ function PlayPageClient() {
 
   useEffect(() => {
     console.log('[弹幕] useEffect 触发', { loading, isDirectPlay, currentEpisodeIndex, videoTitle, ref: lastLoadedEpisodeIndexForDanmakuRef.current });
-    
+
+    // 重置加载状态，防止页面刷新后跳过加载
+    loadingDanmakuEpisodeIdRef.current = null;
+
     // 等待初始化完成（播放记录恢复完成）
     if (loading) {
       console.log('[弹幕] 等待初始化完成，loading=true');
