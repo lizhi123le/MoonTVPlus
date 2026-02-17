@@ -1115,9 +1115,14 @@ function PlayPageClient() {
             margin: [currentSettings.marginTop, currentSettings.marginBottom],
             synchronousPlayback: currentSettings.synchronousPlayback,
           });
-          danmakuPluginRef.current.load();
+      danmakuPluginRef.current.load();
 
-          // 根据保存的显示状态来决定显示或隐藏弹幕
+      // 触发自定义事件通知热力图更新
+      if (artPlayerRef.current) {
+        artPlayerRef.current.emit('danmaku:loaded');
+      }
+
+      // 根据保存的显示状态来决定显示或隐藏弹幕
           const savedDisplayState = loadDanmakuDisplayState();
           if (savedDisplayState === false) {
             danmakuPluginRef.current.hide();
@@ -4288,6 +4293,11 @@ function PlayPageClient() {
         unlimited: currentSettings.unlimited ?? false,
       });
       danmakuPluginRef.current.load();
+
+      // 触发自定义事件通知热力图更新
+      if (artPlayerRef.current) {
+        artPlayerRef.current.emit('danmaku:loaded');
+      }
 
       // 根据保存的显示状态来决定显示或隐藏弹幕
       const savedDisplayState = loadDanmakuDisplayState();
