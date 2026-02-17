@@ -83,8 +83,8 @@ export default function DanmakuPanel({
         if (currentEpisodeIndex >= 0 && currentEpisodeIndex < episodes.length) {
           matchedEpisode = episodes[currentEpisodeIndex];
         } else if (episodes.length > 0) {
-          // 如果索引超出范围，使用第一集（有些弹幕源可能集数不全）
-          matchedEpisode = episodes[0];
+          // 如果索引超出范围，使用最后一集（有些弹幕源可能集数不全）
+          matchedEpisode = episodes[episodes.length - 1];
         }
 
         if (matchedEpisode) {
