@@ -6596,6 +6596,24 @@ function PlayPageClient() {
             // 弹幕加载由 useEffect 统一处理（第841行），不在播放器 ready 中重复加载
             // 避免与 loadDanmakuForCurrentEpisode 重复加载同一集弹幕
 
+            // 播放器初始化完成后，触发一次弹幕加载检查
+            // 页面刷新时，useEffect可能在播放器准备好之前执行，导致弹幕未加载
+            // 延迟执行，确保useEffect先执行并检查过缓存
+            setTimeout(() => {
+              // 如果弹幕插件已初始化但还没有加载弹幕（danmuku数组为空）
+              if (danmakuPluginRef.current && 
+                  (!danmakuPluginRef.current.option?.danmuku || danmakuPluginRef.current.option.danmuku.length === 0) &&
+                  !isLoadingDanmakuRef.current) {
+                console.log('[弹幕] 播放器就绪但弹幕未加载，触发自动搜索');
+                // 重置加载标记
+                lastLoadedEpisodeIndexForDanmakuRef.current = null;
+                loadingDanmakuEpisodeIdRef.current = null;
+                isLoadingDanmakuRef.current = false;
+                // 触发自动搜索
+                autoSearchDanmaku();
+              }
+            }, 1000);
+
             if (artPlayerRef.current) {
               // 监听弹幕显示/隐藏事件，保存开关状态到 localStorage
               artPlayerRef.current.on('artplayerPluginDanmuku:show', () => {
