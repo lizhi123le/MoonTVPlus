@@ -7383,22 +7383,13 @@ function PlayPageClient() {
           }
           if (now - lastSaveTimeRef.current > interval) {
             // 保存播放进度到云端（现有逻辑）
-            const currentTime = artPlayerRef.current?.currentTime || 0;
-            const duration = artPlayerRef.current?.duration || 0;
-            
-            // 触发保存播放进度事件（供外部监听）
-            window.dispatchEvent(new CustomEvent('savePlayProgress', {
-              detail: {
-                currentTime,
-                duration,
-                episodeIndex: currentEpisodeIndexRef.current,
-                detail: detailRef.current,
-              }
-            }));
+            saveCurrentPlayProgress();
             
             // 保存播放进度到本地缓存（记住最后播放的集数和进度）
             const title = videoTitleRef.current;
             const source = currentSourceRef.current;
+            const currentTime = artPlayerRef.current?.currentTime || 0;
+            const duration = artPlayerRef.current?.duration || 0;
             if (title && source) {
               saveLastPlayProgress(title, source, currentEpisodeIndexRef.current, currentTime, duration);
             }
