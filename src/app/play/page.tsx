@@ -69,6 +69,7 @@ import {
   saveSkipConfig,
   subscribeToDataUpdates,
 } from '@/lib/db.client';
+import { getLastPlayProgress, saveLastPlayProgress } from '@/lib/last-play-progress';
 import { getDoubanDetail } from '@/lib/douban.client';
 import { getTMDBImageUrl } from '@/lib/tmdb.search';
 import { DanmakuFilterConfig, EpisodeFilterConfig, SearchResult } from '@/lib/types';
@@ -801,6 +802,7 @@ function PlayPageClient() {
   const detailRef = useRef<SearchResult | null>(detail);
   const currentEpisodeIndexRef = useRef(currentEpisodeIndex);
   const isSourceChangingRef = useRef(false); // 标记是否正在换源
+  const lastSaveTimeForLocalRef = useRef(0); // 上次保存播放进度到本地的时间
 
   // 同步最新值到 refs
   useEffect(() => {
@@ -5105,6 +5107,78 @@ function PlayPageClient() {
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // 恢复播放进度相关（记住最后播放的集数和进度）
+  // ---------------------------------------------------------------------------
+  // 用于标记是否已经从本地缓存恢复了播放进度（防止重复恢复）
+  const hasRestoredFromLocalRef = useRef(false);
+
+  // 检查并恢复播放进度
+  useEffect(() => {
+    // 等待 detail 加载完成，且只在首次加载时执行一次
+    if (!detail || !videoTitle || !currentSource || hasRestoredFromLocalRef.current) {
+      return;
+    }
+
+    // 如果 URL 中已经指定了 episode 参数，则不自动恢复（用户明确选择了集数）
+    const episodeParam = searchParams.get('episode');
+    if (episodeParam) {
+      return;
+    }
+
+    // 检查本地缓存是否有该影片的播放进度
+    const lastProgress = getLastPlayProgress(videoTitle, currentSource);
+    if (!lastProgress) {
+      return;
+    }
+
+    // 验证集数索引是否有效
+    const episodes = detail.episodes;
+    if (!episodes || lastProgress.episodeIndex >= episodes.length) {
+      console.log('[LastPlayProgress] 保存的集数索引无效，忽略恢复');
+      return;
+    }
+
+    // 标记已执行过恢复
+    hasRestoredFromLocalRef.current = true;
+
+    // 跳转到保存的集数
+    console.log('[LastPlayProgress] 恢复播放进度:', {
+      title: videoTitle,
+      source: currentSource,
+      episodeIndex: lastProgress.episodeIndex,
+      playTime: lastProgress.playTime,
+    });
+
+    setCurrentEpisodeIndex(lastProgress.episodeIndex);
+
+    // 设置恢复播放时间的回调（播放器准备好后执行）
+    const restorePlayTime = () => {
+      if (artPlayerRef.current && lastProgress.playTime > 0) {
+        // 只有当保存的进度小于总时长的 99% 时才恢复（避免恢复到最后几秒的情况）
+        if (lastProgress.totalTime > 0 && lastProgress.playTime / lastProgress.totalTime < 0.99) {
+          artPlayerRef.current.currentTime = lastProgress.playTime;
+          console.log('[LastPlayProgress] 已跳转到保存的播放时间:', lastProgress.playTime);
+        }
+      }
+    };
+
+    // 如果播放器已经准备好，立即恢复；否则等待播放器准备好
+    if (artPlayerRef.current) {
+      restorePlayTime();
+    } else {
+      // 等待播放器初始化完成后再恢复时间
+      const checkPlayerReady = setInterval(() => {
+        if (artPlayerRef.current) {
+          clearInterval(checkPlayerReady);
+          restorePlayTime();
+        }
+      }, 500);
+      // 5秒后如果还没准备好就停止检查
+      setTimeout(() => clearInterval(checkPlayerReady), 5000);
+    }
+  }, [detail, videoTitle, currentSource, searchParams]);
+
   useEffect(() => {
     // 页面即将卸载时保存播放进度和清理资源
     const handleBeforeUnload = () => {
@@ -7308,7 +7382,27 @@ function PlayPageClient() {
             interval = 20000;
           }
           if (now - lastSaveTimeRef.current > interval) {
-            saveCurrentPlayProgress();
+            // 保存播放进度到云端（现有逻辑）
+            const currentTime = artPlayerRef.current?.currentTime || 0;
+            const duration = artPlayerRef.current?.duration || 0;
+            
+            // 触发保存播放进度事件（供外部监听）
+            window.dispatchEvent(new CustomEvent('savePlayProgress', {
+              detail: {
+                currentTime,
+                duration,
+                episodeIndex: currentEpisodeIndexRef.current,
+                detail: detailRef.current,
+              }
+            }));
+            
+            // 保存播放进度到本地缓存（记住最后播放的集数和进度）
+            const title = videoTitleRef.current;
+            const source = currentSourceRef.current;
+            if (title && source) {
+              saveLastPlayProgress(title, source, currentEpisodeIndexRef.current, currentTime, duration);
+            }
+            
             lastSaveTimeRef.current = now;
           }
 
