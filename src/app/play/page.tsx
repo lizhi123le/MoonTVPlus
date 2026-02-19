@@ -906,8 +906,9 @@ function PlayPageClient() {
       // 重置加载状态，确保切换集数后能正确加载
       loadingDanmakuEpisodeIdRef.current = null;
 
-      // 优先检查记忆（animeId）- 即使有缓存也优先使用记忆的源
+    // 优先检查记忆（animeId）- 即使有缓存也优先使用记忆的源
       const savedAnimeId = getDanmakuAnimeId(title);
+      console.log(`[弹幕记忆] 检查保存的动漫ID: title="${title}", savedAnimeId=${savedAnimeId}`);
       if (savedAnimeId) {
         console.log(`[弹幕记忆] 检测到保存的动漫ID: ${savedAnimeId}，优先使用记忆加载`);
         
@@ -4653,12 +4654,14 @@ function PlayPageClient() {
 
               console.log(`[弹幕] ${isFallback ? '候选' : '主'}弹幕源匹配成功:`, selection);
 
-              // 保存成功匹配的动漫ID
+              // 保存成功匹配的动漫ID（无论是否手动选择都保存）
               if (title) {
+                console.log(`[弹幕记忆] 保存动漫ID: title="${title}", animeId=${anime.animeId}, animeTitle=${anime.animeTitle}`);
                 saveDanmakuAnimeId(title, anime.animeId);
                 // 重要：同时更新候选源列表，将当前成功的源放在第一位
                 const newCandidates = [anime.animeId, ...remaining.map((a: any) => a.animeId)];
                 saveDanmakuAnimeCandidates(title, newCandidates);
+                console.log(`[弹幕记忆] 保存候选源: ${newCandidates.join(', ')}`);
               }
 
               // 通过统一的 handleDanmakuSelect 处理弹幕加载
@@ -7912,7 +7915,7 @@ function PlayPageClient() {
                 {danmakuMatches.map((anime, index) => (
                   <button
                     key={anime.animeId}
-                    onClick={() => handleDanmakuSourceSelect(anime, index)}
+                    onClick={() => handleDanmakuSourceSelect(anime, index, true)}
                     className='w-full flex flex-col p-5 bg-gray-50 dark:bg-gray-700/50
                              hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all
                              duration-200 text-left group border-2 border-transparent
