@@ -3847,9 +3847,9 @@ function PlayPageClient() {
       if (title) {
         clearDanmakuSelectionMemory(title);
         console.log('[换源] 清除弹幕记忆，触发重新搜索');
-        // 触发弹幕重新搜索
+        // 传入新标题确保搜索使用正确的标题
         setTimeout(async () => {
-          await autoSearchDanmaku();
+          await autoSearchDanmaku(title);
         }, 500);
       }
     } catch (err) {
@@ -4746,12 +4746,14 @@ function PlayPageClient() {
   };
 
   // 自动搜索并加载弹幕
-  const autoSearchDanmaku = async () => {
+  // 支持传入 title 参数，用于换源时指定新标题
+  const autoSearchDanmaku = async (overrideTitle?: string) => {
     if (isDirectPlay) return;
     const disableAutoLoad = localStorage.getItem('disableAutoLoadDanmaku') === 'true';
     if (disableAutoLoad) return;
 
-    const title = videoTitleRef.current;
+    // 优先使用传入的标题，否则使用 ref 中的标题
+    const title = overrideTitle || videoTitleRef.current;
     if (!title) {
       console.warn('视频标题为空，无法自动搜索弹幕');
       return;
