@@ -949,6 +949,9 @@ function PlayPageClient() {
                       
                       setDanmakuEpisodesList(result.bangumi.episodes);
                       saveDanmakuAnimeId(title, nextAnimeId);
+                      // 重要：同时更新候选源列表，将当前成功的源放在第一位
+                      const newCandidates = [nextAnimeId, ...remaining];
+                      saveDanmakuAnimeCandidates(title, newCandidates);
                       await handleDanmakuSelect(selection, false);
                       console.log(`[弹幕记忆] 候选源匹配成功: ${result.bangumi.animeTitle}`);
                       return true;
@@ -1023,6 +1026,9 @@ function PlayPageClient() {
                         
                         setDanmakuEpisodesList(result.bangumi.episodes);
                         saveDanmakuAnimeId(title, nextAnimeId);
+                        // 重要：同时更新候选源列表，将当前成功的源放在第一位
+                        const newCandidates = [nextAnimeId, ...remaining];
+                        saveDanmakuAnimeCandidates(title, newCandidates);
                         await handleDanmakuSelect(selection, false);
                         console.log(`[弹幕记忆] 候选源匹配成功: ${result.bangumi.animeTitle}`);
                         return true;
@@ -4638,6 +4644,9 @@ function PlayPageClient() {
               // 保存成功匹配的动漫ID
               if (title) {
                 saveDanmakuAnimeId(title, anime.animeId);
+                // 重要：同时更新候选源列表，将当前成功的源放在第一位
+                const newCandidates = [anime.animeId, ...remaining.map((a: any) => a.animeId)];
+                saveDanmakuAnimeCandidates(title, newCandidates);
               }
 
               // 通过统一的 handleDanmakuSelect 处理弹幕加载
@@ -4707,9 +4716,9 @@ function PlayPageClient() {
 
         // 直接使用第一个弹幕源，不再弹出让用户选择
         if (filteredAnimes.length > 0) {
-          // 保存弹幕候选源
+          // 保存弹幕候选源（最多保存9个候选）
           if (filteredAnimes.length > 1) {
-            const candidates = filteredAnimes.slice(1, 5).map(m => m.animeId);
+            const candidates = filteredAnimes.slice(1, 10).map(m => m.animeId);
             saveDanmakuAnimeCandidates(title, candidates);
           }
           
@@ -4875,7 +4884,7 @@ function PlayPageClient() {
         // 无论有多少个结果，都保存候选（除第一个外）
         if (title && filteredAnimes.length > 0) {
           const candidates = filteredAnimes
-            .slice(1, 5) // 最多保存4个候选
+            .slice(1, 10) // 最多保存9个候选
             .map(m => m.animeId);
 
           if (candidates.length > 0) {
@@ -4917,6 +4926,9 @@ function PlayPageClient() {
 
                 // 保存主动画ID
                 saveDanmakuAnimeId(title, anime.animeId);
+                // 重要：同时更新候选源列表，将当前成功的源放在第一位
+                const newCandidates = [anime.animeId, ...remaining.map(a => a.animeId)];
+                saveDanmakuAnimeCandidates(title, newCandidates);
 
                 console.log(`[弹幕] ${isFallback ? '候选' : '主'}弹幕源匹配成功:`, selection);
 
