@@ -3842,15 +3842,27 @@ function PlayPageClient() {
       setSourceProxyMode(newDetail.proxyMode || false); // 从 detail 数据中读取代理模式
       setCurrentEpisodeIndex(targetIndex);
 
-      // 换源后清除弹幕选择记忆，触发重新搜索
+      // 换源后优先使用保存的弹幕源，而不是清除记忆重新搜索
       const title = newDetail.title || newTitle;
       if (title) {
-        clearDanmakuSelectionMemory(title);
-        console.log('[换源] 清除弹幕记忆，触发重新搜索');
-        // 传入新标题确保搜索使用正确的标题
-        setTimeout(async () => {
-          await autoSearchDanmaku(title);
-        }, 500);
+        console.log('[换源] 标题:', title);
+        
+        // 先检查是否有保存的弹幕源，如果有则直接使用
+        const savedAnimeId = getDanmakuAnimeId(title);
+        if (savedAnimeId) {
+          console.log('[换源] 找到保存的弹幕源:', savedAnimeId);
+          // 延迟后使用保存的弹幕源加载
+          setTimeout(async () => {
+            // 直接使用保存的弹幕源（不使用autoSearchDanmaku，避免重新搜索）
+            await loadSavedDanmaku(title, savedAnimeId);
+          }, 500);
+        } else {
+          // 没有保存的弹幕源，才执行自动搜索
+          console.log('[换源] 没有保存的弹幕源，执行自动搜索');
+          setTimeout(async () => {
+            await autoSearchDanmaku(title);
+          }, 500);
+        }
       }
     } catch (err) {
       // 隐藏换源加载状态
@@ -4742,6 +4754,166 @@ function PlayPageClient() {
     } catch (error) {
       console.error('[弹幕] 搜索失败:', error);
       setDanmakuLoading(false);
+    }
+  };
+
+  // 使用保存的弹幕源加载（换源时优先使用）
+  const loadSavedDanmaku = async (title: string, savedAnimeId: number) => {
+    if (isDirectPlay) return;
+    const disableAutoLoad = localStorage.getItem('disableAutoLoadDanmaku') === 'true';
+    if (disableAutoLoad) return;
+
+    if (!danmakuPluginRef.current) {
+      console.warn('弹幕插件未初始化');
+      return;
+    }
+
+    const currentEpisodeIndex = currentEpisodeIndexRef.current;
+    console.log('[弹幕] 使用保存的弹幕源 - 标题:', title, 'animeId:', savedAnimeId, '集数:', currentEpisodeIndex);
+
+    try {
+      // 获取保存的弹幕源的剧集信息
+      const episodesResult = await getEpisodes(savedAnimeId);
+      
+      if (!episodesResult.success || !episodesResult.bangumi.episodes || episodesResult.bangumi.episodes.length === 0) {
+        console.log('[弹幕] 保存的弹幕源获取剧集列表失败，尝试候选源');
+        // 尝试候选源
+        const candidates = getDanmakuAnimeCandidates(title);
+        if (candidates && candidates.length > 0) {
+          const tryCandidate = async (candidateList: number[]): Promise<boolean> => {
+            if (candidateList.length === 0) return false;
+            
+            const nextAnimeId = candidateList[0];
+            const remaining = candidateList.slice(1);
+            
+            console.log('[弹幕] 尝试候选源:', nextAnimeId);
+            
+            try {
+              const result = await getEpisodes(nextAnimeId);
+              if (result.success && result.bangumi.episodes.length > 0) {
+                const videoEpTitle = detailRef.current?.episodes_titles?.[currentEpisodeIndex];
+                const matchedEpisode = matchDanmakuEpisode(currentEpisodeIndex, result.bangumi.episodes, videoEpTitle);
+                
+                if (matchedEpisode) {
+                  const selection: DanmakuSelection = {
+                    animeId: nextAnimeId,
+                    episodeId: matchedEpisode.episodeId,
+                    animeTitle: result.bangumi.animeTitle,
+                    episodeTitle: matchedEpisode.episodeTitle,
+                  };
+                  
+                  setDanmakuEpisodesList(result.bangumi.episodes);
+                  saveDanmakuAnimeId(title, nextAnimeId);
+                  // 更新候选源列表
+                  const newCandidates = [nextAnimeId, ...remaining];
+                  saveDanmakuAnimeCandidates(title, newCandidates);
+                  
+                  await handleDanmakuSelect(selection, false);
+                  console.log('[弹幕] 候选源匹配成功:', result.bangumi.animeTitle);
+                  return true;
+                } else {
+                  return await tryCandidate(remaining);
+                }
+              } else {
+                return await tryCandidate(remaining);
+              }
+            } catch (error) {
+              console.error('[弹幕] 候选源加载失败:', error);
+              return await tryCandidate(remaining);
+            }
+          };
+          
+          const found = await tryCandidate(candidates);
+          if (!found) {
+            console.log('[弹幕] 所有候选源都失败，执行自动搜索');
+            await autoSearchDanmaku(title);
+          }
+        } else {
+          // 没有候选源，执行自动搜索
+          console.log('[弹幕] 没有候选源，执行自动搜索');
+          await autoSearchDanmaku(title);
+        }
+        return;
+      }
+
+      // 尝试匹配当前集数
+      const videoEpTitle = detailRef.current?.episodes_titles?.[currentEpisodeIndex];
+      const episode = matchDanmakuEpisode(currentEpisodeIndex, episodesResult.bangumi.episodes, videoEpTitle);
+      
+      if (episode) {
+        const selection: DanmakuSelection = {
+          animeId: savedAnimeId,
+          episodeId: episode.episodeId,
+          animeTitle: episodesResult.bangumi.animeTitle,
+          episodeTitle: episode.episodeTitle,
+        };
+
+        setDanmakuEpisodesList(episodesResult.bangumi.episodes);
+        console.log('[弹幕] 使用保存的弹幕源匹配成功:', selection);
+        
+        await handleDanmakuSelect(selection, false);
+      } else {
+        console.log('[弹幕] 保存的弹幕源集数匹配失败，尝试候选源');
+        // 集数匹配失败，尝试候选源
+        const candidates = getDanmakuAnimeCandidates(title);
+        if (candidates && candidates.length > 0) {
+          const tryCandidate = async (candidateList: number[]): Promise<boolean> => {
+            if (candidateList.length === 0) return false;
+            
+            const nextAnimeId = candidateList[0];
+            const remaining = candidateList.slice(1);
+            
+            console.log('[弹幕] 尝试候选源:', nextAnimeId);
+            
+            try {
+              const result = await getEpisodes(nextAnimeId);
+              if (result.success && result.bangumi.episodes.length > 0) {
+                const videoEpTitle = detailRef.current?.episodes_titles?.[currentEpisodeIndex];
+                const matchedEpisode = matchDanmakuEpisode(currentEpisodeIndex, result.bangumi.episodes, videoEpTitle);
+                
+                if (matchedEpisode) {
+                  const selection: DanmakuSelection = {
+                    animeId: nextAnimeId,
+                    episodeId: matchedEpisode.episodeId,
+                    animeTitle: result.bangumi.animeTitle,
+                    episodeTitle: matchedEpisode.episodeTitle,
+                  };
+                  
+                  setDanmakuEpisodesList(result.bangumi.episodes);
+                  saveDanmakuAnimeId(title, nextAnimeId);
+                  const newCandidates = [nextAnimeId, ...remaining];
+                  saveDanmakuAnimeCandidates(title, newCandidates);
+                  
+                  await handleDanmakuSelect(selection, false);
+                  console.log('[弹幕] 候选源匹配成功:', result.bangumi.animeTitle);
+                  return true;
+                } else {
+                  return await tryCandidate(remaining);
+                }
+              } else {
+                return await tryCandidate(remaining);
+              }
+            } catch (error) {
+              console.error('[弹幕] 候选源加载失败:', error);
+              return await tryCandidate(remaining);
+            }
+          };
+          
+          const found = await tryCandidate(candidates);
+          if (!found) {
+            console.log('[弹幕] 所有候选源都失败，执行自动搜索');
+            await autoSearchDanmaku(title);
+          }
+        } else {
+          // 没有候选源，执行自动搜索
+          console.log('[弹幕] 没有候选源，执行自动搜索');
+          await autoSearchDanmaku(title);
+        }
+      }
+    } catch (error) {
+      console.error('[弹幕] 使用保存的弹幕源失败:', error);
+      // 失败后执行自动搜索
+      await autoSearchDanmaku(title);
     }
   };
 
