@@ -1781,7 +1781,7 @@ function LivePageClient() {
 
         // 代理失败时降级到原始地址
         const originalUrl = videoUrl;
-        const isProxyUrl = targetUrl !== originalUrl && type === 'm3u8';
+        const isProxyUrl = targetUrl !== originalUrl; // 所有类型都使用代理
         let hasTriedFallback = false;
 
         // 代理5秒超时降级
