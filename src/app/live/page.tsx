@@ -1506,12 +1506,14 @@ function LivePageClient() {
       setUnsupportedType(null);
 
       const customType = { m3u8: m3u8Loader, flv: flvLoader };
-      // 电视直播直接使用原始地址，不走代理（避免 CORS 或其他问题）
-      const targetUrl = type === 'flv'
-        ? videoUrl
-        : type === 'mp4'
-          ? videoUrl  // 电视直播直接使用原始地址
-          : videoUrl; // 电视直播直接使用原始地址，不走代理
+      // 电视直播：优先使用代理，失败则降级到原始地址
+      let targetUrl = '';
+      if (type === 'flv' || type === 'mp4') {
+        targetUrl = videoUrl; // flv 和 mp4 直接使用原始地址
+      } else {
+        // m3u8 先尝试代理
+        targetUrl = `/api/proxy/m3u8?url=${encodeURIComponent(videoUrl)}&moontv-source=${currentSourceRef.current?.key || ''}`;
+      }
       try {
         // 创建新的播放器实例
         Artplayer.USE_RAF = true;
@@ -1648,7 +1650,6 @@ function LivePageClient() {
         artPlayerRef.current.on('ready', () => {
           setError(null);
           setIsVideoLoading(false);
-
         });
 
         artPlayerRef.current.on('loadstart', () => {
@@ -1667,8 +1668,24 @@ function LivePageClient() {
           setIsVideoLoading(true);
         });
 
-        artPlayerRef.current.on('error', (err: any) => {
+        // 代理失败时降级到原始地址
+        const originalUrl = videoUrl;
+        const isProxyUrl = targetUrl !== originalUrl && type === 'm3u8';
+        let hasTriedFallback = false;
+
+        artPlayerRef.current.on('error', async (err: any) => {
           console.error('播放器错误:', err);
+          // 如果使用了代理且未尝试过降级，则使用原始地址
+          if (isProxyUrl && !hasTriedFallback) {
+            hasTriedFallback = true;
+            console.warn('代理播放失败，尝试使用原始地址...');
+            try {
+              await artPlayerRef.current?.switchUrl(originalUrl);
+              await artPlayerRef.current?.play();
+            } catch (fallbackErr) {
+              console.error('降级到原始地址失败:', fallbackErr);
+            }
+          }
         });
 
         if (artPlayerRef.current?.video) {
