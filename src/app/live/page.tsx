@@ -1506,12 +1506,13 @@ function LivePageClient() {
       setUnsupportedType(null);
 
       const customType = { m3u8: m3u8Loader, flv: flvLoader };
-      // 电视直播：优先使用代理，失败则降级到原始地址
+      // 电视直播：优先使用代理，失败或超时则降级到原始地址
       let targetUrl = '';
       if (type === 'flv' || type === 'mp4') {
-        targetUrl = videoUrl; // flv 和 mp4 直接使用原始地址
+        // flv/mp4 也使用代理
+        targetUrl = `/api/video-proxy?url=${encodeURIComponent(videoUrl)}`;
       } else {
-        // m3u8 先尝试代理
+        // m3u8 使用代理
         targetUrl = `/api/proxy/m3u8?url=${encodeURIComponent(videoUrl)}&moontv-source=${currentSourceRef.current?.key || ''}`;
       }
       try {
@@ -1670,7 +1671,7 @@ function LivePageClient() {
 
         // 代理失败时降级到原始地址
         const originalUrl = videoUrl;
-        const isProxyUrl = targetUrl !== originalUrl && type === 'm3u8';
+        const isProxyUrl = targetUrl !== originalUrl; // 所有类型都使用代理
         let hasTriedFallback = false;
 
         // 代理5秒超时降级
