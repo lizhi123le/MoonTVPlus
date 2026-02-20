@@ -1673,8 +1673,30 @@ function LivePageClient() {
         const isProxyUrl = targetUrl !== originalUrl && type === 'm3u8';
         let hasTriedFallback = false;
 
+        // 代理5秒超时降级
+        let proxyTimeout: NodeJS.Timeout | null = null;
+        if (isProxyUrl) {
+          proxyTimeout = setTimeout(async () => {
+            if (!hasTriedFallback && artPlayerRef.current) {
+              hasTriedFallback = true;
+              console.warn('代理播放超时(5s)，尝试使用原始地址...');
+              try {
+                await artPlayerRef.current.switchUrl(originalUrl);
+                await artPlayerRef.current.play();
+              } catch (fallbackErr) {
+                console.error('降级到原始地址失败:', fallbackErr);
+              }
+            }
+          }, 5000);
+        }
+
         artPlayerRef.current.on('error', async (err: any) => {
           console.error('播放器错误:', err);
+          // 清除超时
+          if (proxyTimeout) {
+            clearTimeout(proxyTimeout);
+            proxyTimeout = null;
+          }
           // 如果使用了代理且未尝试过降级，则使用原始地址
           if (isProxyUrl && !hasTriedFallback) {
             hasTriedFallback = true;
@@ -1685,6 +1707,14 @@ function LivePageClient() {
             } catch (fallbackErr) {
               console.error('降级到原始地址失败:', fallbackErr);
             }
+          }
+        });
+
+        artPlayerRef.current.on('ready', () => {
+          // 播放成功，清除超时
+          if (proxyTimeout) {
+            clearTimeout(proxyTimeout);
+            proxyTimeout = null;
           }
         });
 
