@@ -1506,12 +1506,12 @@ function LivePageClient() {
       setUnsupportedType(null);
 
       const customType = { m3u8: m3u8Loader, flv: flvLoader };
-      // MP4 类型直接使用原始 URL（需要通过视频代理解决 CORS 问题）
+      // 电视直播直接使用原始地址，不走代理（避免 CORS 或其他问题）
       const targetUrl = type === 'flv'
         ? videoUrl
         : type === 'mp4'
-          ? `/api/video-proxy?url=${encodeURIComponent(videoUrl)}`
-          : `/api/proxy/m3u8?url=${encodeURIComponent(videoUrl)}&moontv-source=${currentSourceRef.current?.key || ''}`;
+          ? videoUrl  // 电视直播直接使用原始地址
+          : videoUrl; // 电视直播直接使用原始地址，不走代理
       try {
         // 创建新的播放器实例
         Artplayer.USE_RAF = true;
