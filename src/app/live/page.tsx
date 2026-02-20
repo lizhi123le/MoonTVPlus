@@ -1761,7 +1761,6 @@ function LivePageClient() {
         artPlayerRef.current.on('ready', () => {
           setError(null);
           setIsVideoLoading(false);
-
         });
 
         artPlayerRef.current.on('loadstart', () => {
@@ -1780,8 +1779,24 @@ function LivePageClient() {
           setIsVideoLoading(true);
         });
 
-        artPlayerRef.current.on('error', (err: any) => {
+        // 代理失败时降级到原始地址
+        const originalUrl = videoUrl;
+        const isProxyUrl = targetUrl !== originalUrl && type === 'm3u8';
+        let hasTriedFallback = false;
+
+        artPlayerRef.current.on('error', async (err: any) => {
           console.error('播放器错误:', err);
+          // 如果使用了代理且未尝试过降级，则使用原始地址
+          if (isProxyUrl && !hasTriedFallback) {
+            hasTriedFallback = true;
+            console.warn('代理播放失败，尝试使用原始地址...');
+            try {
+              await artPlayerRef.current?.switchUrl(originalUrl);
+              await artPlayerRef.current?.play();
+            } catch (fallbackErr) {
+              console.error('降级到原始地址失败:', fallbackErr);
+            }
+          }
         });
 
         if (artPlayerRef.current?.video) {
