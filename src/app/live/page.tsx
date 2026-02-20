@@ -2086,7 +2086,7 @@ function LivePageClient() {
                             当前频道直播流类型：<span className='text-white font-bold'>{unsupportedType.toUpperCase()}</span>
                           </p>
                           <p className='text-sm text-orange-200 mt-2'>
-                            目前仅支持 M3U8 格式的直播流
+                            目前仅支持 M3U8、FLV、MP4 格式的直播流
                           </p>
                         </div>
                         <p className='text-sm text-gray-300'>
