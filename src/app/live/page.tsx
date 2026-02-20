@@ -1463,30 +1463,40 @@ function LivePageClient() {
 
       // precheck type
       let type = 'm3u8';
+      let precheckFailed = false;
       try {
         const precheckUrl = `/api/live/precheck?url=${encodeURIComponent(videoUrl)}&moontv-source=${currentSourceRef.current?.key || ''}`;
         const precheckResponse = await fetch(precheckUrl);
         if (!precheckResponse.ok) {
-          console.error('预检查失败:', precheckResponse.statusText);
-          setIsVideoLoading(false);
-          return;
-        }
-        const precheckResult = await precheckResponse.json();
-        if (precheckResult?.success && precheckResult?.type) {
-          type = precheckResult.type;
+          console.warn('预检查失败，降级为默认处理:', precheckResponse.statusText);
+          precheckFailed = true;
         } else {
-          console.error('预检查返回无效结果:', precheckResult);
-          setIsVideoLoading(false);
-          return;
+          const precheckResult = await precheckResponse.json();
+          if (precheckResult?.success && precheckResult?.type) {
+            type = precheckResult.type;
+          } else {
+            console.warn('预检查返回无效结果，降级为默认处理:', precheckResult);
+            precheckFailed = true;
+          }
         }
       } catch (err) {
-        console.error('预检查异常:', err);
-        setIsVideoLoading(false);
-        return;
+        console.warn('预检查异常，降级为默认处理:', err);
+        precheckFailed = true;
       }
 
-      // 如果不是 m3u8 或 flv 类型，设置不支持的类型并返回
-      if (type !== 'm3u8' && type !== 'flv') {
+      // 如果预检查失败，尝试通过 URL 扩展名判断类型
+      if (precheckFailed) {
+        if (videoUrl.toLowerCase().endsWith('.mp4')) {
+          type = 'mp4';
+        } else if (videoUrl.toLowerCase().endsWith('.flv')) {
+          type = 'flv';
+        } else {
+          type = 'm3u8';
+        }
+      }
+
+      // 如果不是 m3u8 或 flv 或 mp4 类型，设置不支持的类型并返回
+      if (type !== 'm3u8' && type !== 'flv' && type !== 'mp4') {
         setUnsupportedType(type);
         setIsVideoLoading(false);
         return;
@@ -1496,9 +1506,12 @@ function LivePageClient() {
       setUnsupportedType(null);
 
       const customType = { m3u8: m3u8Loader, flv: flvLoader };
+      // MP4 类型直接使用原始 URL（需要通过视频代理解决 CORS 问题）
       const targetUrl = type === 'flv'
         ? videoUrl
-        : `/api/proxy/m3u8?url=${encodeURIComponent(videoUrl)}&moontv-source=${currentSourceRef.current?.key || ''}`;
+        : type === 'mp4'
+          ? `/api/video-proxy?url=${encodeURIComponent(videoUrl)}`
+          : `/api/proxy/m3u8?url=${encodeURIComponent(videoUrl)}&moontv-source=${currentSourceRef.current?.key || ''}`;
       try {
         // 创建新的播放器实例
         Artplayer.USE_RAF = true;
@@ -1960,7 +1973,7 @@ function LivePageClient() {
                             当前频道直播流类型：<span className='text-white font-bold'>{unsupportedType.toUpperCase()}</span>
                           </p>
                           <p className='text-sm text-orange-200 mt-2'>
-                            目前仅支持 M3U8 格式的直播流
+                            目前仅支持 M3U8、FLV、MP4 格式的直播流
                           </p>
                         </div>
                         <p className='text-sm text-gray-300'>
