@@ -249,6 +249,8 @@ async function refreshRecordAndFavorites() {
             if (episodeCount > 0 && episodeCount !== record.total_episodes) {
               await db.savePlayRecord(user, source, id, {
                 title: detail.title || record.title,
+                source,
+                id,
                 source_name: record.source_name,
                 cover: detail.poster || record.cover,
                 index: record.index,
