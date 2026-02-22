@@ -100,7 +100,8 @@ export async function POST(request: NextRequest) {
     } as PlayRecord;
 
     // 使用title-based key存储，这样同名影片会覆盖旧记录
-    await db.savePlayRecord(authInfo.username, key, finalRecord);
+    // 直接调用存储层，绕过db.savePlayRecord的source+id key生成逻辑
+    await (db as any).storage.setPlayRecord(authInfo.username, key, finalRecord);
 
     // 异步清理旧的播放记录（不阻塞响应）
     (db as any).storage.cleanupOldPlayRecords(authInfo.username).catch((err: Error) => {
@@ -141,8 +142,8 @@ export async function DELETE(request: NextRequest) {
     const key = searchParams.get('key');
 
     if (key) {
-      // 使用title-based key删除记录
-      await db.deletePlayRecord(username, key);
+      // 使用title-based key删除记录，直接调用存储层
+      await (db as any).storage.deletePlayRecord(username, key);
     } else {
       // 未提供 key，则清空全部播放记录
       // 目前 DbManager 没有对应方法，这里直接遍历删除
