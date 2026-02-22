@@ -795,9 +795,8 @@ function PlayPageClient() {
       return;
     }
     
-    // 尝试读取记忆的集数
-    // 优先使用当前 source，如果没有则使用空字符串（用于跨源记忆）
-    const savedProgress = getLastPlayProgress(videoTitle, currentSource || '');
+    // 尝试读取记忆的集数（基于标题，不区分来源）
+    const savedProgress = getLastPlayProgress(videoTitle);
     if (savedProgress && savedProgress.episodeIndex >= 0) {
       console.log('[LastPlayProgress] 从记忆恢复集数:', { 
         title: videoTitle, 
@@ -5329,11 +5328,10 @@ function PlayPageClient() {
       console.error('保存播放进度到服务器失败:', err);
     }
 
-    // 保存集数记忆（同时保存特定来源和全局记录，支持跨源记忆）- 与服务器保存互不影响
+    // 保存集数记忆（基于标题不区分来源）- 与服务器保存互不影响
     try {
       saveLastPlayProgress(
         videoTitleRef.current,
-        currentSourceRef.current,
         currentEpisodeIndexRef.current,
         Math.floor(currentTime),
         Math.floor(duration)
@@ -5370,8 +5368,8 @@ function PlayPageClient() {
       return;
     }
 
-    // 检查本地缓存是否有该影片的播放进度
-    const lastProgress = getLastPlayProgress(videoTitle, currentSource);
+    // 检查本地缓存是否有该影片的播放进度（基于标题，不区分来源）
+    const lastProgress = getLastPlayProgress(videoTitle);
     if (!lastProgress) {
       return;
     }
@@ -7629,13 +7627,12 @@ function PlayPageClient() {
             // 保存播放进度到云端（现有逻辑）
             saveCurrentPlayProgress();
             
-            // 保存播放进度到本地缓存（记住最后播放的集数和进度）
+            // 保存播放进度到本地缓存（记住最后播放的集数和进度，基于标题不区分来源）
             const title = videoTitleRef.current;
-            const source = currentSourceRef.current;
             const currentTime = artPlayerRef.current?.currentTime || 0;
             const duration = artPlayerRef.current?.duration || 0;
-            if (title && source) {
-              saveLastPlayProgress(title, source, currentEpisodeIndexRef.current, currentTime, duration);
+            if (title) {
+              saveLastPlayProgress(title, currentEpisodeIndexRef.current, currentTime, duration);
             }
             
             lastSaveTimeRef.current = now;
