@@ -9,6 +9,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { getAuthInfoFromBrowserCookie } from '@/lib/auth';
 import {
   convertDanmakuFormat,
+  deleteSkipTime,
   getCrossSourceSkipConfig,
   getDanmakuById,
   getDanmakuFromCache,
@@ -777,6 +778,42 @@ function PlayPageClient() {
       }
     }
   }, [searchParams, currentEpisodeIndex]);
+
+  // 从 localStorage 读取上次播放的集数（跨源记忆）
+  // 仅在首次加载且没有 URL episode 参数时执行
+  const hasLoadedEpisodeFromMemory = useRef(false);
+  useEffect(() => {
+    // 避免重复加载
+    if (hasLoadedEpisodeFromMemory.current) return;
+    
+    // 必须有 videoTitle 和 currentSource
+    if (!videoTitle || !currentSource) return;
+    
+    // 如果 URL 已有 episode 参数，不使用记忆的集数
+    if (searchParams.get('episode')) {
+      hasLoadedEpisodeFromMemory.current = true;
+      return;
+    }
+    
+    // 尝试读取记忆的集数
+    const savedProgress = getLastPlayProgress(videoTitle, currentSource);
+    if (savedProgress && savedProgress.episodeIndex > 0) {
+      console.log('[LastPlayProgress] 从记忆恢复集数:', { 
+        title: videoTitle, 
+        source: currentSource, 
+        episodeIndex: savedProgress.episodeIndex,
+        playTime: savedProgress.playTime 
+      });
+      setCurrentEpisodeIndex(savedProgress.episodeIndex);
+      
+      // 如果有保存的播放时间，设置为恢复进度
+      if (savedProgress.playTime > 0) {
+        resumeTimeRef.current = savedProgress.playTime;
+      }
+    }
+    
+    hasLoadedEpisodeFromMemory.current = true;
+  }, [videoTitle, currentSource, searchParams]);
 
   // 监听 URL 参数变化，当切换到不同视频时重新加载页面
   useEffect(() => {
@@ -2908,6 +2945,10 @@ function PlayPageClient() {
       setSkipConfig(newConfig);
       if (!newConfig.enable && !newConfig.intro_time && !newConfig.outro_time) {
         await deleteSkipConfig(currentSourceRef.current, currentIdRef.current);
+        // 同时删除跨来源配置
+        if (videoTitleRef.current) {
+          deleteSkipTime(videoTitleRef.current);
+        }
 
         // 安全地更新播放器设置，仅在播放器存在时执行
         if (artPlayerRef.current && artPlayerRef.current.setting) {
@@ -2944,8 +2985,8 @@ function PlayPageClient() {
           currentIdRef.current,
           newConfig
         );
-        // 同时保存跨来源配置并同步到 D1
-        if (videoTitleRef.current && newConfig.intro_time > 0) {
+        // 同时保存跨来源配置并同步到 D1（只要有片头或片尾时间就保存）
+        if (videoTitleRef.current && (newConfig.intro_time > 0 || newConfig.outro_time !== 0)) {
           saveSkipTime(videoTitleRef.current, newConfig.intro_time, newConfig.outro_time);
           // 异步同步到 D1
           syncSkipTimeToD1(videoTitleRef.current, newConfig.intro_time, newConfig.outro_time);
@@ -5283,17 +5324,30 @@ function PlayPageClient() {
         search_title: searchTitle,
         douban_id: detailRef.current?.douban_id,
       });
+    } catch (err) {
+      console.error('保存播放进度到服务器失败:', err);
+    }
 
-      lastSaveTimeRef.current = Date.now();
-      console.log('播放进度已保存:', {
+    // 保存集数记忆（同时保存特定来源和全局记录，支持跨源记忆）- 与服务器保存互不影响
+    try {
+      saveLastPlayProgress(
+        videoTitleRef.current,
+        currentSourceRef.current,
+        currentEpisodeIndexRef.current,
+        Math.floor(currentTime),
+        Math.floor(duration)
+      );
+    } catch (err) {
+      console.error('保存集数记忆失败:', err);
+    }
+
+    lastSaveTimeRef.current = Date.now();
+    console.log('播放进度已保存:', {
         title: videoTitleRef.current,
         episode: currentEpisodeIndexRef.current + 1,
         year: detailRef.current?.year,
         progress: `${Math.floor(currentTime)}/${Math.floor(duration)}`,
       });
-    } catch (err) {
-      console.error('保存播放进度失败:', err);
-    }
   };
 
   // ---------------------------------------------------------------------------

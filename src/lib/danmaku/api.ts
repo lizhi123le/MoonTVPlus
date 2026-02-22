@@ -633,3 +633,17 @@ export function getCrossSourceSkipConfig(title: string): { intro_time: number; o
   }
   return null;
 }
+
+// 删除跳过片头片尾时间（跨来源共享）
+export function deleteSkipTime(title: string): void {
+  if (typeof window === 'undefined') return;
+  if (!title.trim()) return;
+
+  try {
+    const key = getSkipTimeKey(title);
+    localStorage.removeItem(key);
+    console.log(`[跳过配置] 已删除跨来源跳过配置: ${title}`);
+  } catch (error) {
+    console.error('删除跳过配置失败:', error);
+  }
+}
