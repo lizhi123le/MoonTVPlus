@@ -786,8 +786,8 @@ function PlayPageClient() {
     // 避免重复加载
     if (hasLoadedEpisodeFromMemory.current) return;
     
-    // 必须有 videoTitle 和 currentSource
-    if (!videoTitle || !currentSource) return;
+    // 必须有 videoTitle
+    if (!videoTitle) return;
     
     // 如果 URL 已有 episode 参数，不使用记忆的集数
     if (searchParams.get('episode')) {
@@ -796,8 +796,9 @@ function PlayPageClient() {
     }
     
     // 尝试读取记忆的集数
-    const savedProgress = getLastPlayProgress(videoTitle, currentSource);
-    if (savedProgress && savedProgress.episodeIndex > 0) {
+    // 优先使用当前 source，如果没有则使用空字符串（用于跨源记忆）
+    const savedProgress = getLastPlayProgress(videoTitle, currentSource || '');
+    if (savedProgress && savedProgress.episodeIndex >= 0) {
       console.log('[LastPlayProgress] 从记忆恢复集数:', { 
         title: videoTitle, 
         source: currentSource, 
