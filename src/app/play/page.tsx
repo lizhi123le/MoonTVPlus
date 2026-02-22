@@ -5313,6 +5313,8 @@ function PlayPageClient() {
     try {
       await savePlayRecord(currentSourceRef.current, currentIdRef.current, {
         title: videoTitleRef.current,
+        source: currentSourceRef.current,  // 来源标识（用于播放跳转）
+        id: currentIdRef.current,         // 影片ID（用于播放跳转）
         source_name: detailRef.current?.source_name || '',
         year: detailRef.current?.year,
         cover: detailRef.current?.poster || '',

@@ -3,6 +3,8 @@ import { AdminConfig } from './admin.types';
 // 播放记录数据结构
 export interface PlayRecord {
   title: string;
+  source: string;  // 来源标识（用于播放跳转）
+  id: string;     // 影片ID（用于播放跳转）
   source_name: string;
   cover: string;
   year: string;
@@ -13,6 +15,7 @@ export interface PlayRecord {
   save_time: number; // 记录保存时间（时间戳）
   search_title: string; // 搜索时使用的标题
   douban_id?: number; // 豆瓣ID，用于获取详情
+  origin?: 'vod' | 'live'; // 来源类型
 }
 
 // 收藏数据结构

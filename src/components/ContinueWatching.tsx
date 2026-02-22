@@ -93,12 +93,6 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
     return (record.play_time / record.total_time) * 100;
   };
 
-  // 从 key 中解析 source 和 id
-  const parseKey = (key: string) => {
-    const [source, id] = key.split('+');
-    return { source, id };
-  };
-
   // 处理清空确认
   const handleClearConfirm = async () => {
     await clearAllPlayRecords();
@@ -142,18 +136,17 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
         // 使用虚拟滚动显示真实数据
         <VirtualScrollableRow>
           {playRecords.map((record) => {
-            const { source, id } = parseKey(record.key);
             return (
               <div
                 key={record.key}
                 className='min-w-[180px] w-48 sm:min-w-[200px] sm:w-52'
               >
                 <VideoCard
-                  id={id}
+                  id={record.id}
                   title={record.title}
                   poster={record.cover}
                   year={record.year}
-                  source={source}
+                  source={record.source}
                   source_name={record.source_name}
                   progress={getProgress(record)}
                   episodes={record.total_episodes}

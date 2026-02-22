@@ -433,6 +433,8 @@ function LivePageClient() {
           try {
             await savePlayRecord(`live_${source.key}`, `live_${selectedChannel.id}`, {
               title: selectedChannel.name,
+              source: `live_${source.key}`,  // 来源标识（用于播放跳转）
+              id: `live_${selectedChannel.id}`,         // 影片ID（用于播放跳转）
               source_name: source.name,
               year: '',
               cover: `/api/proxy/logo?url=${encodeURIComponent(selectedChannel.logo)}&source=${source.key}`,
@@ -624,6 +626,8 @@ function LivePageClient() {
       try {
         await savePlayRecord(`live_${currentSource.key}`, `live_${channel.id}`, {
           title: channel.name,
+          source: `live_${currentSource.key}`,  // 来源标识（用于播放跳转）
+          id: `live_${channel.id}`,         // 影片ID（用于播放跳转）
           source_name: currentSource.name,
           year: '',
           cover: `/api/proxy/logo?url=${encodeURIComponent(channel.logo)}&source=${currentSource.key}`,

@@ -89,21 +89,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 从key中解析source和id
-    const [source, id] = key.split('+');
-    if (!source || !id) {
-      return NextResponse.json(
-        { error: 'Invalid key format' },
-        { status: 400 }
-      );
-    }
+    // 新的key是title-based（通过normalizeTitleForKey生成），直接从record中获取source和id
+    // 这样可以实现：同名影片只保存一个最新记录，同时保留source和id用于播放跳转
+    const source = record.source || '';
+    const id = record.id || '';
 
     const finalRecord = {
       ...record,
       save_time: record.save_time ?? Date.now(),
     } as PlayRecord;
 
-    await db.savePlayRecord(authInfo.username, source, id, finalRecord);
+    // 使用title-based key存储，这样同名影片会覆盖旧记录
+    await db.savePlayRecord(authInfo.username, key, finalRecord);
 
     // 异步清理旧的播放记录（不阻塞响应）
     (db as any).storage.cleanupOldPlayRecords(authInfo.username).catch((err: Error) => {
@@ -144,16 +141,8 @@ export async function DELETE(request: NextRequest) {
     const key = searchParams.get('key');
 
     if (key) {
-      // 如果提供了 key，删除单条播放记录
-      const [source, id] = key.split('+');
-      if (!source || !id) {
-        return NextResponse.json(
-          { error: 'Invalid key format' },
-          { status: 400 }
-        );
-      }
-
-      await db.deletePlayRecord(username, source, id);
+      // 使用title-based key删除记录
+      await db.deletePlayRecord(username, key);
     } else {
       // 未提供 key，则清空全部播放记录
       // 目前 DbManager 没有对应方法，这里直接遍历删除
