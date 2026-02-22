@@ -319,6 +319,8 @@ export class PostgresStorage implements IStorage {
   private rowToPlayRecord(row: any): PlayRecord {
     return {
       title: row.title,
+      source: row.source || '',
+      id: row.id || '',
       source_name: row.source_name,
       cover: row.cover || '',
       year: row.year || '',
