@@ -33,6 +33,8 @@ function triggerGlobalError(message: string) {
 // ---- 类型 ----
 export interface PlayRecord {
   title: string;
+  source: string;  // 来源标识（用于播放跳转）
+  id: string;     // 影片ID（用于播放跳转）
   source_name: string;
   year: string;
   cover: string;
@@ -828,13 +830,19 @@ export function getCachedPlayRecordsSnapshot(): Record<string, PlayRecord> {
 /**
  * 保存播放记录。
  * 数据库存储模式下使用乐观更新：先更新缓存（立即生效），再异步同步到数据库。
+ * 
+ * 记忆规则：
+ * - 基于影片名称记忆，不区分来源
+ * - 同名影片只保存一个最新记录（覆盖之前的）
+ * - 每12秒自动保存一次
  */
 export async function savePlayRecord(
   source: string,
   id: string,
   record: PlayRecord
 ): Promise<void> {
-  const key = generateStorageKey(source, id);
+  // 使用标题作为 key，实现同名影片只保存一个最新记录
+  const key = normalizeTitleForKey(record.title);
 
   // 数据库存储模式：乐观更新策略（包括 redis 和 upstash）
   if (STORAGE_TYPE !== 'localstorage') {
@@ -904,12 +912,25 @@ export async function savePlayRecord(
 /**
  * 删除播放记录。
  * 数据库存储模式下使用乐观更新：先更新缓存，再异步同步到数据库。
+ * 使用title-based key来删除记录。
  */
 export async function deletePlayRecord(
   source: string,
   id: string
 ): Promise<void> {
-  const key = generateStorageKey(source, id);
+  // 使用title-based key（如果传入的是原始source+id，需要转换为title-based）
+  // 注意：source参数现在可能是title（当从ContinueWatching删除时）
+  let key: string;
+  if (source && id && source.includes('+')) {
+    // 旧格式source+id（兼容）
+    key = generateStorageKey(source, id);
+  } else if (source && !id) {
+    // 已经是title-based key（直接使用）
+    key = source;
+  } else {
+    // 这种情况不应该出现，但为了安全起见，使用generateStorageKey
+    key = generateStorageKey(source || '', id || '');
+  }
 
   // 数据库存储模式：乐观更新策略（包括 redis 和 upstash）
   if (STORAGE_TYPE !== 'localstorage') {

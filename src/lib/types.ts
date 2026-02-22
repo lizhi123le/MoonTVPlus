@@ -4,6 +4,8 @@ import { MangaReadRecord, MangaShelfItem } from './manga.types';
 // 播放记录数据结构
 export interface PlayRecord {
   title: string;
+  source: string;  // 来源标识（用于播放跳转）
+  id: string;     // 影片ID（用于播放跳转）
   source_name: string;
   cover: string;
   year: string;
