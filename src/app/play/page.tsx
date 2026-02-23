@@ -779,8 +779,8 @@ function PlayPageClient() {
     }
   }, [searchParams, currentEpisodeIndex]);
 
-  // 从 localStorage 读取上次播放的集数（跨源记忆）
-  // 仅在首次加载且没有 URL episode 参数时执行
+  // 从 localStorage 读取上次播放的集数和播放进度（跨源记忆）
+  // 仅在首次加载时执行，用于恢复集数和播放进度
   const hasLoadedEpisodeFromMemory = useRef(false);
   useEffect(() => {
     // 避免重复加载
@@ -789,26 +789,28 @@ function PlayPageClient() {
     // 必须有 videoTitle
     if (!videoTitle) return;
     
-    // 如果 URL 已有 episode 参数，不使用记忆的集数
-    if (searchParams.get('episode')) {
-      hasLoadedEpisodeFromMemory.current = true;
-      return;
-    }
-    
-    // 尝试读取记忆的集数（基于标题，不区分来源）
+    // 尝试读取记忆的集数和播放进度（基于标题，不区分来源）
     const savedProgress = getLastPlayProgress(videoTitle);
-    if (savedProgress && savedProgress.episodeIndex >= 0) {
-      console.log('[LastPlayProgress] 从记忆恢复集数:', { 
-        title: videoTitle, 
-        source: currentSource, 
-        episodeIndex: savedProgress.episodeIndex,
-        playTime: savedProgress.playTime 
-      });
-      setCurrentEpisodeIndex(savedProgress.episodeIndex);
+    if (savedProgress) {
+      // 如果 URL 没有指定 episode，则恢复集数
+      // 如果 URL 指定了 episode，仍然尝试恢复播放时间（进度）
+      if (!searchParams.get('episode') && savedProgress.episodeIndex >= 0) {
+        console.log('[LastPlayProgress] 从记忆恢复集数:', { 
+          title: videoTitle, 
+          source: currentSource, 
+          episodeIndex: savedProgress.episodeIndex,
+          playTime: savedProgress.playTime 
+        });
+        setCurrentEpisodeIndex(savedProgress.episodeIndex);
+      }
       
-      // 如果有保存的播放时间，设置为恢复进度
+      // 始终尝试恢复播放时间（进度），无论是否指定了集数
       if (savedProgress.playTime > 0) {
         resumeTimeRef.current = savedProgress.playTime;
+        console.log('[LastPlayProgress] 恢复播放进度:', { 
+          title: videoTitle, 
+          playTime: savedProgress.playTime 
+        });
       }
     }
     

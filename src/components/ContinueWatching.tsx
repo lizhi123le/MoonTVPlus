@@ -28,7 +28,7 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
 
   // 处理播放记录数据更新的函数
   const updatePlayRecords = (allRecords: Record<string, PlayRecord>, limit?: number) => {
-    // 将记录转换为数组并根据 save_time 由近到远排序
+    // 将记录转换为数组
     const recordsArray = Object.entries(allRecords).map(([key, record]) => ({
       ...record,
       key,
@@ -39,8 +39,39 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
       (a, b) => b.save_time - a.save_time
     );
 
+    // 去重：基于标准化后的标题去重，保留每个标题下最新的记录
+    // 使用与服务器端相同的 normalizeTitleForKey 逻辑
+    const normalizeTitleForKey = (title: string): string => {
+      if (!title) return '';
+      return title.trim().toLowerCase()
+        .replace(/[\s\-_]+/g, '')  // 移除空格、连字符、下划线
+        .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');  // 只保留字母数字和中文
+    };
+
+    const seenTitles = new Map<string, typeof sortedRecords[0]>();
+    const deduplicatedRecords: typeof sortedRecords = [];
+
+    for (const record of sortedRecords) {
+      const normalizedTitle = normalizeTitleForKey(record.title);
+      if (!normalizedTitle) continue; // 跳过无效标题
+
+      // 如果没有见过这个标题，或者当前记录比保存的更新，则更新
+      if (!seenTitles.has(normalizedTitle) || 
+          record.save_time > (seenTitles.get(normalizedTitle)?.save_time || 0)) {
+        seenTitles.set(normalizedTitle, record);
+      }
+    }
+
+    // 将去重后的记录转换回数组
+    for (const record of seenTitles.values()) {
+      deduplicatedRecords.push(record);
+    }
+
+    // 再次按 save_time 降序排序
+    deduplicatedRecords.sort((a, b) => b.save_time - a.save_time);
+
     // 如果指定了 limit，只取前 N 条
-    const finalRecords = limit ? sortedRecords.slice(0, limit) : sortedRecords;
+    const finalRecords = limit ? deduplicatedRecords.slice(0, limit) : deduplicatedRecords;
 
     setPlayRecords(finalRecords);
   };
