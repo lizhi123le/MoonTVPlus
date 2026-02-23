@@ -63,7 +63,7 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
     }
 
     // 将去重后的记录转换回数组
-    deduplicatedRecords.push(...seenTitles.values());
+    deduplicatedRecords.push(...Array.from(seenTitles.values()));
 
     // 再次按 save_time 降序排序
     deduplicatedRecords.sort((a, b) => b.save_time - a.save_time);
