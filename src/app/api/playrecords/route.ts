@@ -99,6 +99,32 @@ export async function POST(request: NextRequest) {
       save_time: record.save_time ?? Date.now(),
     } as PlayRecord;
 
+    // 清理可能存在的旧格式记录（source+id 格式的 key）
+    // 避免同名影片因为新旧 key 格式不同而产生重复记录
+    try {
+      const allRecords = await (db as any).storage.getAllPlayRecords(authInfo.username);
+      const normalizedTitle = key; // 新的title-based key
+      
+      // 遍历所有记录，找出与当前标题相同的旧记录并删除
+      for (const [oldKey, oldRecord] of Object.entries(allRecords)) {
+        // 如果是旧的title-based key（与当前key相同），跳过因为会覆盖
+        if (oldKey === normalizedTitle) continue;
+        
+        // 检查旧记录的标题是否与当前标题相同（使用相同的normalizeTitleForKey逻辑）
+        const oldNormalizedTitle = (oldRecord.title || '').trim().toLowerCase()
+          .replace(/[\s\-_]+/g, '')
+          .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
+        
+        if (oldNormalizedTitle === normalizedTitle) {
+          console.log('[播放记录] 清理旧格式记录:', { oldKey, title: oldRecord.title });
+          await (db as any).storage.deletePlayRecord(authInfo.username, oldKey);
+        }
+      }
+    } catch (err) {
+      console.error('清理旧记录失败:', err);
+      // 不阻塞保存流程
+    }
+
     // 使用title-based key存储，这样同名影片会覆盖旧记录
     // 直接调用存储层，绕过db.savePlayRecord的source+id key生成逻辑
     await (db as any).storage.setPlayRecord(authInfo.username, key, finalRecord);
