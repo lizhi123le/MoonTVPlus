@@ -28,7 +28,7 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
 
   // 处理播放记录数据更新的函数
   const updatePlayRecords = (allRecords: Record<string, PlayRecord>, limit?: number) => {
-    // 将记录转换为数组
+    // 将记录转换为数组并根据 save_time 由近到远排序
     const recordsArray = Object.entries(allRecords).map(([key, record]) => ({
       ...record,
       key,
@@ -39,37 +39,8 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
       (a, b) => b.save_time - a.save_time
     );
 
-    // 去重：基于标准化后的标题去重，保留每个标题下最新的记录
-    // 使用与服务器端相同的 normalizeTitleForKey 逻辑
-    const normalizeTitleForKey = (title: string): string => {
-      if (!title) return '';
-      return title.trim().toLowerCase()
-        .replace(/[\s\-_]+/g, '')  // 移除空格、连字符、下划线
-        .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');  // 只保留字母数字和中文
-    };
-
-    const seenTitles = new Map<string, typeof sortedRecords[0]>();
-    const deduplicatedRecords: typeof sortedRecords = [];
-
-    for (const record of sortedRecords) {
-      const normalizedTitle = normalizeTitleForKey(record.title);
-      if (!normalizedTitle) continue; // 跳过无效标题
-
-      // 如果没有见过这个标题，或者当前记录比保存的更新，则更新
-      if (!seenTitles.has(normalizedTitle) || 
-          record.save_time > (seenTitles.get(normalizedTitle)?.save_time || 0)) {
-        seenTitles.set(normalizedTitle, record);
-      }
-    }
-
-    // 将去重后的记录转换回数组
-    deduplicatedRecords.push(...Array.from(seenTitles.values()));
-
-    // 再次按 save_time 降序排序
-    deduplicatedRecords.sort((a, b) => b.save_time - a.save_time);
-
     // 如果指定了 limit，只取前 N 条
-    const finalRecords = limit ? deduplicatedRecords.slice(0, limit) : deduplicatedRecords;
+    const finalRecords = limit ? sortedRecords.slice(0, limit) : sortedRecords;
 
     setPlayRecords(finalRecords);
   };
@@ -122,6 +93,12 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
     return (record.play_time / record.total_time) * 100;
   };
 
+  // 从 key 中解析 source 和 id
+  const parseKey = (key: string) => {
+    const [source, id] = key.split('+');
+    return { source, id };
+  };
+
   // 处理清空确认
   const handleClearConfirm = async () => {
     await clearAllPlayRecords();
@@ -147,7 +124,7 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
         </div>
       {loading ? (
         // 加载状态显示灰色占位数据（使用原始 ScrollableRow）
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pt-2 pb-2">
           {Array.from({ length: 8 }).map((_, index) => (
             <div
               key={index}
@@ -163,41 +140,98 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
         </div>
       ) : (
         // 使用虚拟滚动显示真实数据
-        <VirtualScrollableRow>
-          {playRecords.map((record) => {
-            return (
-              <div
-                key={record.key}
-                className='min-w-[180px] w-48 sm:min-w-[200px] sm:w-52'
-              >
-                <VideoCard
-                  id={record.id}
-                  title={record.title}
-                  poster={record.cover}
-                  year={record.year}
-                  source={record.source}
-                  source_name={record.source_name}
-                  progress={getProgress(record)}
-                  episodes={record.total_episodes}
-                  currentEpisode={record.index}
-                  query={record.search_title}
-                  from='playrecord'
-                  onDelete={() =>
-                    setPlayRecords((prev) =>
-                      prev.filter((r) => r.key !== record.key)
-                    )
-                  }
-                  type={record.total_episodes > 1 ? 'tv' : ''}
-                  origin={record.origin}
-                  orientation='horizontal'
-                  playTime={record.play_time}
-                  totalTime={record.total_time}
-                  douban_id={record.douban_id}
-                />
-              </div>
-            );
-          })}
-        </VirtualScrollableRow>
+        <div>
+          <VirtualScrollableRow>
+            {playRecords.map((record) => {
+              const { source, id } = parseKey(record.key);
+              return (
+                <div
+                  key={record.key}
+                  className='min-w-[180px] w-48 sm:min-w-[200px] sm:w-52'
+                  style={{ position: 'relative' }}
+                >
+                  <VideoCard
+                    id={id}
+                    title={record.title}
+                    poster={record.cover}
+                    year={record.year}
+                    source={source}
+                    source_name={record.source_name}
+                    progress={getProgress(record)}
+                    episodes={record.total_episodes}
+                    currentEpisode={record.index}
+                    query={record.search_title}
+                    from='playrecord'
+                    onDelete={() =>
+                      setPlayRecords((prev) =>
+                        prev.filter((r) => r.key !== record.key)
+                      )
+                    }
+                    type={record.total_episodes > 1 ? 'tv' : ''}
+                    origin={record.origin}
+                    orientation='horizontal'
+                    playTime={record.play_time}
+                    totalTime={record.total_time}
+                  />
+                  {/* 新增剧集提示 - 完全独立于 VideoCard */}
+                  {record.new_episodes && record.new_episodes > 0 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '-6px',
+                        right: '-6px',
+                        zIndex: 100,
+                        pointerEvents: 'none',
+                        width: '28px',
+                        height: '28px',
+                      }}
+                    >
+                      {/* 水波纹动画 - 第一层 */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          inset: '0',
+                          borderRadius: '9999px',
+                          backgroundColor: 'rgb(14 165 233)',
+                          animation: 'ping-scale 1.5s cubic-bezier(0, 0, 0.2, 1) infinite',
+                        }}
+                      />
+                      {/* 水波纹动画 - 第二层 */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          inset: '0',
+                          borderRadius: '9999px',
+                          backgroundColor: 'rgb(14 165 233)',
+                          animation: 'pulse-scale 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        }}
+                      />
+                      {/* 主体徽章 */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          inset: '0',
+                          borderRadius: '9999px',
+                          background: 'linear-gradient(to bottom right, rgb(14 165 233), rgb(2 132 199))',
+                          color: 'white',
+                          fontSize: '11px',
+                          fontWeight: 'bold',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+                          animation: 'badge-scale 2s ease-in-out infinite',
+                        }}
+                      >
+                        +{record.new_episodes}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </VirtualScrollableRow>
+        </div>
       )}
     </section>
 

@@ -326,7 +326,7 @@ function HomeClient() {
                         rate={movie.rate}
                         type='movie'
                         from='douban'
-                        douban_id={parseInt(movie.id)}
+                        douban_id={movie.id ? parseInt(movie.id) : undefined}
                       />
                     </div>
                   ))}
@@ -486,7 +486,7 @@ function HomeClient() {
                         rate={tvShow.rate}
                         type='tv'
                         from='douban'
-                        douban_id={parseInt(tvShow.id)}
+                        douban_id={tvShow.id ? parseInt(tvShow.id) : undefined}
                       />
                     </div>
                   ))}
@@ -533,7 +533,7 @@ function HomeClient() {
                         rate={varietyShow.rate}
                         type='tv'
                         from='douban'
-                        douban_id={parseInt(varietyShow.id)}
+                        douban_id={varietyShow.id ? parseInt(varietyShow.id) : undefined}
                       />
                     </div>
                   ))}

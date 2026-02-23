@@ -31,8 +31,6 @@ function triggerGlobalError(message: string) {
 // ---- 类型 ----
 export interface PlayRecord {
   title: string;
-  source: string;  // 来源标识（用于播放跳转）
-  id: string;     // 影片ID（用于播放跳转）
   source_name: string;
   year: string;
   cover: string;
@@ -41,9 +39,9 @@ export interface PlayRecord {
   play_time: number; // 播放进度（秒）
   total_time: number; // 总进度（秒）
   save_time: number; // 记录保存时间（时间戳）
-  search_title: string; // 搜索时使用的标题
+  search_title?: string; // 搜索时使用的标题
   origin?: 'vod' | 'live'; // 来源类型
-  douban_id?: number; // 豆瓣ID，用于获取详情
+  new_episodes?: number; // 新增的剧集数量（用于显示更新提示）
 }
 
 // ---- 收藏类型 ----
@@ -101,12 +99,11 @@ const CACHE_VERSION = '1.0.0';
 const CACHE_EXPIRE_TIME = 60 * 60 * 1000; // 一小时缓存过期
 
 // ---- 环境变量 ----
-// 注意：NEXT_PUBLIC_STORAGE_TYPE 在构建时通过 next.config.js 的 env 配置内嵌到客户端
 const STORAGE_TYPE = (() => {
   const raw =
     (typeof window !== 'undefined' &&
       (window as any).RUNTIME_CONFIG?.STORAGE_TYPE) ||
-    (process.env.NEXT_PUBLIC_STORAGE_TYPE as
+    (process.env.STORAGE_TYPE as
       | 'localstorage'
       | 'redis'
       | 'upstash'
@@ -719,30 +716,16 @@ export async function getAllPlayRecords(): Promise<Record<string, PlayRecord>> {
   }
 }
 
-// 生成标准化的标题作为存储 key（用于同名影片只保存一个最新记录）
-function normalizeTitleForKey(title: string): string {
-  if (!title) return '';
-  return title.trim().toLowerCase()
-    .replace(/[\s\-_]+/g, '')  // 移除空格、连字符、下划线
-    .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');  // 只保留字母数字和中文
-}
-
 /**
  * 保存播放记录。
  * 数据库存储模式下使用乐观更新：先更新缓存（立即生效），再异步同步到数据库。
- * 
- * 记忆规则：
- * - 基于影片名称记忆，不区分来源
- * - 同名影片只保存一个最新记录（覆盖之前的）
- * - 每12秒自动保存一次
  */
 export async function savePlayRecord(
   source: string,
   id: string,
   record: PlayRecord
 ): Promise<void> {
-  // 使用标题作为 key，实现同名影片只保存一个最新记录
-  const key = normalizeTitleForKey(record.title);
+  const key = generateStorageKey(source, id);
 
   // 数据库存储模式：乐观更新策略（包括 redis 和 upstash）
   if (STORAGE_TYPE !== 'localstorage') {
@@ -800,25 +783,12 @@ export async function savePlayRecord(
 /**
  * 删除播放记录。
  * 数据库存储模式下使用乐观更新：先更新缓存，再异步同步到数据库。
- * 使用title-based key来删除记录。
  */
 export async function deletePlayRecord(
   source: string,
   id: string
 ): Promise<void> {
-  // 使用title-based key（如果传入的是原始source+id，需要转换为title-based）
-  // 注意：source参数现在可能是title（当从ContinueWatching删除时）
-  let key: string;
-  if (source && id && source.includes('+')) {
-    // 旧格式source+id（兼容）
-    key = generateStorageKey(source, id);
-  } else if (source && !id) {
-    // 已经是title-based key（直接使用）
-    key = source;
-  } else {
-    // 这种情况不应该出现，但为了安全起见，使用generateStorageKey
-    key = generateStorageKey(source || '', id || '');
-  }
+  const key = generateStorageKey(source, id);
 
   // 数据库存储模式：乐观更新策略（包括 redis 和 upstash）
   if (STORAGE_TYPE !== 'localstorage') {

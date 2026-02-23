@@ -8,27 +8,28 @@ export interface PlayRecord {
   source_name: string;
   cover: string;
   year: string;
-  index: number; // 第几集
-  total_episodes: number; // 总集数
-  play_time: number; // 播放进度（秒）
+  index: number; // 第几�?
+  total_episodes: number; // 总集�?
+  play_time: number; // 播放进度（秒�?
   total_time: number; // 总进度（秒）
-  save_time: number; // 记录保存时间（时间戳）
+  save_time: number; // 记录保存时间（时间戳�?
   search_title: string; // 搜索时使用的标题
   douban_id?: number; // 豆瓣ID，用于获取详情
   origin?: 'vod' | 'live'; // 来源类型
+  new_episodes?: number; // 新增的剧集数量（用于显示更新提示）
 }
 
 // 收藏数据结构
 export interface Favorite {
   source_name: string;
-  total_episodes: number; // 总集数
+  total_episodes: number; // 总集�?
   title: string;
   year: string;
   cover: string;
-  save_time: number; // 记录保存时间（时间戳）
+  save_time: number; // 记录保存时间（时间戳�?
   search_title: string; // 搜索时使用的标题
   origin?: 'vod' | 'live';
-  is_completed?: boolean; // 是否已完结
+  is_completed?: boolean; // 是否已完�?
   vod_remarks?: string; // 视频备注信息
 }
 
@@ -66,11 +67,11 @@ export interface IStorage {
 
   // 用户相关
   verifyUser(userName: string, password: string): Promise<boolean>;
-  // 检查用户是否存在（无需密码）
+  // 检查用户是否存在（无需密码�?
   checkUserExist(userName: string): Promise<boolean>;
   // 修改用户密码
   changePassword(userName: string, newPassword: string): Promise<void>;
-  // 删除用户（包括密码、搜索历史、播放记录、收藏夹）
+  // 删除用户（包括密码、搜索历史、播放记录、收藏夹�?
   deleteUser(userName: string): Promise<void>;
 
   // 搜索历史相关
@@ -81,7 +82,7 @@ export interface IStorage {
   // 用户列表
   getAllUsers(): Promise<string[]>;
 
-  // 管理员配置相关
+  // 管理员配置相�?
   getAdminConfig(): Promise<AdminConfig | null>;
   setAdminConfig(config: AdminConfig): Promise<void>;
 
@@ -113,7 +114,7 @@ export interface IStorage {
   // 数据清理相关
   clearAllData(): Promise<void>;
 
-  // 通用键值存储
+  // 通用键值存�?
   getGlobalValue(key: string): Promise<string | null>;
   setGlobalValue(key: string, value: string): Promise<void>;
   deleteGlobalValue(key: string): Promise<void>;
@@ -126,7 +127,7 @@ export interface IStorage {
   clearAllNotifications(userName: string): Promise<void>;
   getUnreadNotificationCount(userName: string): Promise<number>;
 
-  // 收藏更新检查相关
+  // 收藏更新检查相�?
   getLastFavoriteCheckTime(userName: string): Promise<number>;
   setLastFavoriteCheckTime(userName: string, timestamp: number): Promise<void>;
 
@@ -143,7 +144,7 @@ export interface IStorage {
   addUserMovieRequest(userName: string, requestId: string): Promise<void>;
   removeUserMovieRequest(userName: string, requestId: string): Promise<void>;
 
-  // 新版用户存储（V2）- 可选方法
+  // 新版用户存储（V2�? 可选方�?
   getUserInfoV2?(userName: string): Promise<{
     role: 'owner' | 'admin' | 'user';
     banned: boolean;
@@ -165,12 +166,12 @@ export interface IStorage {
   getEmailNotificationPreference?(userName: string): Promise<boolean>;
   setEmailNotificationPreference?(userName: string, enabled: boolean): Promise<void>;
 
-  // 播放器设置（支持匿名用户）
+  // 播放器设置（支持匿名用户�?
   getPlayerSettings?(userId: string): Promise<string | null>;
   setPlayerSettings?(userId: string, settings: string, updatedAt?: number): Promise<void>;
   deletePlayerSettings?(userId: string): Promise<void>;
 
-  // 跳过时间（跨来源共享）
+  // 跳过时间（跨来源共享�?
   getSkipTime?(titleNormalized: string): Promise<{ intro_time: number; outro_time: number; updated_at: number } | null>;
   setSkipTime?(titleNormalized: string, intro_time: number, outro_time: number): Promise<void>;
   getAllSkipTimes?(): Promise<Array<{ title_normalized: string; intro_time: number; outro_time: number; updated_at: number }>>;
@@ -192,14 +193,14 @@ export interface SearchResult {
   desc?: string;
   type_name?: string;
   douban_id?: number;
-  vod_remarks?: string; // 视频备注信息（如"全80集"、"更新至25集"等）
-  vod_total?: number; // 总集数
+  vod_remarks?: string; // 视频备注信息（如"�?0�?�?更新�?5�?等）
+  vod_total?: number; // 总集�?
   proxyMode?: boolean; // 代理模式：启用后由服务器代理m3u8和ts分片
-  subtitles?: Array<Array<{ label: string; url: string }>>; // 字幕列表（按集数索引）
+  subtitles?: Array<Array<{ label: string; url: string }>>; // 字幕列表（按集数索引�?
   tmdb_id?: number; // TMDB ID
   rating?: number; // 评分
-  initialEpisodeIndex?: number; // 初始集数索引（用于小雅源从文件点击进入时指定集数）
-  metadataSource?: 'folder' | 'nfo' | 'tmdb' | 'file'; // 元数据来源（用于小雅源判断是否保留fileName）
+  initialEpisodeIndex?: number; // 初始集数索引（用于小雅源从文件点击进入时指定集数�?
+  metadataSource?: 'folder' | 'nfo' | 'tmdb' | 'file'; // 元数据来源（用于小雅源判断是否保留fileName�?
 }
 
 // 豆瓣数据结构
@@ -220,13 +221,13 @@ export interface DoubanResult {
 // 跳过片头片尾配置数据结构
 export interface SkipConfig {
   enable: boolean; // 是否启用跳过片头片尾
-  intro_time: number; // 片头时间（秒）
-  outro_time: number; // 片尾时间（秒）
+  intro_time: number; // 片头时间（秒�?
+  outro_time: number; // 片尾时间（秒�?
 }
 
 // 弹幕过滤规则数据结构
 export interface DanmakuFilterRule {
-  keyword: string; // 关键字
+  keyword: string; // 关键�?
   type: 'normal' | 'regex'; // 普通模式或正则模式
   enabled: boolean; // 是否启用
   id?: string; // 规则ID（用于前端管理）
@@ -239,7 +240,7 @@ export interface DanmakuFilterConfig {
 
 // 集数过滤规则数据结构
 export interface EpisodeFilterRule {
-  keyword: string; // 关键字
+  keyword: string; // 关键�?
   type: 'normal' | 'regex'; // 普通模式或正则模式
   enabled: boolean; // 是否启用
   id?: string; // 规则ID（用于前端管理）
@@ -256,7 +257,8 @@ export type NotificationType =
   | 'system' // 系统通知
   | 'announcement' // 公告
   | 'movie_request' // 新求片通知（给管理员）
-  | 'request_fulfilled'; // 求片已上架通知（给求片用户）
+  | 'request_fulfilled' // 求片已上架通知（给求片用户�?
+  | 'anime_subscription_update'; // 追番订阅更新
 
 // 通知数据结构
 export interface Notification {
@@ -264,12 +266,12 @@ export interface Notification {
   type: NotificationType; // 通知类型
   title: string; // 通知标题
   message: string; // 通知内容
-  timestamp: number; // 通知时间戳
+  timestamp: number; // 通知时间�?
   read: boolean; // 是否已读
   metadata?: Record<string, any>; // 额外的元数据（如收藏更新的source、id等）
 }
 
-// 收藏更新检查结果
+// 收藏更新检查结�?
 export interface FavoriteUpdateCheck {
   last_check_time: number; // 上次检查时间戳
   updates: Array<{
@@ -288,7 +290,7 @@ export interface MovieRequest {
   title: string;
   year?: string;
   mediaType: 'movie' | 'tv';
-  season?: number; // 季度（仅剧集）
+  season?: number; // 季度（仅剧集�?
   poster?: string;
   overview?: string;
   requestedBy: string[];
@@ -300,3 +302,4 @@ export interface MovieRequest {
   fulfilledSource?: string;
   fulfilledId?: string;
 }
+
