@@ -787,31 +787,45 @@ function PlayPageClient() {
     if (hasLoadedEpisodeFromMemory.current) return;
     
     // 必须有 videoTitle
-    if (!videoTitle) return;
+    if (!videoTitle) {
+      console.log('[LastPlayProgress] 跳过恢复 - videoTitle 为空');
+      return;
+    }
     
     // 尝试读取记忆的集数和播放进度（基于标题，不区分来源）
     const savedProgress = getLastPlayProgress(videoTitle);
-    if (savedProgress) {
-      // 如果 URL 没有指定 episode，则恢复集数
-      // 如果 URL 指定了 episode，仍然尝试恢复播放时间（进度）
-      if (!searchParams.get('episode') && savedProgress.episodeIndex >= 0) {
-        console.log('[LastPlayProgress] 从记忆恢复集数:', { 
-          title: videoTitle, 
-          source: currentSource, 
-          episodeIndex: savedProgress.episodeIndex,
-          playTime: savedProgress.playTime 
-        });
-        setCurrentEpisodeIndex(savedProgress.episodeIndex);
-      }
-      
-      // 始终尝试恢复播放时间（进度），无论是否指定了集数
-      if (savedProgress.playTime > 0) {
-        resumeTimeRef.current = savedProgress.playTime;
-        console.log('[LastPlayProgress] 恢复播放进度:', { 
-          title: videoTitle, 
-          playTime: savedProgress.playTime 
-        });
-      }
+    
+    if (!savedProgress) {
+      console.log('[LastPlayProgress] 无历史记录:', { title: videoTitle });
+      hasLoadedEpisodeFromMemory.current = true;
+      return;
+    }
+    
+    console.log('[LastPlayProgress] 找到历史记录:', { 
+      title: videoTitle, 
+      source: currentSource, 
+      episodeIndex: savedProgress.episodeIndex,
+      playTime: savedProgress.playTime,
+      hasEpisodeParam: !!searchParams.get('episode')
+    });
+    
+    // 如果 URL 没有指定 episode，则恢复集数
+    // 如果 URL 指定了 episode，仍然尝试恢复播放时间（进度）
+    if (!searchParams.get('episode') && savedProgress.episodeIndex >= 0) {
+      console.log('[LastPlayProgress] 恢复集数:', { 
+        title: videoTitle, 
+        episodeIndex: savedProgress.episodeIndex
+      });
+      setCurrentEpisodeIndex(savedProgress.episodeIndex);
+    }
+    
+    // 始终尝试恢复播放时间（进度），无论是否指定了集数
+    if (savedProgress.playTime > 0) {
+      resumeTimeRef.current = savedProgress.playTime;
+      console.log('[LastPlayProgress] 恢复播放进度:', { 
+        title: videoTitle, 
+        playTime: savedProgress.playTime 
+      });
     }
     
     hasLoadedEpisodeFromMemory.current = true;
