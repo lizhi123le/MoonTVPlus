@@ -1678,21 +1678,14 @@ function LivePageClient() {
         const isProxyUrl = targetUrl !== originalUrl; // 所有类型都使用代理
         let hasTriedFallback = false;
 
-        // 代理5秒超时降级
+        // 代理超时警告（不切换URL，避免暂停）
         let proxyTimeout: NodeJS.Timeout | null = null;
         if (isProxyUrl) {
-          proxyTimeout = setTimeout(async () => {
-            if (!hasTriedFallback && artPlayerRef.current) {
-              hasTriedFallback = true;
-              console.warn('代理播放超时(5s)，尝试使用原始地址...');
-              try {
-                await artPlayerRef.current.switchUrl(originalUrl);
-                await artPlayerRef.current.play();
-              } catch (fallbackErr) {
-                console.error('降级到原始地址失败:', fallbackErr);
-              }
+          proxyTimeout = setTimeout(() => {
+            if (artPlayerRef.current) {
+              console.warn('代理播放超时(17s)，继续等待...');
             }
-          }, 5000);
+          }, 17000);
         }
 
         artPlayerRef.current.on('error', async (err: any) => {
@@ -1702,17 +1695,7 @@ function LivePageClient() {
             clearTimeout(proxyTimeout);
             proxyTimeout = null;
           }
-          // 如果使用了代理且未尝试过降级，则使用原始地址
-          if (isProxyUrl && !hasTriedFallback) {
-            hasTriedFallback = true;
-            console.warn('代理播放失败，尝试使用原始地址...');
-            try {
-              await artPlayerRef.current?.switchUrl(originalUrl);
-              await artPlayerRef.current?.play();
-            } catch (fallbackErr) {
-              console.error('降级到原始地址失败:', fallbackErr);
-            }
-          }
+          // 不再自动切换到原始地址，避免暂停
         });
 
         artPlayerRef.current.on('ready', () => {
