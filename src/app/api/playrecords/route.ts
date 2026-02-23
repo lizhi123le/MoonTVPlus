@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     // 清理可能存在的旧格式记录（source+id 格式的 key）
     // 避免同名影片因为新旧 key 格式不同而产生重复记录
     try {
-      const allRecords = await (db as any).storage.getAllPlayRecords(authInfo.username);
+      const allRecords = await (db as any).storage.getAllPlayRecords(authInfo.username) as Record<string, PlayRecord>;
       const normalizedTitle = key; // 新的title-based key
       
       // 遍历所有记录，找出与当前标题相同的旧记录并删除
@@ -111,12 +111,12 @@ export async function POST(request: NextRequest) {
         if (oldKey === normalizedTitle) continue;
         
         // 检查旧记录的标题是否与当前标题相同（使用相同的normalizeTitleForKey逻辑）
-        const oldNormalizedTitle = (oldRecord.title || '').trim().toLowerCase()
+        const oldNormalizedTitle = ((oldRecord as PlayRecord).title || '').trim().toLowerCase()
           .replace(/[\s\-_]+/g, '')
           .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
         
         if (oldNormalizedTitle === normalizedTitle) {
-          console.log('[播放记录] 清理旧格式记录:', { oldKey, title: oldRecord.title });
+          console.log('[播放记录] 清理旧格式记录:', { oldKey, title: (oldRecord as PlayRecord).title });
           await (db as any).storage.deletePlayRecord(authInfo.username, oldKey);
         }
       }
