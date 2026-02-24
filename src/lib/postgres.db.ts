@@ -67,7 +67,7 @@ export class PostgresStorage implements IStorage {
           INSERT INTO play_records (
             username, key, title, source_name, cover, year,
             episode_index, total_episodes, play_time, total_time,
-            save_time, search_title, new_episodes
+            save_time, search_title, douban_id, origin, new_episodes
           )
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
           ON CONFLICT (username, key) DO UPDATE SET
@@ -81,6 +81,8 @@ export class PostgresStorage implements IStorage {
             total_time = EXCLUDED.total_time,
             save_time = EXCLUDED.save_time,
             search_title = EXCLUDED.search_title,
+            douban_id = EXCLUDED.douban_id,
+            origin = EXCLUDED.origin,
             new_episodes = EXCLUDED.new_episodes
         `)
         .bind(
@@ -96,6 +98,8 @@ export class PostgresStorage implements IStorage {
           record.total_time,
           record.save_time,
           record.search_title || '',
+          record.douban_id || null,
+          record.origin || null,
           record.new_episodes || null
         )
         .run();
@@ -294,6 +298,8 @@ export class PostgresStorage implements IStorage {
   private rowToPlayRecord(row: any): PlayRecord {
     return {
       title: row.title,
+      source: row.source,
+      id: row.id,
       source_name: row.source_name,
       cover: row.cover || '',
       year: row.year || '',
@@ -303,6 +309,8 @@ export class PostgresStorage implements IStorage {
       total_time: row.total_time,
       save_time: row.save_time,
       search_title: row.search_title || '',
+      douban_id: row.douban_id || undefined,
+      origin: row.origin,
       new_episodes: row.new_episodes || undefined,
     };
   }

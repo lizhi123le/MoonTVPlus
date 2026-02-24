@@ -11,6 +11,17 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
 	{
+      version: '213.0.1',
+      date: '2026-02-24',
+      added: [],
+      changed: [],
+      fixed: [
+		"修复 PlayRecord 类型缺少 source/id 字段问题",
+		"修复数据库层 TypeScript 类型错误",
+		"合并上游 MoonTVPlus 更新"
+	]
+	},
+	{
       version: '212.3.0',
       date: '2026-02-14',
       added: [

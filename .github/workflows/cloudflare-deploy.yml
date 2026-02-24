@@ -107,6 +107,16 @@ jobs:
             fi
           }
 
+          # Update project name if provided
+          if [ -n "${{ secrets.PROJECT_NAME }}" ]; then
+            sed -i 's/^name = ".*"/name = "${{ secrets.PROJECT_NAME }}"/' wrangler.toml
+          fi
+
+          # Update database name if provided
+          if [ -n "${{ secrets.D1_DATABASE_NAME }}" ]; then
+            sed -i 's/^database_name = ".*"/database_name = "${{ secrets.D1_DATABASE_NAME }}"/' wrangler.toml
+          fi
+
           # Append all environment variables to wrangler.toml
           append_var "NEXT_PUBLIC_STORAGE_TYPE" "${{ secrets.NEXT_PUBLIC_STORAGE_TYPE }}"
           append_var "NEXT_PUBLIC_SITE_NAME" "${{ secrets.NEXT_PUBLIC_SITE_NAME }}"
@@ -175,7 +185,11 @@ jobs:
           for migration_file in ./migrations/*.sql; do
             if [ -f "$migration_file" ]; then
               echo "Executing migration: $(basename $migration_file)"
-              wrangler d1 execute moontvplus --remote --file="$migration_file" || echo "⚠️ Migration may have been skipped (already applied)"
+              PROJECT_NAME="${{ secrets.PROJECT_NAME }}"
+              if [ -z "$PROJECT_NAME" ]; then
+                PROJECT_NAME="moontvplus"
+              fi
+              wrangler d1 execute "$PROJECT_NAME" --remote --file="$migration_file" || echo "⚠️ Migration may have been skipped (already applied)"
             fi
           done
 

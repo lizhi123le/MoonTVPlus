@@ -31,6 +31,8 @@ function triggerGlobalError(message: string) {
 // ---- 类型 ----
 export interface PlayRecord {
   title: string;
+  source: string;  // 来源标识（用于播放跳转）
+  id: string;     // 影片ID（用于播放跳转）
   source_name: string;
   year: string;
   cover: string;
@@ -40,6 +42,7 @@ export interface PlayRecord {
   total_time: number; // 总进度（秒）
   save_time: number; // 记录保存时间（时间戳）
   search_title?: string; // 搜索时使用的标题
+  douban_id?: number; // 豆瓣ID，用于获取详情
   origin?: 'vod' | 'live'; // 来源类型
   new_episodes?: number; // 新增的剧集数量（用于显示更新提示）
 }
