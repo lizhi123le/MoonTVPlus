@@ -3792,34 +3792,28 @@ function PlayPageClient() {
     const extractEpisodeNumber = (title: string): number | null => {
       if (!title) return null;
 
-      // 优先匹配 Emby 格式：S01E01, S02E09 等
+      // 优先匹配 Emby 格式：S01E01, S02E09 等（支持任意位置）
       const embyMatch = title.match(/[Ss]\d+[Ee](\d+)/);
       if (embyMatch) {
         return parseInt(embyMatch[1], 10);
       }
 
-      // 匹配 EP01, EP1, ep01, ep1, ep.01 等格式（支持在任意位置）
+      // 匹配 EP01, EP1, ep01, ep1, ep.01 等格式（支持任意位置）
       const epMatch = title.match(/[Ee][Pp]\.?(\d+)/);
       if (epMatch) {
         return parseInt(epMatch[1], 10);
       }
 
-      // 匹配 "第01集", "第1集", "第01话", "第1话" 等格式
+      // 匹配 "第01集", "第1集", "第01话", "第1话" 等格式（支持任意位置）
       const diMatch = title.match(/第\s*(\d+)\s*[集話话]/);
       if (diMatch) {
         return parseInt(diMatch[1], 10);
       }
 
-      // 匹配纯数字：01, 1（只在标题开头或单独出现时）
-      const pureMatch = title.match(/^(\d+)$/);
-      if (pureMatch) {
-        return parseInt(pureMatch[1], 10);
-      }
-
-      // 匹配标题中任意位置的纯数字（如 "剧情介绍 01", "01 预告" 等）
-      const anywhereMatch = title.match(/(\d+)/);
-      if (anywhereMatch) {
-        return parseInt(anywhereMatch[1], 10);
+      // 匹配纯数字（支持任意位置，找到第一个数字即可）
+      const numMatch = title.match(/(\d+)/);
+      if (numMatch) {
+        return parseInt(numMatch[1], 10);
       }
 
       return null;
