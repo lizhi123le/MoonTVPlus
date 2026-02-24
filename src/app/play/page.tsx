@@ -41,10 +41,12 @@ import {
   searchAnime,
 } from '@/lib/danmaku/api';
 import {
+  getDanmakuAnimeCandidates,
   getDanmakuAnimeId,
   getDanmakuSearchKeyword,
   getDanmakuSourceIndex,
   getManualDanmakuSelection,
+  saveDanmakuAnimeCandidates,
   saveDanmakuAnimeId,
   saveDanmakuSearchKeyword,
   saveDanmakuSourceIndex,
