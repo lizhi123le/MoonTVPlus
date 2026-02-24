@@ -118,28 +118,40 @@ jobs:
           echo "WATCH_ROOM_EXTERNAL_SERVER_URL=${{ secrets.WATCH_ROOM_EXTERNAL_SERVER_URL }}" >> $GITHUB_ENV
           echo "WATCH_ROOM_SERVER_TYPE=${{ secrets.WATCH_ROOM_SERVER_TYPE }}" >> $GITHUB_ENV
 
-      - name: Configure D1 Database in wrangler.toml
+      - name: Install dependencies
         run: |
-          STORAGE_TYPE="${{ secrets.NEXT_PUBLIC_STORAGE_TYPE }}"
+          echo "Cleaning old dependencies..."
+          rm -rf node_modules .next
+          echo "Installing dependencies..."
+          pnpm install --frozen-lockfile
+          echo "Dependencies installed"
 
-          if [ "$STORAGE_TYPE" != "d1" ]; then
-            echo "Storage type is not d1 (current: $STORAGE_TYPE), removing D1 database configuration"
-            # Remove the entire [[d1_databases]] section including the comment
-            sed -i '/^# D1 数据库绑定$/,/^database_id = .*$/d' wrangler.toml
-            # Also remove any remaining [[d1_databases]] block
-            sed -i '/^\[\[d1_databases\]\]$/,/^$/{ /^\[\[d1_databases\]\]$/d; /^binding = /d; /^database_name = /d; /^database_id = /d; }' wrangler.toml
-            echo "D1 configuration removed from wrangler.toml"
-          elif [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
-            sed -i 's/REPLACE_WITH_YOUR_D1_DATABASE_ID/${{ secrets.D1_DATABASE_ID }}/g' wrangler.toml
-            echo "D1 Database ID replaced successfully"
+      - name: Replace D1 DB in wrangler.toml
+        run: |
+          if [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
+            D1_ID="${{ secrets.D1_DATABASE_ID }}"
+            echo "Replacing database_id in wrangler.toml with D1_DATABASE_ID"
+            sed -i "s/database_id = \".*\"/database_id = \"${D1_ID}\"/" wrangler.toml
+            echo "D1_DATABASE_ID applied"
           else
-            echo "⚠️ Storage type is d1 but D1_DATABASE_ID secret not set"
+            echo "D1_DATABASE_ID secret not set; aborting deployment" >&2
             exit 1
           fi
+          echo "wrangler.toml database_id updated (sanitized)."
+
+      - name: Verify D1 DB configuration
+        run: |
+          if [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
+            echo "D1_DATABASE_ID secret present."
+          else
+            echo "D1_DATABASE_ID secret not set; aborting deployment" >&2
+            exit 1
+          fi
+          echo "wrangler.toml D1 DB configuration status: OK (sanitized)."
 
       - name: Update wrangler.toml with environment variables
         run: |
-          # Function to append variable to wrangler.toml if it has a value
+          # Helper to append variable to wrangler.toml if it has a value
           append_var() {
             local var_name=$1
             local var_value=$2
@@ -148,17 +160,7 @@ jobs:
             fi
           }
 
-          # Update project name if provided
-          if [ -n "${{ secrets.PROJECT_NAME }}" ]; then
-            sed -i 's/^name = ".*"/name = "${{ secrets.PROJECT_NAME }}"/' wrangler.toml
-          fi
-
-          # Update database name if provided
-          if [ -n "${{ secrets.D1_DATABASE_NAME }}" ]; then
-            sed -i 's/^database_name = ".*"/database_name = "${{ secrets.D1_DATABASE_NAME }}"/' wrangler.toml
-          fi
-
-          # Append all environment variables to wrangler.toml
+          # Append only public environment variables (no secrets printed to logs)
           append_var "NEXT_PUBLIC_STORAGE_TYPE" "${{ secrets.NEXT_PUBLIC_STORAGE_TYPE }}"
           append_var "NEXT_PUBLIC_SITE_NAME" "${{ secrets.NEXT_PUBLIC_SITE_NAME }}"
           append_var "NEXT_PUBLIC_SEARCH_MAX_PAGE" "${{ secrets.NEXT_PUBLIC_SEARCH_MAX_PAGE }}"
@@ -304,10 +306,16 @@ jobs:
 
       - name: Run D1 Database Migrations
         run: |
-          STORAGE_TYPE="${{ secrets.NEXT_PUBLIC_STORAGE_TYPE }}"
+          # Use D1_DATABASE_ID from secrets or wrangler.toml
+          if [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
+            DATABASE_ID="${{ secrets.D1_DATABASE_ID }}"
+          else
+            DATABASE_ID=$(grep 'database_id' wrangler.toml | sed 's/.*=\s*"\([^"]*\)"/\1/' | head -1)
+          fi
 
-          if [ "$STORAGE_TYPE" != "d1" ]; then
-            echo "Storage type is not d1 (current: $STORAGE_TYPE), skipping D1 migrations"
+          # Skip if no valid ID
+          if [ -z "$DATABASE_ID" ] || [ "$DATABASE_ID" = "REPLACE_WITH_YOUR_D1_DATABASE_ID" ]; then
+            echo "D1_DATABASE_ID not configured, skipping migrations"
             exit 0
           fi
 
