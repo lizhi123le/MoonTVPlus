@@ -946,9 +946,37 @@ function PlayPageClient() {
                   return;
                 }
               }
+
+            // 尝试自动匹配所有候选源，找到第一个能匹配集数的
+            console.log('尝试自动匹配候选弹幕源...');
+            for (const candidateAnime of filteredAnimes) {
+              try {
+                const candidateEpisodes = await getEpisodes(candidateAnime.animeId);
+                if (candidateEpisodes.success && candidateEpisodes.bangumi.episodes.length > 0) {
+                  const videoEpTitle = detailRef.current?.episodes_titles?.[currentEpisodeIndexRef.current];
+                  const matchedEpisode = matchDanmakuEpisode(currentEpisodeIndexRef.current, candidateEpisodes.bangumi.episodes, videoEpTitle);
+                  if (matchedEpisode) {
+                    const selection: DanmakuSelection = {
+                      animeId: candidateAnime.animeId,
+                      episodeId: matchedEpisode.episodeId,
+                      animeTitle: candidateAnime.animeTitle,
+                      episodeTitle: matchedEpisode.episodeTitle,
+                    };
+                    setDanmakuEpisodesList(candidateEpisodes.bangumi.episodes);
+                    console.log('自动匹配弹幕源成功:', selection);
+                    // 保存这个选择作为记忆
+                    saveDanmakuSourceIndex(title, filteredAnimes.indexOf(candidateAnime));
+                    await handleDanmakuSelect(selection);
+                    setDanmakuLoading(false);
+                    return;
+                  }
+                }
+              } catch (e) {
+                console.log(`候选源 ${candidateAnime.animeId} 匹配失败，尝试下一个`);
+              }
             }
 
-            // 没有记忆或记忆失效，让用户选择
+            // 所有候选源都匹配失败，让用户选择
             console.log(`等待用户选择弹幕源`);
             setDanmakuMatches(filteredAnimes);
             setCurrentSearchKeyword(searchKeyword); // 保存当前搜索关键词
