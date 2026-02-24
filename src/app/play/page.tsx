@@ -6372,6 +6372,8 @@ function PlayPageClient() {
     lastSaveTimeRef.current = Date.now();
     console.log('播放进度已保存:', {
         title: videoTitleRef.current,
+        source: currentSourceRef.current,
+        id: currentIdRef.current,
         episode: currentEpisodeIndexRef.current + 1,
         year: detailRef.current?.year,
         progress: `${Math.floor(currentTime)}/${Math.floor(duration)}`,

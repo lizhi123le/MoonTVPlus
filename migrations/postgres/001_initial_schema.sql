@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS play_records (
   save_time BIGINT NOT NULL, -- 保存时间戳
   search_title TEXT,
   douban_id INTEGER, -- 豆瓣ID，用于获取详情
+  origin TEXT CHECK(origin IN ('vod', 'live')), -- 来源类型
+  new_episodes INTEGER, -- 新增的剧集数量（用于显示更新提示）
   PRIMARY KEY (username, key),
   FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
 );
