@@ -4030,6 +4030,8 @@ function PlayPageClient() {
 
         allResults = data.results || [];
 
+        allResults = data.results || [];
+
         // 处理搜索结果，根据规则过滤
         results = allResults.filter(
           (result: SearchResult) =>
@@ -5098,13 +5100,6 @@ function PlayPageClient() {
     danmakuEpisodes: Array<{ episodeId: number; episodeTitle: string }>,
     videoEpisodeTitle?: string
   ) => {
-    console.log('[弹幕匹配] ===== 开始匹配 =====');
-    console.log('[弹幕匹配] currentEpisodeIndex:', currentEpisodeIndex);
-    console.log('[弹幕匹配] danmakuEpisodes 数量:', danmakuEpisodes.length);
-    console.log('[弹幕匹配] videoEpisodeTitle:', videoEpisodeTitle);
-    if (danmakuEpisodes.length > 0) {
-      console.log('[弹幕匹配] 弹幕集数示例:', danmakuEpisodes.slice(0, 3).map(ep => ep.episodeTitle));
-    }
     if (!danmakuEpisodes.length) return null;
 
     // 提取集数的多种格式
@@ -5218,11 +5213,6 @@ function PlayPageClient() {
     };
 
     // 如果有视频集数标题，优先尝试精确/模糊匹配
-    if (videoEpisodeTitle) {
-      const videoInfo = extractEpisodeNumber(videoEpisodeTitle);
-      console.log('[弹幕匹配] 提取的视频集数信息:', videoInfo);
-
-      if (videoInfo.num !== null) {
     if (videoEpisodeTitle) {
       const videoInfo = extractEpisodeNumber(videoEpisodeTitle);
 
