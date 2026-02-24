@@ -98,6 +98,20 @@ jobs:
           fi
           echo "wrangler.toml database_id updated (sanitized)."
 
+      - name: Update project and database names in wrangler.toml
+        run: |
+          # Update project name if provided
+          if [ -n "${{ secrets.PROJECT_NAME }}" ]; then
+            sed -i 's/^name = ".*"/name = "${{ secrets.PROJECT_NAME }}"/' wrangler.toml
+            echo "Project name updated to: ${{ secrets.PROJECT_NAME }}"
+          fi
+
+          # Update database name if provided
+          if [ -n "${{ secrets.D1_DATABASE_NAME }}" ]; then
+            sed -i 's/^database_name = ".*"/database_name = "${{ secrets.D1_DATABASE_NAME }}"/' wrangler.toml
+            echo "Database name updated to: ${{ secrets.D1_DATABASE_NAME }}"
+          fi
+
       - name: Verify D1 DB configuration
         run: |
           if [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
@@ -162,6 +176,18 @@ jobs:
 
       - name: Run D1 Database Migrations
         run: |
+          # Determine database name: prefer PROJECT_NAME secret, fallback to D1_DATABASE_NAME
+          if [ -n "${{ secrets.PROJECT_NAME }}" ]; then
+            DATABASE_NAME="${{ secrets.PROJECT_NAME }}"
+            echo "Using PROJECT_NAME for D1: $DATABASE_NAME"
+          elif [ -n "${{ secrets.D1_DATABASE_NAME }}" ]; then
+            DATABASE_NAME="${{ secrets.D1_DATABASE_NAME }}"
+            echo "Using D1_DATABASE_NAME for D1: $DATABASE_NAME"
+          else
+            DATABASE_NAME="moontvplus"
+            echo "Using default D1 name: $DATABASE_NAME"
+          fi
+
           # Use D1_DATABASE_ID from secrets or wrangler.toml
           if [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
             DATABASE_ID="${{ secrets.D1_DATABASE_ID }}"
@@ -180,7 +206,7 @@ jobs:
           for migration_file in ./migrations/*.sql; do
             if [ -f "$migration_file" ]; then
               echo "Executing migration: $(basename $migration_file)"
-              wrangler d1 execute "$DATABASE_ID" --remote --file="$migration_file" || echo "⚠️ Migration may have been skipped (already applied)"
+              wrangler d1 execute "$DATABASE_NAME" --remote --file="$migration_file" || echo "⚠️ Migration may have been skipped (already applied)"
             fi
           done
 
