@@ -888,6 +888,26 @@ function PlayPageClient() {
 
       try {
         const searchResult = await searchAnime(searchKeyword);
+        console.log('[弹幕] 搜索结果:', searchResult);
+
+        if (searchResult.success && searchResult.animes.length > 0) {
+          console.log('[弹幕] 原始搜索结果数量:', searchResult.animes.length);
+        const searchResult = await searchAnime(searchKeyword);
+        console.log('[弹幕] 搜索结果:', searchResult);
+
+        if (searchResult.success && searchResult.animes.length > 0) {
+          console.log('[弹幕] 原始搜索结果数量:', searchResult.animes.length);
+
+          // 应用智能过滤：优先匹配年份和标题
+          const videoYear = detailRef.current?.year;
+          console.log('[弹幕] 视频年份:', videoYear);
+          const filteredAnimes = filterDanmakuSources(
+            searchResult.animes,
+            title,
+            videoYear
+          );
+
+          console.log('[弹幕] 过滤后弹幕源数量:', filteredAnimes.length);
 
         if (searchResult.success && searchResult.animes.length > 0) {
           // 应用智能过滤：优先匹配年份和标题
