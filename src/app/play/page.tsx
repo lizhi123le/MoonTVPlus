@@ -5275,9 +5275,7 @@ function PlayPageClient() {
         source: currentSourceRef.current,
         id: currentIdRef.current,
         source_name: detailRef.current?.source_name || '',
-        source: currentSourceRef.current,
-        id: currentIdRef.current,
-        source_name: detailRef.current?.source_name || '',
+        year: detailRef.current?.year,
         year: detailRef.current?.year,
         cover: detailRef.current?.poster || '',
         index: currentEpisodeIndexRef.current + 1, // 转换为1基索引
