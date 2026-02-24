@@ -41,12 +41,10 @@ import {
   searchAnime,
 } from '@/lib/danmaku/api';
 import {
-  getDanmakuAnimeCandidates,
   getDanmakuAnimeId,
   getDanmakuSearchKeyword,
   getDanmakuSourceIndex,
   getManualDanmakuSelection,
-  saveDanmakuAnimeCandidates,
   saveDanmakuAnimeId,
   saveDanmakuSearchKeyword,
   saveDanmakuSourceIndex,
@@ -96,7 +94,6 @@ import AIChatPanel from '@/components/AIChatPanel';
 import AIComments from '@/components/AIComments';
 import CorrectDialog from '@/components/CorrectDialog';
 import DanmakuFilterSettings from '@/components/DanmakuFilterSettings';
-import DetailPanel from '@/components/DetailPanel';
 import DoubanComments from '@/components/DoubanComments';
 import DownloadEpisodeSelector from '@/components/DownloadEpisodeSelector';
 import Drawer from '@/components/Drawer';
@@ -4031,6 +4028,8 @@ function PlayPageClient() {
 
         allResults = data.results || [];
 
+        allResults = data.results || [];
+
         // 处理搜索结果，根据规则过滤
         results = allResults.filter(
           (result: SearchResult) =>
@@ -6374,8 +6373,6 @@ function PlayPageClient() {
     lastSaveTimeRef.current = Date.now();
     console.log('播放进度已保存:', {
         title: videoTitleRef.current,
-        source: currentSourceRef.current,
-        id: currentIdRef.current,
         episode: currentEpisodeIndexRef.current + 1,
         year: detailRef.current?.year,
         progress: `${Math.floor(currentTime)}/${Math.floor(duration)}`,
@@ -10749,7 +10746,7 @@ function PlayPageClient() {
       )}
 
       {/* AI问片面板 */}
-      {aiEnabled && detail && (
+      {aiEnabled && showAIChat && detail && (
         <AIChatPanel
           isOpen={showAIChat}
           onClose={() => setShowAIChat(false)}
