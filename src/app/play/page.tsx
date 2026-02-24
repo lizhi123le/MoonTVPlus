@@ -15,8 +15,26 @@ import {
   initDanmakuModule,
   loadDanmakuDisplayState,
   loadDanmakuSettings,
+  loadPlayerAnime4kEnabled,
+  loadPlayerAnime4kMode,
+  loadPlayerAnime4kScale,
+  loadPlayerAutoPlay,
+  loadPlayerDanmakuEnabled,
+  loadPlayerPlaybackRate,
+  loadPlayerSettings,
+  loadPlayerTheaterMode,
+  loadPlayerVolume,
   saveDanmakuDisplayState,
   saveDanmakuSettings,
+  savePlayerAnime4kEnabled,
+  savePlayerAnime4kMode,
+  savePlayerAnime4kScale,
+  savePlayerAutoPlay,
+  savePlayerDanmakuEnabled,
+  savePlayerPlaybackRate,
+  savePlayerSettings,
+  savePlayerTheaterMode,
+  savePlayerVolume,
   searchAnime,
 } from '@/lib/danmaku/api';
 import {
@@ -296,18 +314,21 @@ function PlayPageClient() {
 
   // Anime4K超分相关状态
   const [webGPUSupported, setWebGPUSupported] = useState<boolean>(false);
-  const [anime4kEnabled, setAnime4kEnabled] = useState<boolean>(false);
+  const [anime4kEnabled, setAnime4kEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return loadPlayerAnime4kEnabled();
+    }
+    return false;
+  });
   const [anime4kMode, setAnime4kMode] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      const v = localStorage.getItem('anime4k_mode');
-      if (v !== null) return v;
+      return loadPlayerAnime4kMode();
     }
     return 'ModeA';
   });
   const [anime4kScale, setAnime4kScale] = useState<number>(() => {
     if (typeof window !== 'undefined') {
-      const v = localStorage.getItem('anime4k_scale');
-      if (v !== null) return parseFloat(v);
+      return loadPlayerAnime4kScale();
     }
     return 2.0;
   });
@@ -2517,7 +2538,7 @@ function PlayPageClient() {
         await cleanupAnime4K();
       }
       setAnime4kEnabled(enabled);
-      localStorage.setItem('enable_anime4k', String(enabled));
+      savePlayerAnime4kEnabled(enabled);
     } catch (err) {
       console.error('切换超分状态失败:', err);
     }
@@ -2527,7 +2548,7 @@ function PlayPageClient() {
   const changeAnime4KMode = async (mode: string) => {
     try {
       setAnime4kMode(mode);
-      localStorage.setItem('anime4k_mode', mode);
+      savePlayerAnime4kMode(mode);
 
       if (anime4kEnabledRef.current) {
         await cleanupAnime4K();
@@ -2542,7 +2563,7 @@ function PlayPageClient() {
   const changeAnime4KScale = async (scale: number) => {
     try {
       setAnime4kScale(scale);
-      localStorage.setItem('anime4k_scale', scale.toString());
+      savePlayerAnime4kScale(scale);
 
       if (anime4kEnabledRef.current) {
         await cleanupAnime4K();
