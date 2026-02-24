@@ -85,46 +85,49 @@ jobs:
           pnpm install --frozen-lockfile
           echo "Dependencies installed"
 
-      - name: Replace D1 DB in wrangler.toml
+      - name: Replace project name and database name in wrangler.toml
         run: |
-          if [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
-            D1_ID="${{ secrets.D1_DATABASE_ID }}"
-            echo "Replacing database_id in wrangler.toml with D1_DATABASE_ID"
-            sed -i "s/database_id = \".*\"/database_id = \"${D1_ID}\"/" wrangler.toml
-            echo "D1_DATABASE_ID applied"
-          else
-            echo "D1_DATABASE_ID secret not set; aborting deployment" >&2
-            exit 1
-          fi
-          echo "wrangler.toml database_id updated (sanitized)."
-
-      - name: Update project and database names in wrangler.toml
-        run: |
-          # Update project name if provided
+          # Replace name if PROJECT_NAME secret is set
           if [ -n "${{ secrets.PROJECT_NAME }}" ]; then
             sed -i 's/^name = ".*"/name = "${{ secrets.PROJECT_NAME }}"/' wrangler.toml
-            echo "Project name updated to: ${{ secrets.PROJECT_NAME }}"
+            echo "Project name replaced with: ${{ secrets.PROJECT_NAME }}"
+          else
+            echo "PROJECT_NAME secret not set, keeping default name"
           fi
 
-          # Update database name if provided
+          # Replace database_name if D1_DATABASE_NAME secret is set
           if [ -n "${{ secrets.D1_DATABASE_NAME }}" ]; then
             sed -i 's/^database_name = ".*"/database_name = "${{ secrets.D1_DATABASE_NAME }}"/' wrangler.toml
-            echo "Database name updated to: ${{ secrets.D1_DATABASE_NAME }}"
+            echo "Database name replaced with: ${{ secrets.D1_DATABASE_NAME }}"
+          else
+            echo "D1_DATABASE_NAME secret not set, keeping default database name"
           fi
 
-      - name: Verify D1 DB configuration
+          echo "Updated wrangler.toml:"
+          cat wrangler.toml
+
+      - name: Configure D1 Database in wrangler.toml
         run: |
-          if [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
-            echo "D1_DATABASE_ID secret present."
+          STORAGE_TYPE="${{ secrets.NEXT_PUBLIC_STORAGE_TYPE }}"
+
+          if [ "$STORAGE_TYPE" != "d1" ]; then
+            echo "Storage type is not d1 (current: $STORAGE_TYPE), removing D1 database configuration"
+            # Remove the entire [[d1_databases]] section including the comment
+            sed -i '/^# D1 数据库绑定$/,/^database_id = .*$/d' wrangler.toml
+            # Also remove any remaining [[d1_databases]] block
+            sed -i '/^\[\[d1_databases\]\]$/,/^$/{ /^\[\[d1_databases\]\]$/d; /^binding = /d; /^database_name = /d; /^database_id = /d; }' wrangler.toml
+            echo "D1 configuration removed from wrangler.toml"
+          elif [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
+            sed -i 's/REPLACE_WITH_YOUR_D1_DATABASE_ID/${{ secrets.D1_DATABASE_ID }}/g' wrangler.toml
+            echo "D1 Database ID replaced successfully"
           else
-            echo "D1_DATABASE_ID secret not set; aborting deployment" >&2
+            echo "⚠️ Storage type is d1 but D1_DATABASE_ID secret not set"
             exit 1
           fi
-          echo "wrangler.toml D1 DB configuration status: OK (sanitized)."
 
       - name: Update wrangler.toml with environment variables
         run: |
-          # Helper to append variable to wrangler.toml if it has a value
+          # Function to append variable to wrangler.toml if it has a value
           append_var() {
             local var_name=$1
             local var_value=$2
@@ -133,7 +136,7 @@ jobs:
             fi
           }
 
-          # Append only public environment variables (no secrets printed to logs)
+          # Append all environment variables to wrangler.toml
           append_var "NEXT_PUBLIC_STORAGE_TYPE" "${{ secrets.NEXT_PUBLIC_STORAGE_TYPE }}"
           append_var "NEXT_PUBLIC_SITE_NAME" "${{ secrets.NEXT_PUBLIC_SITE_NAME }}"
           append_var "NEXT_PUBLIC_SEARCH_MAX_PAGE" "${{ secrets.NEXT_PUBLIC_SEARCH_MAX_PAGE }}"
@@ -148,9 +151,29 @@ jobs:
           append_var "NEXT_PUBLIC_VOICE_CHAT_STRATEGY" "${{ secrets.NEXT_PUBLIC_VOICE_CHAT_STRATEGY }}"
           append_var "NEXT_PUBLIC_ENABLE_OFFLINE_DOWNLOAD" "${{ secrets.NEXT_PUBLIC_ENABLE_OFFLINE_DOWNLOAD }}"
           append_var "NEXT_PUBLIC_ENABLE_SOURCE_SEARCH" "${{ secrets.NEXT_PUBLIC_ENABLE_SOURCE_SEARCH }}"
-          # Do not append sensitive values here
+          append_var "USERNAME" "${{ secrets.USERNAME }}"
+          append_var "PASSWORD" "${{ secrets.PASSWORD }}"
+          append_var "UPSTASH_URL" "${{ secrets.UPSTASH_URL }}"
+          append_var "UPSTASH_TOKEN" "${{ secrets.UPSTASH_TOKEN }}"
+          append_var "TMDB_API_KEY" "${{ secrets.TMDB_API_KEY }}"
+          append_var "TMDB_PROXY" "${{ secrets.TMDB_PROXY }}"
+          append_var "TMDB_REVERSE_PROXY" "${{ secrets.TMDB_REVERSE_PROXY }}"
+          append_var "DANMAKU_API_BASE" "${{ secrets.DANMAKU_API_BASE }}"
+          append_var "DANMAKU_API_TOKEN" "${{ secrets.DANMAKU_API_TOKEN }}"
+          append_var "ANNOUNCEMENT" "${{ secrets.ANNOUNCEMENT }}"
+          append_var "CRON_PASSWORD" "${{ secrets.CRON_PASSWORD }}"
+          append_var "SITE_BASE" "${{ secrets.SITE_BASE }}"
+          append_var "REDIS_URL" "${{ secrets.REDIS_URL }}"
+          append_var "KVROCKS_URL" "${{ secrets.KVROCKS_URL }}"
+          append_var "INIT_CONFIG" "${{ secrets.INIT_CONFIG }}"
+          append_var "CONFIG_SUBSCRIPTION_URL" "${{ secrets.CONFIG_SUBSCRIPTION_URL }}"
+          append_var "ENABLE_TVBOX_SUBSCRIBE" "${{ secrets.ENABLE_TVBOX_SUBSCRIBE }}"
+          append_var "TVBOX_SUBSCRIBE_TOKEN" "${{ secrets.TVBOX_SUBSCRIBE_TOKEN }}"
+          append_var "TVBOX_BLOCKED_SOURCES" "${{ secrets.TVBOX_BLOCKED_SOURCES }}"
+          append_var "D1_DATABASE_ID" "${{ secrets.D1_DATABASE_ID }}"
 
-          echo "Updated wrangler.toml (sanitized)."
+          echo "Updated wrangler.toml:"
+          cat wrangler.toml
 
       - name: Generate manifest
         run: |
