@@ -946,8 +946,9 @@ function PlayPageClient() {
                   return;
                 }
               }
+            }
 
-            // 尝试自动匹配所有候选源，找到第一个能匹配集数的
+            // 尝试自动匹配所有候选源
             console.log('尝试自动匹配候选弹幕源...');
             for (const candidateAnime of filteredAnimes) {
               try {
@@ -975,7 +976,6 @@ function PlayPageClient() {
               }
             }
 
-            // 所有候选源都匹配失败，让用户选择
             // 没有记忆或记忆失效，让用户选择
             console.log(`等待用户选择弹幕源`);
             setDanmakuMatches(filteredAnimes);
