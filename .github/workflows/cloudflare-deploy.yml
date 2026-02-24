@@ -15,6 +15,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     name: Deploy to Cloudflare Pages
+    timeout-minutes: 30
 
     steps:
       - name: Checkout source code
@@ -27,10 +28,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'pnpm'
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Clean all pnpm caches
+        run: |
+          rm -rf ~/.cache/pnpm
+          rm -rf $HOME/.pnpm-store
+          rm -rf node_modules
+          rm -rf .next
 
       - name: Set environment variables
         run: |
@@ -72,33 +76,41 @@ jobs:
           echo "D1_DATABASE_ID=${{ secrets.D1_DATABASE_ID }}" >> $GITHUB_ENV
           echo "PROJECT_NAME=${{ secrets.PROJECT_NAME }}" >> $GITHUB_ENV
           echo "D1_DATABASE_NAME=${{ secrets.D1_DATABASE_NAME }}" >> $GITHUB_ENV
-          echo "WATCH_ROOM_ENABLED=${{ secrets.WATCH_ROOM_ENABLED }}" >> $GITHUB_ENV
-          echo "WATCH_ROOM_EXTERNAL_SERVER_AUTH=${{ secrets.WATCH_ROOM_EXTERNAL_SERVER_AUTH }}" >> $GITHUB_ENV
-          echo "WATCH_ROOM_EXTERNAL_SERVER_URL=${{ secrets.WATCH_ROOM_EXTERNAL_SERVER_URL }}" >> $GITHUB_ENV
-          echo "WATCH_ROOM_SERVER_TYPE=${{ secrets.WATCH_ROOM_SERVER_TYPE }}" >> $GITHUB_ENV
 
-      - name: Configure D1 Database in wrangler.toml
+      - name: Install dependencies
         run: |
-          STORAGE_TYPE="${{ secrets.NEXT_PUBLIC_STORAGE_TYPE }}"
+          echo "Cleaning old dependencies..."
+          rm -rf node_modules .next
+          echo "Installing dependencies..."
+          pnpm install --frozen-lockfile
+          echo "Dependencies installed"
 
-          if [ "$STORAGE_TYPE" != "d1" ]; then
-            echo "Storage type is not d1 (current: $STORAGE_TYPE), removing D1 database configuration"
-            # Remove the entire [[d1_databases]] section including the comment
-            sed -i '/^# D1 数据库绑定$/,/^database_id = .*$/d' wrangler.toml
-            # Also remove any remaining [[d1_databases]] block
-            sed -i '/^\[\[d1_databases\]\]$/,/^$/{ /^\[\[d1_databases\]\]$/d; /^binding = /d; /^database_name = /d; /^database_id = /d; }' wrangler.toml
-            echo "D1 configuration removed from wrangler.toml"
-          elif [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
-            sed -i 's/REPLACE_WITH_YOUR_D1_DATABASE_ID/${{ secrets.D1_DATABASE_ID }}/g' wrangler.toml
-            echo "D1 Database ID replaced successfully"
+      - name: Replace D1 DB in wrangler.toml
+        run: |
+          if [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
+            D1_ID="${{ secrets.D1_DATABASE_ID }}"
+            echo "Replacing database_id in wrangler.toml with D1_DATABASE_ID"
+            sed -i "s/database_id = \".*\"/database_id = \"${D1_ID}\"/" wrangler.toml
+            echo "D1_DATABASE_ID applied"
           else
-            echo "⚠️ Storage type is d1 but D1_DATABASE_ID secret not set"
+            echo "D1_DATABASE_ID secret not set; aborting deployment" >&2
             exit 1
           fi
+          echo "wrangler.toml database_id updated (sanitized)."
+
+      - name: Verify D1 DB configuration
+        run: |
+          if [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
+            echo "D1_DATABASE_ID secret present."
+          else
+            echo "D1_DATABASE_ID secret not set; aborting deployment" >&2
+            exit 1
+          fi
+          echo "wrangler.toml D1 DB configuration status: OK (sanitized)."
 
       - name: Update wrangler.toml with environment variables
         run: |
-          # Function to append variable to wrangler.toml if it has a value
+          # Helper to append variable to wrangler.toml if it has a value
           append_var() {
             local var_name=$1
             local var_value=$2
@@ -107,17 +119,7 @@ jobs:
             fi
           }
 
-          # Update project name if provided
-          if [ -n "${{ secrets.PROJECT_NAME }}" ]; then
-            sed -i 's/^name = ".*"/name = "${{ secrets.PROJECT_NAME }}"/' wrangler.toml
-          fi
-
-          # Update database name if provided
-          if [ -n "${{ secrets.D1_DATABASE_NAME }}" ]; then
-            sed -i 's/^database_name = ".*"/database_name = "${{ secrets.D1_DATABASE_NAME }}"/' wrangler.toml
-          fi
-
-          # Append all environment variables to wrangler.toml
+          # Append only public environment variables (no secrets printed to logs)
           append_var "NEXT_PUBLIC_STORAGE_TYPE" "${{ secrets.NEXT_PUBLIC_STORAGE_TYPE }}"
           append_var "NEXT_PUBLIC_SITE_NAME" "${{ secrets.NEXT_PUBLIC_SITE_NAME }}"
           append_var "NEXT_PUBLIC_SEARCH_MAX_PAGE" "${{ secrets.NEXT_PUBLIC_SEARCH_MAX_PAGE }}"
@@ -132,68 +134,96 @@ jobs:
           append_var "NEXT_PUBLIC_VOICE_CHAT_STRATEGY" "${{ secrets.NEXT_PUBLIC_VOICE_CHAT_STRATEGY }}"
           append_var "NEXT_PUBLIC_ENABLE_OFFLINE_DOWNLOAD" "${{ secrets.NEXT_PUBLIC_ENABLE_OFFLINE_DOWNLOAD }}"
           append_var "NEXT_PUBLIC_ENABLE_SOURCE_SEARCH" "${{ secrets.NEXT_PUBLIC_ENABLE_SOURCE_SEARCH }}"
-          append_var "USERNAME" "${{ secrets.USERNAME }}"
-          append_var "PASSWORD" "${{ secrets.PASSWORD }}"
-          append_var "UPSTASH_URL" "${{ secrets.UPSTASH_URL }}"
-          append_var "UPSTASH_TOKEN" "${{ secrets.UPSTASH_TOKEN }}"
-          append_var "TMDB_API_KEY" "${{ secrets.TMDB_API_KEY }}"
-          append_var "TMDB_PROXY" "${{ secrets.TMDB_PROXY }}"
-          append_var "TMDB_REVERSE_PROXY" "${{ secrets.TMDB_REVERSE_PROXY }}"
-          append_var "DANMAKU_API_BASE" "${{ secrets.DANMAKU_API_BASE }}"
-          append_var "DANMAKU_API_TOKEN" "${{ secrets.DANMAKU_API_TOKEN }}"
-          append_var "ANNOUNCEMENT" "${{ secrets.ANNOUNCEMENT }}"
-          append_var "CRON_PASSWORD" "${{ secrets.CRON_PASSWORD }}"
-          append_var "SITE_BASE" "${{ secrets.SITE_BASE }}"
-          append_var "REDIS_URL" "${{ secrets.REDIS_URL }}"
-          append_var "KVROCKS_URL" "${{ secrets.KVROCKS_URL }}"
-          append_var "INIT_CONFIG" "${{ secrets.INIT_CONFIG }}"
-          append_var "CONFIG_SUBSCRIPTION_URL" "${{ secrets.CONFIG_SUBSCRIPTION_URL }}"
-          append_var "ENABLE_TVBOX_SUBSCRIBE" "${{ secrets.ENABLE_TVBOX_SUBSCRIBE }}"
-          append_var "TVBOX_SUBSCRIBE_TOKEN" "${{ secrets.TVBOX_SUBSCRIBE_TOKEN }}"
-          append_var "TVBOX_BLOCKED_SOURCES" "${{ secrets.TVBOX_BLOCKED_SOURCES }}"
-          append_var "D1_DATABASE_ID" "${{ secrets.D1_DATABASE_ID }}"
-          append_var "WATCH_ROOM_ENABLED" "${{ secrets.WATCH_ROOM_ENABLED }}"
-          append_var "WATCH_ROOM_EXTERNAL_SERVER_AUTH" "${{ secrets.WATCH_ROOM_EXTERNAL_SERVER_AUTH }}"
-          append_var "WATCH_ROOM_EXTERNAL_SERVER_URL" "${{ secrets.WATCH_ROOM_EXTERNAL_SERVER_URL }}"
-          append_var "WATCH_ROOM_SERVER_TYPE" "${{ secrets.WATCH_ROOM_SERVER_TYPE }}"
-          
-          echo "Updated wrangler.toml:"
-          cat wrangler.toml
+          # Do not append sensitive values here
+
+          echo "Updated wrangler.toml (sanitized)."
+
+      - name: Generate manifest
+        run: |
+          echo "Running gen:manifest..."
+          pnpm run gen:manifest || echo "gen:manifest failed"
 
       - name: Build for Cloudflare
-        run: pnpm run build:cloudflare
+        id: build
+        run: |
+          echo "Starting Cloudflare build..."
+          echo "Running: BUILD_TARGET=cloudflare npx @opennextjs/cloudflare build"
+          BUILD_TARGET=cloudflare npx @opennextjs/cloudflare build 2>&1
+          BUILD_EXIT=$?
+          echo "Build exit code: $BUILD_EXIT"
+          if [ $BUILD_EXIT -ne 0 ]; then
+            echo "Build failed with exit code $BUILD_EXIT"
+            exit $BUILD_EXIT
+          fi
+          echo "Build completed successfully"
 
       - name: Install Wrangler
         run: pnpm add -g wrangler@4.60.0
 
       - name: Run D1 Database Migrations
         run: |
-          STORAGE_TYPE="${{ secrets.NEXT_PUBLIC_STORAGE_TYPE }}"
+          # Use D1_DATABASE_ID from secrets or wrangler.toml
+          if [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
+            DATABASE_ID="${{ secrets.D1_DATABASE_ID }}"
+          else
+            DATABASE_ID=$(grep 'database_id' wrangler.toml | sed 's/.*=\s*"\([^"]*\)"/\1/' | head -1)
+          fi
 
-          if [ "$STORAGE_TYPE" != "d1" ]; then
-            echo "Storage type is not d1 (current: $STORAGE_TYPE), skipping D1 migrations"
+          # Skip if no valid ID
+          if [ -z "$DATABASE_ID" ] || [ "$DATABASE_ID" = "REPLACE_WITH_YOUR_D1_DATABASE_ID" ]; then
+            echo "D1_DATABASE_ID not configured, skipping migrations"
             exit 0
           fi
 
-          if [ -z "${{ secrets.D1_DATABASE_ID }}" ]; then
-            echo "D1_DATABASE_ID not set, skipping migrations"
-            exit 0
-          fi
-
-          echo "Running D1 database migrations..."
+          echo "Running D1 database migrations on ID: $DATABASE_ID"
 
           for migration_file in ./migrations/*.sql; do
             if [ -f "$migration_file" ]; then
               echo "Executing migration: $(basename $migration_file)"
-              PROJECT_NAME="${{ secrets.PROJECT_NAME }}"
-              if [ -z "$PROJECT_NAME" ]; then
-                PROJECT_NAME="moontvplus"
-              fi
-              wrangler d1 execute "$PROJECT_NAME" --remote --file="$migration_file" || echo "⚠️ Migration may have been skipped (already applied)"
+              wrangler d1 execute "$DATABASE_ID" --remote --file="$migration_file" || echo "⚠️ Migration may have been skipped (already applied)"
             fi
           done
 
           echo "✅ Migrations completed"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Create initial owner user
+        run: |
+          # Check if USERNAME and PASSWORD are set
+          if [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
+            echo "USERNAME or PASSWORD not set, skipping owner user creation"
+            exit 0
+          fi
+
+          # Determine database ID: prefer secrets, fallback to wrangler.toml
+          if [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
+            DATABASE_ID="${{ secrets.D1_DATABASE_ID }}"
+          else
+            DATABASE_ID=$(grep 'database_id' wrangler.toml | sed 's/.*=\s*"\([^"]*\)"/\1/' | head -1)
+            if [ "$DATABASE_ID" = "REPLACE_WITH_YOUR_D1_DATABASE_ID" ]; then
+              echo "D1_DATABASE_ID not set, skipping owner user creation"
+              exit 0
+            fi
+          fi
+
+          echo "Creating initial owner user..."
+
+          echo "Using database ID: $DATABASE_ID"
+
+          # Calculate SHA-256 hash of password
+          PASSWORD_HASH=$(echo -n "$PASSWORD" | sha256sum | awk '{print $1}')
+          echo "Password hash calculated"
+
+          # Insert owner user (use ON CONFLICT to handle re-runs)
+          wrangler d1 execute "$DATABASE_ID" --remote --command="
+            INSERT INTO users (username, password_hash, role, banned, tags, oidc_sub, enabled_apis, created_at, playrecord_migrated, favorite_migrated, skip_migrated)
+            VALUES ('$USERNAME', '$PASSWORD_HASH', 'owner', 0, NULL, NULL, NULL, \$(date +%s), 1, 1, 1)
+            ON CONFLICT(username) DO UPDATE SET password_hash = '$PASSWORD_HASH', role = 'owner';
+          " || echo "⚠️ Owner user creation may have been skipped (already exists)"
+
+          echo "✅ Initial owner user created/updated"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
