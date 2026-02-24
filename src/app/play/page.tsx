@@ -3789,49 +3789,171 @@ function PlayPageClient() {
   ) => {
     if (!danmakuEpisodes.length) return null;
 
-    const extractEpisodeNumber = (title: string): number | null => {
-      if (!title) return null;
+    // 提取集数的多种格式
+    const extractEpisodeNumber = (title: string): { num: number | null; isSpecial: boolean; specialType?: string } => {
+      if (!title) return { num: null, isSpecial: false };
 
-      // 优先匹配 Emby 格式：S01E01, S02E09 等（支持任意位置）
-      const embyMatch = title.match(/[Ss]\d+[Ee](\d+)/);
+      const trimmedTitle = title.trim();
+
+      // 1. 匹配 Emby 格式：S01E01, S02E09, s01e01
+      const embyMatch = trimmedTitle.match(/[Ss](\d+)[Ee](\d+)/);
       if (embyMatch) {
-        return parseInt(embyMatch[1], 10);
+        return { num: parseInt(embyMatch[2], 10), isSpecial: false };
       }
 
-      // 匹配 EP01, EP1, ep01, ep1, ep.01 等格式（支持任意位置）
-      const epMatch = title.match(/[Ee][Pp]\.?(\d+)/);
+      // 2. 匹配 EP/Ep 格式：EP18, EP03, ep1（独立或混合标题中）
+      let epMatch = trimmedTitle.match(/^[Ee][Pp](\d+)$/);
+      if (!epMatch) {
+        epMatch = trimmedTitle.match(/[Ee][Pp](\d+)/);
+      }
       if (epMatch) {
-        return parseInt(epMatch[1], 10);
+        return { num: parseInt(epMatch[1], 10), isSpecial: false };
       }
 
-      // 匹配 "第01集", "第1集", "第01话", "第1话" 等格式（支持任意位置）
-      const diMatch = title.match(/第\s*(\d+)\s*[集話话]/);
-      if (diMatch) {
-        return parseInt(diMatch[1], 10);
+      // 3. 匹配 Vol. 格式：Vol.1, VOL.03
+      const volMatch = trimmedTitle.match(/^[Vv]ol?\.?\s*(\d+)$/);
+      if (volMatch) {
+        return { num: parseInt(volMatch[1], 10), isSpecial: false };
       }
 
-      // 匹配纯数字（支持任意位置，找到第一个数字即可）
-      const numMatch = title.match(/(\d+)/);
-      if (numMatch) {
-        return parseInt(numMatch[1], 10);
+      // 4. 匹配 "第X集/话/話" 格式（可在任意位置）
+      let chineseMatch = trimmedTitle.match(/^第\s*(\d+)\s*[集話麼]$/);
+      if (!chineseMatch) {
+        chineseMatch = trimmedTitle.match(/第\s*(\d+)\s*[集話麼]/);
+      }
+      if (chineseMatch) {
+        return { num: parseInt(chineseMatch[1], 10), isSpecial: false };
       }
 
-      return null;
+      // 5. 匹配 "第X话" 简写（可在任意位置）
+      let huaMatch = trimmedTitle.match(/^第\s*(\d+)\s*话$/);
+      if (!huaMatch) {
+        huaMatch = trimmedTitle.match(/第\s*(\d+)\s*话/);
+      }
+      if (huaMatch) {
+        return { num: parseInt(huaMatch[1], 10), isSpecial: false };
+      }
+
+      // 6. 匹配 "第X部" 格式
+      let buMatch = trimmedTitle.match(/^第\s*(\d+)\s*部$/);
+      if (!buMatch) {
+        buMatch = trimmedTitle.match(/第\s*(\d+)\s*部/);
+      }
+      if (buMatch) {
+        return { num: parseInt(buMatch[1], 10), isSpecial: false };
+      }
+
+      // 7. 匹配纯数字：3, 03, 003
+      const pureNumMatch = trimmedTitle.match(/^(\d+)$/);
+      if (pureNumMatch) {
+        return { num: parseInt(pureNumMatch[1], 10), isSpecial: false };
+      }
+
+      // 8. 匹配 "0.5" 格式（如 "第0.5集"、"0.5"）
+      const halfMatch = trimmedTitle.match(/^0\.5$/);
+      if (halfMatch) {
+        return { num: 0.5, isSpecial: false };
+      }
+
+      // 9. 识别特别篇、SP、OVA、OAD 等
+      const specialPatterns = [
+        /特别篇/, /SP[0-9]?/, /OVA/, /OAD/, /OAD[0-9]?/,
+        /剧场版/, /电影版/, /动漫/, /第0\.5/, /0\.5集/,
+        /预告/, /PV/, /CM/, /广告/, /先导/, /前瞻/,
+        /访谈/, /幕后/, /花絮/, /特辑/, /特别/
+      ];
+      for (const pattern of specialPatterns) {
+        if (pattern.test(trimmedTitle)) {
+          const spMatch = trimmedTitle.match(/(\d+)/);
+          if (spMatch) {
+            return { num: parseInt(spMatch[1], 10), isSpecial: true, specialType: trimmedTitle };
+          }
+          return { num: 0, isSpecial: true, specialType: trimmedTitle };
+        }
+      }
+
+      // 10. 尝试从混合标题中提取
+      let hybridMatch = trimmedTitle.match(/^(\d+)\s+/);
+      if (!hybridMatch) {
+        hybridMatch = trimmedTitle.match(/第(\d+)\s*集/);
+      }
+      if (!hybridMatch) {
+        hybridMatch = trimmedTitle.match(/第(\d+)\s*话/);
+      }
+      if (hybridMatch) {
+        return { num: parseInt(hybridMatch[1], 10), isSpecial: false };
+      }
+
+      return { num: null, isSpecial: false };
     };
 
+    // 模糊匹配：支持 3 = 03 = 003
+    const isFuzzyMatch = (num1: number | null, num2: number | null): boolean => {
+      if (num1 === null || num2 === null) return false;
+      if (num1 === 0.5 || num2 === 0.5) return num1 === num2;
+      return num1 === num2;
+    };
+
+    // 如果有视频集数标题，优先尝试精确/模糊匹配
     if (videoEpisodeTitle) {
-      const episodeNum = extractEpisodeNumber(videoEpisodeTitle);
-      if (episodeNum !== null) {
+      const videoInfo = extractEpisodeNumber(videoEpisodeTitle);
+
+      if (videoInfo.num !== null) {
+        // 第一轮：精确匹配
         for (const ep of danmakuEpisodes) {
-          const danmakuNum = extractEpisodeNumber(ep.episodeTitle);
-          if (danmakuNum === episodeNum) {
-            console.log(`[弹幕匹配] 根据集数标题匹配: ${videoEpisodeTitle} -> ${ep.episodeTitle}`);
+          const danmakuInfo = extractEpisodeNumber(ep.episodeTitle);
+          if (isFuzzyMatch(videoInfo.num, danmakuInfo.num) &&
+            videoInfo.isSpecial === danmakuInfo.isSpecial) {
+            console.log(`[弹幕匹配] 精确/模糊匹配: ${videoEpisodeTitle} -> ${ep.episodeTitle} (num=${danmakuInfo.num})`);
             return ep;
           }
         }
+
+        // 第二轮：如果视频是普通集，尝试在弹幕中找同编号的普通集（忽略特别篇）
+        if (!videoInfo.isSpecial) {
+          for (const ep of danmakuEpisodes) {
+            const danmakuInfo = extractEpisodeNumber(ep.episodeTitle);
+            if (isFuzzyMatch(videoInfo.num, danmakuInfo.num) && !danmakuInfo.isSpecial) {
+              console.log(`[弹幕匹配] 忽略特别篇匹配: ${videoEpisodeTitle} -> ${ep.episodeTitle} (num=${danmakuInfo.num})`);
+              return ep;
+            }
+          }
+        }
+
+        // 第三轮：如果是特别篇，尝试匹配弹幕中的同名特别篇
+        if (videoInfo.isSpecial && videoInfo.specialType) {
+          for (const ep of danmakuEpisodes) {
+            if (ep.episodeTitle.includes(videoInfo.specialType) ||
+              videoInfo.specialType.includes(ep.episodeTitle.replace(/\d+/, '').trim())) {
+              console.log(`[弹幕匹配] 特别篇匹配: ${videoEpisodeTitle} -> ${ep.episodeTitle}`);
+              return ep;
+            }
+          }
+        }
+
+        // 第四轮：数值最接近匹配（作为最后兜底）
+        let closestEp = null;
+        let closestDiff = Infinity;
+        for (const ep of danmakuEpisodes) {
+          const danmakuInfo = extractEpisodeNumber(ep.episodeTitle);
+          if (danmakuInfo.num !== null && !danmakuInfo.isSpecial) {
+            const diff = Math.abs(videoInfo.num - danmakuInfo.num);
+            if (diff < closestDiff) {
+              closestDiff = diff;
+              closestEp = ep;
+            }
+          }
+        }
+        if (closestEp && closestDiff <= 2) {
+          console.log(`[弹幕匹配] 数值接近匹配: ${videoEpisodeTitle} -> ${closestEp.episodeTitle} (偏差=${closestDiff})`);
+          return closestEp;
+        }
+
+        console.log(`[弹幕匹配] 标题匹配失败: ${videoEpisodeTitle}，视频集数=${videoInfo.num}，尝试索引匹配`);
       }
     }
 
+    // 降级到索引匹配
     const index = Math.min(currentEpisodeIndex, danmakuEpisodes.length - 1);
     console.log(`[弹幕匹配] 降级到索引匹配: 索引 ${currentEpisodeIndex} -> ${danmakuEpisodes[index].episodeTitle}`);
     return danmakuEpisodes[index];
