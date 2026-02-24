@@ -3798,9 +3798,31 @@ function PlayPageClient() {
         return parseInt(embyMatch[1], 10);
       }
 
-      // 降级到原本的策略：纯数字或"第X集/话"格式
-      const match = title.match(/^(\d+)$|第?\s*(\d+)\s*[集话話]?/);
-      return match ? parseInt(match[1] || match[2], 10) : null;
+      // 匹配 EP01, EP1, ep01, ep1, ep.01 等格式（支持在任意位置）
+      const epMatch = title.match(/[Ee][Pp]\.?(\d+)/);
+      if (epMatch) {
+        return parseInt(epMatch[1], 10);
+      }
+
+      // 匹配 "第01集", "第1集", "第01话", "第1话" 等格式
+      const diMatch = title.match(/第\s*(\d+)\s*[集話话]/);
+      if (diMatch) {
+        return parseInt(diMatch[1], 10);
+      }
+
+      // 匹配纯数字：01, 1（只在标题开头或单独出现时）
+      const pureMatch = title.match(/^(\d+)$/);
+      if (pureMatch) {
+        return parseInt(pureMatch[1], 10);
+      }
+
+      // 匹配标题中任意位置的纯数字（如 "剧情介绍 01", "01 预告" 等）
+      const anywhereMatch = title.match(/(\d+)/);
+      if (anywhereMatch) {
+        return parseInt(anywhereMatch[1], 10);
+      }
+
+      return null;
     };
 
     if (videoEpisodeTitle) {
