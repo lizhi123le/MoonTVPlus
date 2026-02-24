@@ -964,7 +964,6 @@ function PlayPageClient() {
                     };
                     setDanmakuEpisodesList(candidateEpisodes.bangumi.episodes);
                     console.log('自动匹配弹幕源成功:', selection);
-                    // 保存这个选择作为记忆
                     saveDanmakuSourceIndex(title, filteredAnimes.indexOf(candidateAnime));
                     await handleDanmakuSelect(selection);
                     setDanmakuLoading(false);
@@ -977,6 +976,7 @@ function PlayPageClient() {
             }
 
             // 所有候选源都匹配失败，让用户选择
+            // 没有记忆或记忆失效，让用户选择
             console.log(`等待用户选择弹幕源`);
             setDanmakuMatches(filteredAnimes);
             setCurrentSearchKeyword(searchKeyword); // 保存当前搜索关键词
