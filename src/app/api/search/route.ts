@@ -44,7 +44,10 @@ async function runWithConcurrencyControl<T>(
       const task = tasks[taskIndex];
       running++;
 
-      try {
+        // 获取代理 token（用于图片代理）
+  const proxyToken = await getProxyToken(request);
+
+try {
         const result = await task();
         results[taskIndex] = result;
       } catch (error) {
@@ -218,7 +221,7 @@ export async function GET(request: NextRequest) {
             source_name: sourceName,
             weight: weightMap.get(sourceValue) ?? 0,
             title: item.Name,
-            poster: client.getImageUrl(item.Id, 'Primary', undefined, client.isProxyEnabled() ? proxyToken || undefined : undefined),
+            poster: client.getImageUrl(item.Id, 'Primary'),
             episodes: [],
             episodes_titles: [],
             year: item.ProductionYear?.toString() || '',
