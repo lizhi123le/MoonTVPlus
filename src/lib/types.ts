@@ -177,11 +177,11 @@ export interface IStorage {
   getAllSkipTimes?(): Promise<Array<{ title_normalized: string; intro_time: number; outro_time: number; updated_at: number }>>;
   bulkSetSkipTimes?(skipTimes: Array<{ title_normalized: string; intro_time: number; outro_time: number; updated_at: number }>): Promise<void>;
   deleteSkipTime?(titleNormalized: string): Promise<void>;
+
   // TVBox订阅token相关
   getTvboxSubscribeToken?(userName: string): Promise<string | null>;
   setTvboxSubscribeToken?(userName: string, token: string): Promise<void>;
   getUsernameByTvboxToken?(token: string): Promise<string | null>;
-
 }
 
 // 搜索结果数据结构
