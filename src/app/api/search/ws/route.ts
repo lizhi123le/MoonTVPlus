@@ -121,6 +121,9 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // 获取代理 token（用于图片代理）
+      const proxyToken = await getProxyToken(request);
+
       // 计算总源数
       const totalSources = sortedApiSites.length + (hasOpenList ? 1 : 0) + embySourcesCount;
 
@@ -270,7 +273,7 @@ export async function GET(request: NextRequest) {
               source: sourceValue,
               source_name: sourceName,
               title: item.Name,
-              poster: client.getImageUrl(item.Id, 'Primary'),
+              poster: client.getImageUrl(item.Id, 'Primary', undefined, client.isProxyEnabled() ? proxyToken || undefined : undefined),
               episodes: [],
               episodes_titles: [],
               year: item.ProductionYear?.toString() || '',

@@ -182,7 +182,6 @@ export interface IStorage {
   getTvboxSubscribeToken?(userName: string): Promise<string | null>;
   setTvboxSubscribeToken?(userName: string, token: string): Promise<void>;
   getUsernameByTvboxToken?(token: string): Promise<string | null>;
-
 }
 
 // 搜索结果数据结构
