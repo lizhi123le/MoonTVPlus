@@ -182,6 +182,18 @@ const DataMigration = ({ onRefreshConfig }: DataMigrationProps) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState<{
+    phase: string;
+    current: number;
+    total: number;
+    message: string;
+  } | null>(null);
+  const [importProgress, setImportProgress] = useState<{
+    phase: string;
+    current: number;
+    total: number;
+    message: string;
+  } | null>(null);
   const [alertModal, setAlertModal] = useState<{
     isOpen: boolean;
     type: 'success' | 'error' | 'warning';
@@ -218,8 +230,22 @@ const DataMigration = ({ onRefreshConfig }: DataMigrationProps) => {
       return;
     }
 
+    let eventSource: EventSource | null = null;
+
     try {
       setIsExporting(true);
+      setExportProgress(null);
+
+      // 连接到进度 SSE 端点
+      eventSource = new EventSource('/api/admin/data_migration/progress?operation=export');
+      eventSource.onmessage = (event) => {
+        try {
+          const progress = JSON.parse(event.data);
+          setExportProgress(progress);
+        } catch (e) {
+          console.error('Failed to parse progress:', e);
+        }
+      };
 
       const response = await fetch('/api/admin/data_migration/export', {
         method: 'POST',
@@ -272,6 +298,10 @@ const DataMigration = ({ onRefreshConfig }: DataMigrationProps) => {
       });
     } finally {
       setIsExporting(false);
+      setExportProgress(null);
+      if (eventSource) {
+        eventSource.close();
+      }
     }
   };
 
@@ -303,8 +333,22 @@ const DataMigration = ({ onRefreshConfig }: DataMigrationProps) => {
       return;
     }
 
+    let eventSource: EventSource | null = null;
+
     try {
       setIsImporting(true);
+      setImportProgress(null);
+
+      // 连接到进度 SSE 端点
+      eventSource = new EventSource('/api/admin/data_migration/progress?operation=import');
+      eventSource.onmessage = (event) => {
+        try {
+          const progress = JSON.parse(event.data);
+          setImportProgress(progress);
+        } catch (e) {
+          console.error('Failed to parse progress:', e);
+        }
+      };
 
       const formData = new FormData();
       formData.append('file', selectedFile);
@@ -360,6 +404,10 @@ const DataMigration = ({ onRefreshConfig }: DataMigrationProps) => {
       });
     } finally {
       setIsImporting(false);
+      setImportProgress(null);
+      if (eventSource) {
+        eventSource.close();
+      }
     }
   };
 
@@ -431,9 +479,24 @@ const DataMigration = ({ onRefreshConfig }: DataMigrationProps) => {
                   }`}
               >
                 {isExporting ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    导出中...
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      导出中...
+                    </div>
+                    {exportProgress && (
+                      <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 space-y-2">
+                        <div className="text-xs text-gray-900 dark:text-gray-100 font-medium">{exportProgress.message}</div>
+                        {exportProgress.total > 0 && (
+                          <div className="w-full bg-gray-300 dark:bg-gray-600 rounded-full h-3">
+                            <div
+                              className="bg-yellow-500 h-3 rounded-full transition-all duration-300"
+                              style={{ width: `${(exportProgress.current / exportProgress.total) * 100}%` }}
+                            ></div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-center justify-center gap-2">
@@ -507,9 +570,24 @@ const DataMigration = ({ onRefreshConfig }: DataMigrationProps) => {
                   }`}
               >
                 {isImporting ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    导入中...
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      导入中...
+                    </div>
+                    {importProgress && (
+                      <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 space-y-2">
+                        <div className="text-xs text-gray-900 dark:text-gray-100 font-medium">{importProgress.message}</div>
+                        {importProgress.total > 0 && (
+                          <div className="w-full bg-gray-300 dark:bg-gray-600 rounded-full h-3">
+                            <div
+                              className="bg-yellow-500 h-3 rounded-full transition-all duration-300"
+                              style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                            ></div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-center justify-center gap-2">
