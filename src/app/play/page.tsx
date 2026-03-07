@@ -745,7 +745,7 @@ function PlayPageClient() {
         return;
       }
 
-      const episodeIndex = currentEpisodeIndexRef.current;
+      const episodeIndex = currentEpisodeIndex;
       console.log(`[弹幕] 开始加载第 ${episodeIndex + 1} 集弹幕`);
 
       // 先尝试从 IndexedDB 缓存加载
@@ -962,7 +962,7 @@ function PlayPageClient() {
                 episodesResult.bangumi.episodes.length > 0
               ) {
                 // 根据当前集数选择对应的弹幕
-                const currentEp = currentEpisodeIndexRef.current;
+                const currentEp = episodeIndex;
                 const videoEpTitle = detailRef.current?.episodes_titles?.[currentEp];
                 const episode = matchDanmakuEpisode(currentEp, episodesResult.bangumi.episodes, videoEpTitle);
 
@@ -993,8 +993,8 @@ function PlayPageClient() {
               try {
                 const candidateEpisodes = await getEpisodes(candidateAnime.animeId);
                 if (candidateEpisodes.success && candidateEpisodes.bangumi.episodes.length > 0) {
-                  const videoEpTitle = detailRef.current?.episodes_titles?.[currentEpisodeIndexRef.current];
-                  const matchedEpisode = matchDanmakuEpisode(currentEpisodeIndexRef.current, candidateEpisodes.bangumi.episodes, videoEpTitle);
+                  const videoEpTitle = detailRef.current?.episodes_titles?.[episodeIndex];
+                  const matchedEpisode = matchDanmakuEpisode(episodeIndex, candidateEpisodes.bangumi.episodes, videoEpTitle);
                   if (matchedEpisode) {
                     const selection: DanmakuSelection = {
                       animeId: candidateAnime.animeId,
@@ -1035,7 +1035,7 @@ function PlayPageClient() {
             episodesResult.bangumi.episodes.length > 0
           ) {
             // 根据当前集数选择对应的弹幕
-            const currentEp = currentEpisodeIndexRef.current;
+            const currentEp = episodeIndex;
             const videoEpTitle = detailRef.current?.episodes_titles?.[currentEp];
             const episode = matchDanmakuEpisode(currentEp, episodesResult.bangumi.episodes, videoEpTitle);
 
@@ -1065,8 +1065,8 @@ function PlayPageClient() {
                   console.log(`尝试候选弹幕源: ${candidateId}`);
                   const candidateEpisodes = await getEpisodes(candidateId);
                   if (candidateEpisodes.success && candidateEpisodes.bangumi.episodes.length > 0) {
-                    const videoEpTitle = detailRef.current?.episodes_titles?.[currentEpisodeIndexRef.current];
-                    const matchedEpisode = matchDanmakuEpisode(currentEpisodeIndexRef.current, candidateEpisodes.bangumi.episodes, videoEpTitle);
+                    const videoEpTitle = detailRef.current?.episodes_titles?.[episodeIndex];
+                    const matchedEpisode = matchDanmakuEpisode(episodeIndex, candidateEpisodes.bangumi.episodes, videoEpTitle);
                     if (matchedEpisode) {
                       const selection: DanmakuSelection = {
                         animeId: candidateId,
@@ -1099,8 +1099,8 @@ function PlayPageClient() {
                 console.log(`尝试候选弹幕源: ${candidateId}`);
                 const candidateEpisodes = await getEpisodes(candidateId);
                 if (candidateEpisodes.success && candidateEpisodes.bangumi.episodes.length > 0) {
-                  const videoEpTitle = detailRef.current?.episodes_titles?.[currentEpisodeIndexRef.current];
-                  const matchedEpisode = matchDanmakuEpisode(currentEpisodeIndexRef.current, candidateEpisodes.bangumi.episodes, videoEpTitle);
+                  const videoEpTitle = detailRef.current?.episodes_titles?.[episodeIndex];
+                  const matchedEpisode = matchDanmakuEpisode(episodeIndex, candidateEpisodes.bangumi.episodes, videoEpTitle);
                   if (matchedEpisode) {
                     const selection: DanmakuSelection = {
                       animeId: candidateId,
