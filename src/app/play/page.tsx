@@ -4839,20 +4839,19 @@ function PlayPageClient() {
   ) => {
     if (!danmakuEpisodes.length) return null;
 
-    // 提取集数的多种格式
     const extractEpisodeNumber = (title: string): { num: number | null; isSpecial: boolean; specialType?: string } => {
       if (!title) return { num: null, isSpecial: false };
 
       // 1. 预处理：移除标题中的干扰元数据（如 [1080p], [x264], [WEB-DL] 等）
-      // 特别注意：保留 [01] 这种可能包含集数的括号，只移除包含字母或位宽的元数据
+      // 增强版清理：移除包含特殊关键字的整个括号内容
       let processedTitle = title
-        .replace(/\[(1080[Pp]|720[Pp]|2160[Pp]|4[Kk]|HD|BD|WEB-DL|x26[45]|H26[45]|HEVC|AAC|DDP|Hi10p|FLAC)\]/gi, ' ')
-        .replace(/\((1080[Pp]|720[Pp]|2160[Pp]|4[Kk]|HD|BD|WEB-DL|x26[45]|H26[45]|HEVC|AAC|DDP|Hi10p|FLAC)\)/gi, ' ')
+        .replace(/\[[^\]]*(1080[Pp]|720[Pp]|2160[Pp]|4[Kk]|8[Kk]|HD|BD|WEB|x26[45]|H26[45]|HEVC|AAC|DDP|Hi10p|FLAC|GB|ZH|CHT|CHS|SUB)[^\]]*\]/gi, ' ')
+        .replace(/\([^)]*(1080[Pp]|720[Pp]|2160[Pp]|4[Kk]|8[Kk]|HD|BD|WEB|x26[45]|H26[45]|HEVC|AAC|DDP|Hi10p|FLAC|GB|ZH|CHT|CHS|SUB)[^)]*\)/gi, ' ')
         .trim();
 
       // 2. 识别特别篇、SP、OVA、OAD 等
       const specialPatterns = [
-        /特别篇/, /SP[0-9]?/, /OVA/, /OAD/, /OAD[0-9]?/,
+        /特别篇/, /SP[0-9]?/, /OVA/, /OAD[0-9]?/,
         /剧场版/, /电影版/, /动漫/, /第0\.5/, /0\.5集/,
         /预告/, /PV/, /CM/, /广告/, /先导/, /前瞻/,
         /访谈/, /幕后/, /花絮/, /特辑/, /特别/, /总集篇/,
@@ -4878,9 +4877,9 @@ function PlayPageClient() {
       }
 
       // 4. 匹配 EP/Ep 格式：EP18, EP03, ep1（独立或混合标题中）
-      let epMatch = trimmedTitle.match(/[Ee][Pp](\d+)/);
+      let epMatch = trimmedTitle.match(/[Ee][Pp]\s*(\d+(\.\d+)?)/);
       if (epMatch) {
-        return { num: parseInt(epMatch[1], 10), isSpecial };
+        return { num: parseFloat(epMatch[1]), isSpecial };
       }
 
       // 5. 匹配 "第X集/话/話/部" 格式
@@ -4889,37 +4888,48 @@ function PlayPageClient() {
         return { num: parseFloat(chineseMatch[1]), isSpecial };
       }
 
-      // 6. 匹配括号中的数字：[01], (03), 【05】, （07）
-      const bracketMatch = trimmedTitle.match(/[\[\(\{（【]\s*(\d+)\s*[\]\)\}）】]/);
+      // 6. 匹配括号中的数字：[01], (03), 【05】, （07）, [01v2]
+      const bracketMatch = trimmedTitle.match(/[\[\(\{（【]\s*(\d+(\.\d+)?)(?:v\d)?\s*[\]\)\}）】]/i);
       if (bracketMatch) {
-        return { num: parseInt(bracketMatch[1], 10), isSpecial };
+        return { num: parseFloat(bracketMatch[1]), isSpecial };
       }
 
-      // 7. 匹配 Vol. 格式：Vol.1, VOL.03
+      // 7. 匹配 " - 01 " 或者 " - 01v2 " 这类常见连字符格式
+      const dashMatch = trimmedTitle.match(/(?:^|\s)-(?:\s|第)*(\d+(\.\d+)?)(?:v\d)?(?:\s|END|$)/i);
+      if (dashMatch) {
+        return { num: parseFloat(dashMatch[1]), isSpecial };
+      }
+
+      // 8. 匹配 Vol. 格式：Vol.1, VOL.03
       const volMatch = trimmedTitle.match(/[Vv]ol?\.?\s*(\d+)/);
       if (volMatch) {
         return { num: parseInt(volMatch[1], 10), isSpecial };
       }
 
-      // 8. 匹配纯数字：3, 03, 003
-      const pureNumMatch = trimmedTitle.match(/^(\d+)$/);
+      // 9. 匹配纯数字：3, 03, 003
+      const pureNumMatch = trimmedTitle.match(/^(\d+(\.\d+)?)(?:v\d)?$/i);
       if (pureNumMatch) {
-        return { num: parseInt(pureNumMatch[1], 10), isSpecial };
+        return { num: parseFloat(pureNumMatch[1]), isSpecial };
       }
 
-      // 9. 匹配以数字开头或结尾的情况 (通常在文件名中)
-      // 例如 "01.mp4", "Anime - 01", "01 标题"
-      const startNumMatch = trimmedTitle.match(/^(\d+)\s*[\.\s\-_、]/);
+      // 10. 匹配以数字开头或结尾的情况
+      const startNumMatch = trimmedTitle.match(/^(\d+(\.\d+)?)(?:v\d)?\s*[\.\s\-_、]/i);
       if (startNumMatch) {
-        return { num: parseInt(startNumMatch[1], 10), isSpecial };
+        return { num: parseFloat(startNumMatch[1]), isSpecial };
       }
       
-      const endNumMatch = trimmedTitle.match(/[\.\s\-_、]\s*(\d+)\s*$/);
+      const endNumMatch = trimmedTitle.match(/[\.\s\-_、]\s*(\d+(\.\d+)?)(?:v\d)?\s*$/i);
       if (endNumMatch) {
-        return { num: parseInt(endNumMatch[1], 10), isSpecial };
+        return { num: parseFloat(endNumMatch[1]), isSpecial };
       }
 
-      // 10. 匹配 0.5 格式
+      // 11. 匹配类似 "第01" 这种残缺格式
+      const incompleteChineseMatch = trimmedTitle.match(/第\s*(\d+(\.\d+)?)(?:v\d)?(?:\s|$)/i);
+      if (incompleteChineseMatch) {
+        return { num: parseFloat(incompleteChineseMatch[1]), isSpecial };
+      }
+
+      // 12. 匹配 0.5 格式 (兜底)
       if (trimmedTitle.includes('0.5')) {
         return { num: 0.5, isSpecial };
       }
