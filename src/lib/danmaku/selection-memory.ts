@@ -7,20 +7,53 @@
 const STORAGE_KEY_PREFIX = 'danmaku_selection_';
 
 /**
+ * 带 TTL 的保存函数
+ */
+function saveWithTTL(key: string, value: any): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const data = {
+      value,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`[弹幕记忆] 保存失败 (${key}):`, error);
+  }
+}
+
+/**
+ * 带 TTL 的读取函数
+ */
+function getWithTTL<T>(key: string): T | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const item = localStorage.getItem(key);
+    if (!item) return null;
+
+    const data = JSON.parse(item);
+    if (!data || typeof data.timestamp !== 'number') {
+      // 老版本数据，直接返回并升级或失效
+      return data as T;
+    }
+
+    // 永久缓存，不再检查时间戳，除非显式被新匹配覆盖
+    return (data.value !== undefined ? data.value : data) as T;
+  } catch (error) {
+    console.error(`[弹幕记忆] 读取失败 (${key}):`, error);
+    return null;
+  }
+}
+
+/**
  * 保存自动搜索时用户选择的弹幕源下标
  * @param title 视频标题
  * @param selectedIndex 用户选择的弹幕源在搜索结果中的下标
  */
 export function saveDanmakuSourceIndex(title: string, selectedIndex: number): void {
-  if (typeof window === 'undefined') return;
-
-  try {
-    const key = `${STORAGE_KEY_PREFIX}index_${title}`;
-    localStorage.setItem(key, selectedIndex.toString());
-    console.log(`[弹幕记忆] 保存弹幕源下标: ${title} -> ${selectedIndex}`);
-  } catch (error) {
-    console.error('[弹幕记忆] 保存下标失败:', error);
-  }
+  const key = `${STORAGE_KEY_PREFIX}index_${title}`;
+  saveWithTTL(key, selectedIndex);
+  console.log(`[弹幕记忆] 保存弹幕源下标: ${title} -> ${selectedIndex}`);
 }
 
 /**
@@ -29,21 +62,12 @@ export function saveDanmakuSourceIndex(title: string, selectedIndex: number): vo
  * @returns 上次选择的下标，如果没有记录则返回 null
  */
 export function getDanmakuSourceIndex(title: string): number | null {
-  if (typeof window === 'undefined') return null;
+  const key = `${STORAGE_KEY_PREFIX}index_${title}`;
+  const index = getWithTTL<number>(key);
 
-  try {
-    const key = `${STORAGE_KEY_PREFIX}index_${title}`;
-    const value = localStorage.getItem(key);
-
-    if (value !== null) {
-      const index = parseInt(value, 10);
-      if (!isNaN(index) && index >= 0) {
-        console.log(`[弹幕记忆] 读取弹幕源下标: ${title} -> ${index}`);
-        return index;
-      }
-    }
-  } catch (error) {
-    console.error('[弹幕记忆] 读取下标失败:', error);
+  if (index !== null && index >= 0) {
+    console.log(`[弹幕记忆] 读取弹幕源下标: ${title} -> ${index}`);
+    return index;
   }
 
   return null;
@@ -60,15 +84,9 @@ export function saveManualDanmakuSelection(
   episodeIndex: number,
   episodeId: number
 ): void {
-  if (typeof window === 'undefined') return;
-
-  try {
-    const key = `${STORAGE_KEY_PREFIX}manual_${title}_${episodeIndex}`;
-    localStorage.setItem(key, episodeId.toString());
-    console.log(`[弹幕记忆] 保存手动选择: ${title} 第${episodeIndex}集 -> ${episodeId}`);
-  } catch (error) {
-    console.error('[弹幕记忆] 保存手动选择失败:', error);
-  }
+  const key = `${STORAGE_KEY_PREFIX}manual_${title}_${episodeIndex}`;
+  saveWithTTL(key, episodeId);
+  console.log(`[弹幕记忆] 保存手动选择: ${title} 第${episodeIndex}集 -> ${episodeId}`);
 }
 
 /**
@@ -81,21 +99,12 @@ export function getManualDanmakuSelection(
   title: string,
   episodeIndex: number
 ): number | null {
-  if (typeof window === 'undefined') return null;
+  const key = `${STORAGE_KEY_PREFIX}manual_${title}_${episodeIndex}`;
+  const episodeId = getWithTTL<number>(key);
 
-  try {
-    const key = `${STORAGE_KEY_PREFIX}manual_${title}_${episodeIndex}`;
-    const value = localStorage.getItem(key);
-
-    if (value !== null) {
-      const episodeId = parseInt(value, 10);
-      if (!isNaN(episodeId)) {
-        console.log(`[弹幕记忆] 读取手动选择: ${title} 第${episodeIndex}集 -> ${episodeId}`);
-        return episodeId;
-      }
-    }
-  } catch (error) {
-    console.error('[弹幕记忆] 读取手动选择失败:', error);
+  if (episodeId !== null) {
+    console.log(`[弹幕记忆] 读取手动选择: ${title} 第${episodeIndex}集 -> ${episodeId}`);
+    return episodeId;
   }
 
   return null;
@@ -159,15 +168,9 @@ export function clearAllDanmakuSelectionMemory(): void {
  * @param keyword 搜索关键词
  */
 export function saveDanmakuSearchKeyword(title: string, keyword: string): void {
-  if (typeof window === 'undefined') return;
-
-  try {
-    const key = `${STORAGE_KEY_PREFIX}keyword_${title}`;
-    localStorage.setItem(key, keyword);
-    console.log(`[弹幕记忆] 保存搜索关键词: ${title} -> ${keyword}`);
-  } catch (error) {
-    console.error('[弹幕记忆] 保存搜索关键词失败:', error);
-  }
+  const key = `${STORAGE_KEY_PREFIX}keyword_${title}`;
+  saveWithTTL(key, keyword);
+  console.log(`[弹幕记忆] 保存搜索关键词: ${title} -> ${keyword}`);
 }
 
 /**
@@ -176,18 +179,12 @@ export function saveDanmakuSearchKeyword(title: string, keyword: string): void {
  * @returns 搜索关键词，如果没有记录则返回 null
  */
 export function getDanmakuSearchKeyword(title: string): string | null {
-  if (typeof window === 'undefined') return null;
+  const key = `${STORAGE_KEY_PREFIX}keyword_${title}`;
+  const keyword = getWithTTL<string>(key);
 
-  try {
-    const key = `${STORAGE_KEY_PREFIX}keyword_${title}`;
-    const keyword = localStorage.getItem(key);
-
-    if (keyword) {
-      console.log(`[弹幕记忆] 读取搜索关键词: ${title} -> ${keyword}`);
-      return keyword;
-    }
-  } catch (error) {
-    console.error('[弹幕记忆] 读取搜索关键词失败:', error);
+  if (keyword) {
+    console.log(`[弹幕记忆] 读取搜索关键词: ${title} -> ${keyword}`);
+    return keyword;
   }
 
   return null;
@@ -199,15 +196,9 @@ export function getDanmakuSearchKeyword(title: string): string | null {
  * @param animeId 弹幕动漫ID
  */
 export function saveDanmakuAnimeId(title: string, animeId: number): void {
-  if (typeof window === 'undefined') return;
-
-  try {
-    const key = `${STORAGE_KEY_PREFIX}anime_${title}`;
-    localStorage.setItem(key, animeId.toString());
-    console.log(`[弹幕记忆] 保存动漫ID: ${title} -> ${animeId}`);
-  } catch (error) {
-    console.error('[弹幕记忆] 保存动漫ID失败:', error);
-  }
+  const key = `${STORAGE_KEY_PREFIX}anime_${title}`;
+  saveWithTTL(key, animeId);
+  console.log(`[弹幕记忆] 保存动漫ID: ${title} -> ${animeId}`);
 }
 
 /**
@@ -216,21 +207,12 @@ export function saveDanmakuAnimeId(title: string, animeId: number): void {
  * @returns 弹幕动漫ID，如果没有记录则返回 null
  */
 export function getDanmakuAnimeId(title: string): number | null {
-  if (typeof window === 'undefined') return null;
+  const key = `${STORAGE_KEY_PREFIX}anime_${title}`;
+  const animeId = getWithTTL<number>(key);
 
-  try {
-    const key = `${STORAGE_KEY_PREFIX}anime_${title}`;
-    const value = localStorage.getItem(key);
-
-    if (value !== null) {
-      const animeId = parseInt(value, 10);
-      if (!isNaN(animeId)) {
-        console.log(`[弹幕记忆] 读取动漫ID: ${title} -> ${animeId}`);
-        return animeId;
-      }
-    }
-  } catch (error) {
-    console.error('[弹幕记忆] 读取动漫ID失败:', error);
+  if (animeId !== null) {
+    console.log(`[弹幕记忆] 读取动漫ID: ${title} -> ${animeId}`);
+    return animeId;
   }
 
   return null;
@@ -242,15 +224,9 @@ export function getDanmakuAnimeId(title: string): number | null {
  * @param animeIds 弹幕动漫ID列表
  */
 export function saveDanmakuAnimeCandidates(title: string, animeIds: number[]): void {
-  if (typeof window === 'undefined') return;
-
-  try {
-    const key = `${STORAGE_KEY_PREFIX}candidates_${title}`;
-    localStorage.setItem(key, JSON.stringify(animeIds));
-    console.log(`[弹幕记忆] 保存弹幕源候选: ${title} -> ${animeIds.join(', ')}`);
-  } catch (error) {
-    console.error('[弹幕记忆] 保存候选失败:', error);
-  }
+  const key = `${STORAGE_KEY_PREFIX}candidates_${title}`;
+  saveWithTTL(key, animeIds);
+  console.log(`[弹幕记忆] 保存弹幕源候选: ${title} -> ${animeIds.join(', ')}`);
 }
 
 /**
@@ -259,21 +235,12 @@ export function saveDanmakuAnimeCandidates(title: string, animeIds: number[]): v
  * @returns 弹幕动漫ID列表，如果没有记录则返回空数组
  */
 export function getDanmakuAnimeCandidates(title: string): number[] {
-  if (typeof window === 'undefined') return [];
+  const key = `${STORAGE_KEY_PREFIX}candidates_${title}`;
+  const candidates = getWithTTL<number[]>(key);
 
-  try {
-    const key = `${STORAGE_KEY_PREFIX}candidates_${title}`;
-    const value = localStorage.getItem(key);
-
-    if (value !== null) {
-      const candidates = JSON.parse(value);
-      if (Array.isArray(candidates)) {
-        console.log(`[弹幕记忆] 读取弹幕源候选: ${title} -> ${candidates.join(', ')}`);
-        return candidates;
-      }
-    }
-  } catch (error) {
-    console.error('[弹幕记忆] 读取候选失败:', error);
+  if (Array.isArray(candidates)) {
+    console.log(`[弹幕记忆] 读取弹幕源候选: ${title} -> ${candidates.join(', ')}`);
+    return candidates;
   }
 
   return [];
