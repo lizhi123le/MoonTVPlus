@@ -505,11 +505,7 @@ function PlayPageClient() {
     danmakuHeatmapEnabledRef.current = danmakuHeatmapEnabled;
   }, [danmakuHeatmapEnabled]);
 
-  // 多条弹幕匹配结果
-  const [danmakuMatches, setDanmakuMatches] = useState<DanmakuAnime[]>([]);
-  const [showDanmakuSourceSelector, setShowDanmakuSourceSelector] = useState(false);
   const [showDanmakuFilterSettings, setShowDanmakuFilterSettings] = useState(false);
-  const [currentSearchKeyword, setCurrentSearchKeyword] = useState<string>(''); // 当前搜索使用的关键词
   const [toast, setToast] = useState<ToastProps | null>(null);
 
   useEffect(() => {
@@ -1019,14 +1015,11 @@ function PlayPageClient() {
               }
             }
 
-            // 没有记忆或记忆失效，让用户选择
-            console.log(`等待用户选择弹幕源`);
-            setDanmakuMatches(filteredAnimes);
-            setCurrentSearchKeyword(searchKeyword); // 保存当前搜索关键词
-            setShowDanmakuSourceSelector(true);
+            // 没有记忆或记忆失效，所有源已在上方循环中尝试自动匹配
+            console.warn('[弹幕自动匹配] 所有备选源均未成功匹配到对应集数');
             setDanmakuLoading(false);
             if (artPlayerRef.current) {
-              artPlayerRef.current.notice.show = `找到 ${filteredAnimes.length} 个弹幕源，请选择`;
+              artPlayerRef.current.notice.show = '全部弹幕源匹配失败，请手动在弹幕设置中搜索';
             }
             return;
           }
@@ -4624,104 +4617,6 @@ function PlayPageClient() {
     });
   };
 
-  // 处理用户选择弹幕源
-  const handleDanmakuSourceSelect = async (selectedAnime: DanmakuAnime, selectedIndex?: number, isManualSearch = false) => {
-    setShowDanmakuSourceSelector(false);
-
-    try {
-      const title = videoTitleRef.current;
-      console.log('[弹幕] 用户选择弹幕源 - 视频:', title, '弹幕源:', selectedAnime.animeTitle);
-
-      // 如果提供了下标，保存到 sessionStorage
-      if (selectedIndex !== undefined && title) {
-        saveDanmakuSourceIndex(title, selectedIndex);
-      }
-
-      // 获取剧集列表
-      const episodesResult = await getEpisodes(selectedAnime.animeId);
-
-      if (
-        episodesResult.success &&
-        episodesResult.bangumi.episodes.length > 0
-      ) {
-        // 根据当前集数选择对应的弹幕
-        const currentEp = currentEpisodeIndexRef.current;
-        const videoEpTitle = detailRef.current?.episodes_titles?.[currentEp];
-        const episode = matchDanmakuEpisode(currentEp, episodesResult.bangumi.episodes, videoEpTitle);
-
-        if (episode) {
-          const selection: DanmakuSelection = {
-            animeId: selectedAnime.animeId,
-            episodeId: episode.episodeId,
-            animeTitle: selectedAnime.animeTitle,
-            episodeTitle: episode.episodeTitle,
-          };
-
-          // 设置剧集列表
-          setDanmakuEpisodesList(episodesResult.bangumi.episodes);
-
-          console.log('用户选择弹幕源:', selection);
-
-          // 通过统一的 handleDanmakuSelect 处理弹幕加载
-          // 只有从弹幕面板手动搜索选择时才标记为手动选择
-          await handleDanmakuSelect(selection, isManualSearch);
-        }
-      } else {
-        console.warn('未找到剧集信息');
-      }
-    } catch (error) {
-      console.error('加载弹幕失败:', error);
-    }
-  };
-
-  // 手动重新选择弹幕源（忽略记忆）- 保留供将来使用
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _handleReselectDanmakuSource = async () => {
-    const title = videoTitleRef.current;
-    if (!title) {
-      console.warn('视频标题为空，无法搜索弹幕');
-      return;
-    }
-
-    console.log('[弹幕] 用户手动重新选择弹幕源 - 视频:', title);
-    setDanmakuLoading(true);
-
-    try {
-      const searchResult = await searchAnime(title);
-
-      if (searchResult.success && searchResult.animes.length > 0) {
-        // 应用智能过滤：优先匹配年份和标题
-        const videoYear = detailRef.current?.year;
-        const filteredAnimes = filterDanmakuSources(
-          searchResult.animes,
-          title,
-          videoYear
-        );
-
-        // 如果有多个匹配结果，让用户选择
-        if (filteredAnimes.length > 1) {
-          console.log(`[弹幕] 找到 ${filteredAnimes.length} 个弹幕源`);
-          setDanmakuMatches(filteredAnimes);
-          setShowDanmakuSourceSelector(true);
-          setDanmakuLoading(false);
-          return;
-        }
-
-        // 只有一个结果，直接使用
-        const anime = filteredAnimes[0];
-        await handleDanmakuSourceSelect(anime);
-      } else {
-        console.warn('[弹幕] 未找到匹配的弹幕');
-        if (artPlayerRef.current) {
-          artPlayerRef.current.notice.show = '未找到匹配的弹幕源';
-        }
-        setDanmakuLoading(false);
-      }
-    } catch (error) {
-      console.error('[弹幕] 搜索失败:', error);
-      setDanmakuLoading(false);
-    }
-  };
 
   // 自动搜索并加载弹幕
   const autoSearchDanmaku = async () => {
@@ -4875,18 +4770,51 @@ function PlayPageClient() {
           videoYear
         );
 
-        // 如果有多个匹配结果，让用户选择
-        if (filteredAnimes.length > 1) {
-          console.log(`找到 ${filteredAnimes.length} 个弹幕源，等待用户选择`);
-          setDanmakuMatches(filteredAnimes);
-          setCurrentSearchKeyword(searchKeyword); // 保存当前搜索关键词
-          setShowDanmakuSourceSelector(true);
-          setDanmakuLoading(false);
-          if (artPlayerRef.current) {
-            artPlayerRef.current.notice.show = `找到 ${filteredAnimes.length} 个弹幕源，请选择`;
+        // 自动遍历匹配结果
+        console.log(`[弹幕自动匹配] 找到 ${filteredAnimes.length} 个备选源，开始自动尝试`);
+        
+        for (let i = 0; i < filteredAnimes.length; i++) {
+          const anime = filteredAnimes[i];
+          console.log(`[弹幕自动匹配] 正在尝试 (${i + 1}/${filteredAnimes.length}): ${anime.animeTitle}`);
+          
+          try {
+            const episodesResult = await getEpisodes(anime.animeId);
+            if (episodesResult.success && episodesResult.bangumi.episodes.length > 0) {
+              const currentEp = currentEpisodeIndexRef.current;
+              const videoEpTitle = detailRef.current?.episodes_titles?.[currentEp];
+              const episode = matchDanmakuEpisode(currentEp, episodesResult.bangumi.episodes, videoEpTitle);
+
+              if (episode) {
+                const selection: DanmakuSelection = {
+                  animeId: anime.animeId,
+                  episodeId: episode.episodeId,
+                  animeTitle: anime.animeTitle,
+                  episodeTitle: episode.episodeTitle,
+                };
+
+                setDanmakuEpisodesList(episodesResult.bangumi.episodes);
+                
+                // 保存下标以供记忆
+                const title = videoTitleRef.current;
+                if (title) {
+                  saveDanmakuSourceIndex(title, i);
+                }
+
+                console.log('[弹幕自动匹配] 成功:', selection);
+                await handleDanmakuSelect(selection);
+                return; // 匹配成功，完成加载
+              }
+            }
+          } catch (err) {
+            console.error(`[弹幕自动匹配] 尝试源 ${anime.animeTitle} 出错:`, err);
           }
-          return;
         }
+
+        console.warn('[弹幕自动匹配] 所有备选源均未找到对应集数');
+        if (artPlayerRef.current) {
+          artPlayerRef.current.notice.show = '未找到匹配的弹幕集数';
+        }
+        return;
 
         // 只有一个结果，直接使用
         const anime = filteredAnimes[0];
@@ -7621,142 +7549,6 @@ function PlayPageClient() {
             filter: 'blur(5px) brightness(0.7)',
           }}
         />
-      )}
-      {/* 弹幕源选择对话框 */}
-      {showDanmakuSourceSelector && danmakuMatches.length > 0 && (
-        <div className='fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm'>
-          <div className='relative w-full max-w-2xl max-h-[80vh] mx-4 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden'>
-            {/* 标题栏 */}
-            <div className='sticky top-0 z-10 bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-4'>
-              <h3 className='text-xl font-bold text-white flex items-center gap-2'>
-                <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z' />
-                </svg>
-                选择弹幕源
-              </h3>
-              <p className='text-sm text-white/90 mt-1'>
-                找到 {danmakuMatches.length} 个匹配的弹幕源，请选择一个
-              </p>
-            </div>
-
-            {/* 列表区域 */}
-            <div className='overflow-y-auto max-h-[60vh] p-4'>
-              <div className='space-y-4'>
-                {danmakuMatches.map((anime, index) => (
-                  <button
-                    key={anime.animeId}
-                    onClick={() => handleDanmakuSourceSelect(anime, index)}
-                    className='w-full flex flex-col p-5 bg-gray-50 dark:bg-gray-700/50
-                             hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all
-                             duration-200 text-left group border-2 border-transparent
-                             hover:border-green-500 hover:shadow-lg'
-                  >
-                    {/* 顶部：序号和标题 */}
-                    <div className='flex items-start gap-3 mb-3'>
-                      {/* 序号 */}
-                      <div className='flex-shrink-0 w-8 h-8 rounded-full bg-green-500 text-white
-                                    flex items-center justify-center font-bold text-sm
-                                    group-hover:bg-green-600 transition-colors duration-200'>
-                        {index + 1}
-                      </div>
-
-                      {/* 标题 */}
-                      <h4 className='flex-1 text-lg font-bold text-gray-900 dark:text-white
-                                   group-hover:text-green-600 dark:group-hover:text-green-400
-                                   transition-colors duration-200 leading-tight'>
-                        {anime.animeTitle}
-                      </h4>
-
-                      {/* 选择图标 */}
-                      <div className='flex-shrink-0'>
-                        <svg className='w-6 h-6 text-gray-400 group-hover:text-green-500
-                                      transition-colors duration-200'
-                             fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2}
-                                d='M9 5l7 7-7 7' />
-                        </svg>
-                      </div>
-                    </div>
-
-                    {/* 主体内容 */}
-                    <div className='flex gap-4'>
-                      {/* 封面 */}
-                      {anime.imageUrl && (
-                        <div className='flex-shrink-0 w-20 h-28 rounded-lg overflow-hidden shadow-md
-                                      group-hover:shadow-xl transition-shadow duration-200'>
-                          <img
-                            src={anime.imageUrl}
-                            alt={anime.animeTitle}
-                            className='w-full h-full object-cover'
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                            }}
-                          />
-                        </div>
-                      )}
-
-                      {/* 详细信息 */}
-                      <div className='flex-1 space-y-2'>
-                        {/* 基本信息标签 */}
-                        <div className='flex flex-wrap gap-2'>
-                          {anime.typeDescription && (
-                            <span className='inline-flex items-center px-2.5 py-1 rounded-md
-                                           bg-blue-100 dark:bg-blue-900/30 text-blue-700
-                                           dark:text-blue-300 text-sm font-medium'>
-                              📺 {anime.typeDescription}
-                            </span>
-                          )}
-                          {anime.episodeCount && (
-                            <span className='inline-flex items-center px-2.5 py-1 rounded-md
-                                           bg-purple-100 dark:bg-purple-900/30 text-purple-700
-                                           dark:text-purple-300 text-sm font-medium'>
-                              🎬 {anime.episodeCount} 集
-                            </span>
-                          )}
-                          {anime.startDate && (
-                            <span className='inline-flex items-center px-2.5 py-1 rounded-md
-                                           bg-gray-100 dark:bg-gray-600 text-gray-700
-                                           dark:text-gray-300 text-sm font-medium'>
-                              📅 {anime.startDate}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* 动漫ID */}
-                        <div className='text-xs text-gray-500 dark:text-gray-400'>
-                          弹幕库 ID: {anime.animeId}
-                        </div>
-
-                        {/* 提示信息 */}
-                        <div className='text-sm text-gray-600 dark:text-gray-300 pt-1
-                                      opacity-0 group-hover:opacity-100 transition-opacity duration-200'>
-                          点击选择此弹幕源
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 底部操作栏 */}
-            <div className='sticky bottom-0 z-10 bg-white dark:bg-gray-800 border-t
-                          border-gray-200 dark:border-gray-700 px-6 py-4'>
-              <button
-                onClick={() => {
-                  setShowDanmakuSourceSelector(false);
-                  setDanmakuMatches([]);
-                }}
-                className='w-full px-4 py-2.5 bg-gray-100 dark:bg-gray-700
-                         hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700
-                         dark:text-gray-300 rounded-lg font-medium transition-colors
-                         duration-200'
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       <div className='relative z-10 flex flex-col gap-3 py-4 px-5 lg:px-[3rem] 2xl:px-20'>
