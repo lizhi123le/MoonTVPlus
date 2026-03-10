@@ -46,7 +46,7 @@ import {
   Video,
 } from 'lucide-react';
 import { GripVertical } from 'lucide-react';
-import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { AdminConfig, AdminConfigResult } from '@/lib/admin.types';
@@ -4723,36 +4723,9 @@ const VideoSourceConfig = ({
     })
   );
 
-  // 表格滚动位置保持 ref
-  const tableContainerRef = useRef<HTMLDivElement>(null);
-  const scrollPositionRef = useRef<number>(0);
-
-  // 保存滚动位置
-  const saveScrollPosition = useCallback(() => {
-    if (tableContainerRef.current) {
-      scrollPositionRef.current = tableContainerRef.current.scrollTop;
-    }
-  }, []);
-
-  // 恢复滚动位置
-  const restoreScrollPosition = useCallback(() => {
-    requestAnimationFrame(() => {
-      if (tableContainerRef.current && scrollPositionRef.current > 0) {
-        tableContainerRef.current.scrollTop = scrollPositionRef.current;
-      }
-    });
-  }, []);
-
-  // 监听 sources 变化时恢复滚动位置
-  useEffect(() => {
-    restoreScrollPosition();
-  }, [sources.length, restoreScrollPosition]);
-
   // 初始化
   useEffect(() => {
     if (config?.SourceConfig) {
-      // 保存当前滚动位置
-      saveScrollPosition();
       setSources(config.SourceConfig);
       // 进入时重置 orderChanged
       setOrderChanged(false);
@@ -4790,8 +4763,6 @@ const VideoSourceConfig = ({
   };
 
   const handleToggleEnable = (key: string) => {
-    // 保存滚动位置
-    saveScrollPosition();
     const target = sources.find((s) => s.key === key);
     if (!target) return;
     const action = target.disabled ? 'enable' : 'disable';
@@ -4803,8 +4774,6 @@ const VideoSourceConfig = ({
   };
 
   const handleDelete = (key: string) => {
-    // 保存滚动位置
-    saveScrollPosition();
     withLoading(`deleteSource_${key}`, () =>
       callSourceApi({ action: 'delete', key })
     ).catch(() => {
@@ -4813,8 +4782,6 @@ const VideoSourceConfig = ({
   };
 
   const handleToggleProxyMode = (key: string) => {
-    // 保存滚动位置
-    saveScrollPosition();
     const target = sources.find((s) => s.key === key);
     if (!target) return;
 
@@ -4862,8 +4829,6 @@ const VideoSourceConfig = ({
   };
 
   const handleUpdateWeight = (key: string, weight: number) => {
-    // 保存滚动位置
-    saveScrollPosition();
     // 先乐观更新本地状态
     setSources((prev) =>
       prev.map((s) =>
@@ -5321,8 +5286,6 @@ const VideoSourceConfig = ({
   // 全选/取消全选
   const handleSelectAll = useCallback(
     (checked: boolean) => {
-      // 保存滚动位置
-      saveScrollPosition();
       if (checked) {
         const allKeys = sources.map((s) => s.key);
         setSelectedSources(new Set(allKeys));
@@ -5330,13 +5293,11 @@ const VideoSourceConfig = ({
         setSelectedSources(new Set());
       }
     },
-    [sources, saveScrollPosition]
+    [sources]
   );
 
   // 单个选择
   const handleSelectSource = useCallback((key: string, checked: boolean) => {
-    // 保存滚动位置
-    saveScrollPosition();
     setSelectedSources((prev) => {
       const newSelected = new Set(prev);
       if (checked) {
@@ -5346,14 +5307,12 @@ const VideoSourceConfig = ({
       }
       return newSelected;
     });
-  }, [saveScrollPosition]);
+  }, []);
 
   // 批量操作
   const handleBatchOperation = async (
-    action: 'batch_enable' | 'batch_disable' | 'batch_delete' | 'batch_top'
+    action: 'batch_enable' | 'batch_disable' | 'batch_delete'
   ) => {
-    // 保存滚动位置
-    saveScrollPosition();
     if (selectedSources.size === 0) {
       showAlert({
         type: 'warning',
@@ -5379,10 +5338,6 @@ const VideoSourceConfig = ({
       case 'batch_delete':
         confirmMessage = `确定要删除选中的 ${keys.length} 个视频源吗？此操作不可恢复！`;
         actionName = '批量删除';
-        break;
-      case 'batch_top':
-        confirmMessage = `确定要将选中的 ${keys.length} 个视频源置顶吗？`;
-        actionName = '批量置顶';
         break;
     }
 
@@ -5486,19 +5441,6 @@ const VideoSourceConfig = ({
                     已选择 {selectedSources.size} 个视频源
                   </span>
                 </span>
-                <button
-                  onClick={() => handleBatchOperation('batch_top')}
-                  disabled={isLoading('batchSource_batch_top')}
-                  className={`px-3 py-1 text-sm ${
-                    isLoading('batchSource_batch_top')
-                      ? buttonStyles.disabled
-                      : buttonStyles.primary
-                  }`}
-                >
-                  {isLoading('batchSource_batch_top')
-                    ? '置顶中...'
-                    : '批量置顶'}
-                </button>
                 <button
                   onClick={() => handleBatchOperation('batch_enable')}
                   disabled={isLoading('batchSource_batch_enable')}
@@ -5637,7 +5579,6 @@ const VideoSourceConfig = ({
 
       {/* 视频源表格 */}
       <div
-        ref={tableContainerRef}
         className='border border-gray-200 dark:border-gray-700 rounded-lg max-h-[28rem] overflow-y-auto overflow-x-auto relative'
         data-table='source-list'
       >
@@ -13173,17 +13114,6 @@ function AdminPageClient() {
       const data = (await response.json()) as AdminConfigResult;
       setConfig(data.Config);
       setRole(data.Role);
-
-      // 更新全局 runtimeConfig 并触发事件，让其他页面实时更新
-      if (typeof window !== 'undefined' && (window as any).RUNTIME_CONFIG) {
-        (window as any).RUNTIME_CONFIG.WEB_LIVE_ENABLED = data.Config.WebLiveEnabled ?? false;
-        (window as any).RUNTIME_CONFIG.PRIVATE_LIBRARY_ENABLED = 
-          (data.Config.OpenListConfig?.Enabled && data.Config.OpenListConfig?.URL && data.Config.OpenListConfig?.Username && data.Config.OpenListConfig?.Password) ||
-          (data.Config.EmbyConfig?.Sources && data.Config.EmbyConfig.Sources.length > 0 && data.Config.EmbyConfig.Sources.some(s => s.enabled && s.ServerURL)) ||
-          (data.Config.XiaoyaConfig?.Enabled && data.Config.XiaoyaConfig?.ServerURL);
-        // 触发事件通知其他组件更新
-        window.dispatchEvent(new Event('runtimeConfigUpdated'));
-      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : '获取配置失败';
       // 只在首次加载时设置错误状态，避免弹窗和错误页面同时显示
