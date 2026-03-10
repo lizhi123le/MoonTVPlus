@@ -45,7 +45,7 @@ import {
   Video,
 } from 'lucide-react';
 import { GripVertical } from 'lucide-react';
-import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { AdminConfig, AdminConfigResult } from '@/lib/admin.types';
@@ -3514,6 +3514,7 @@ const EmbyConfigComponent = ({
     proxyPlay: false,
     customUserAgent: '',
   });
+  const [authMode, setAuthMode] = useState<'apikey' | 'password'>('apikey');
 
   // 从配置加载源列表
   useEffect(() => {
@@ -3554,6 +3555,7 @@ const EmbyConfigComponent = ({
       proxyPlay: false,
       customUserAgent: '',
     });
+    setAuthMode('apikey');
     setEditingSource(null);
     setShowAddForm(false);
   };
@@ -3561,6 +3563,14 @@ const EmbyConfigComponent = ({
   // 开始编辑
   const handleEdit = (source: any) => {
     setFormData({ ...source });
+    // 根据现有配置判断认证方式
+    if (source.ApiKey) {
+      setAuthMode('apikey');
+    } else if (source.Username) {
+      setAuthMode('password');
+    } else {
+      setAuthMode('apikey');
+    }
     setEditingSource(source);
     setShowAddForm(false);
   };
@@ -3577,6 +3587,19 @@ const EmbyConfigComponent = ({
     if (!formData.key || !formData.name || !formData.ServerURL) {
       showError('请填写必填字段：标识符、名称、服务器地址', showAlert);
       return;
+    }
+
+    // 根据认证方式验证必填字段
+    if (authMode === 'apikey') {
+      if (!formData.ApiKey || !formData.UserId) {
+        showError('使用密钥认证时，API Key 和用户 ID 为必填项', showAlert);
+        return;
+      }
+    } else if (authMode === 'password') {
+      if (!formData.Username) {
+        showError('使用账号认证时，用户名为必填项', showAlert);
+        return;
+      }
     }
 
     // 验证key唯一性
@@ -4088,67 +4111,119 @@ const EmbyConfigComponent = ({
               />
             </div>
 
-            {/* API Key */}
+            {/* 认证方式切换卡 */}
             <div>
               <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-                API Key（推荐）
+                认证方式 *
               </label>
-              <input
-                type='password'
-                value={formData.ApiKey}
-                onChange={(e) => setFormData({ ...formData, ApiKey: e.target.value })}
-                placeholder='输入 Emby API Key'
-                className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
-              />
-              <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
-                推荐使用 API Key 认证。如果不使用 API Key，请填写下方的用户名和密码。
-              </p>
+              <div className='flex gap-2 mb-4'>
+                <button
+                  type='button'
+                  onClick={() => {
+                    setAuthMode('apikey');
+                    // 切换到密钥认证时，清空用户名密码
+                    setFormData({ ...formData, Username: '', Password: '' });
+                  }}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                    authMode === 'apikey'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  密钥认证
+                </button>
+                <button
+                  type='button'
+                  onClick={() => {
+                    setAuthMode('password');
+                    // 切换到账号认证时，清空 API Key 和 UserId
+                    setFormData({ ...formData, ApiKey: '', UserId: '' });
+                  }}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                    authMode === 'password'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  账号认证
+                </button>
+              </div>
             </div>
 
-            {/* 用户名 */}
-            <div>
-              <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-                用户名（可选）
-              </label>
-              <input
-                type='text'
-                value={formData.Username}
-                onChange={(e) => setFormData({ ...formData, Username: e.target.value })}
-                placeholder='Emby 用户名'
-                className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
-              />
-            </div>
+            {/* 密钥认证模式 */}
+            {authMode === 'apikey' && (
+              <>
+                {/* API Key */}
+                <div>
+                  <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                    API Key *
+                  </label>
+                  <input
+                    type='password'
+                    value={formData.ApiKey}
+                    onChange={(e) => setFormData({ ...formData, ApiKey: e.target.value })}
+                    placeholder='输入 Emby API Key'
+                    className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
+                  />
+                  <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
+                    在 Emby 控制台的 API 密钥页面生成
+                  </p>
+                </div>
 
-            {/* 密码 */}
-            <div>
-              <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-                密码（可选）
-              </label>
-              <input
-                type='password'
-                value={formData.Password}
-                onChange={(e) => setFormData({ ...formData, Password: e.target.value })}
-                placeholder='Emby 密码'
-                className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
-              />
-            </div>
+                {/* 用户 ID */}
+                <div>
+                  <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                    用户 ID *
+                  </label>
+                  <input
+                    type='text'
+                    value={formData.UserId}
+                    onChange={(e) => setFormData({ ...formData, UserId: e.target.value })}
+                    placeholder='aab507c58e874de6a9bd12388d72f4d2'
+                    className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
+                  />
+                  <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
+                    从你的 Emby 抓包数据中获取用户 ID，通常在 URL 中如 /Users/[userId]/...
+                  </p>
+                </div>
+              </>
+            )}
 
-            {/* 用户 ID */}
-            <div>
-              <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-                用户 ID（使用 API Key 时必填）
-              </label>
-              <input
-                type='text'
-                value={formData.UserId}
-                onChange={(e) => setFormData({ ...formData, UserId: e.target.value })}
-                placeholder='aab507c58e874de6a9bd12388d72f4d2'
-                className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
-              />
-              <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
-                从你的 Emby 抓包数据中获取用户 ID，通常在 URL 中如 /Users/[userId]/...
-              </p>
-            </div>
+            {/* 账号认证模式 */}
+            {authMode === 'password' && (
+              <>
+                {/* 用户名 */}
+                <div>
+                  <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                    用户名 *
+                  </label>
+                  <input
+                    type='text'
+                    value={formData.Username}
+                    onChange={(e) => setFormData({ ...formData, Username: e.target.value })}
+                    placeholder='Emby 用户名'
+                    className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
+                  />
+                </div>
+
+                {/* 密码 */}
+                <div>
+                  <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                    密码（可选）
+                  </label>
+                  <input
+                    type='password'
+                    value={formData.Password}
+                    onChange={(e) => setFormData({ ...formData, Password: e.target.value })}
+                    placeholder='Emby 密码（如果账号没有密码可留空）'
+                    className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
+                  />
+                  <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
+                    如果 Emby 账号没有设置密码，可以留空
+                  </p>
+                </div>
+              </>
+            )}
 
             {/* 启用开关 */}
             <div className='flex items-center justify-between'>
@@ -4413,36 +4488,9 @@ const VideoSourceConfig = ({
     })
   );
 
-  // 表格滚动位置保持 ref
-  const tableContainerRef = useRef<HTMLDivElement>(null);
-  const scrollPositionRef = useRef<number>(0);
-
-  // 保存滚动位置
-  const saveScrollPosition = useCallback(() => {
-    if (tableContainerRef.current) {
-      scrollPositionRef.current = tableContainerRef.current.scrollTop;
-    }
-  }, []);
-
-  // 恢复滚动位置
-  const restoreScrollPosition = useCallback(() => {
-    requestAnimationFrame(() => {
-      if (tableContainerRef.current && scrollPositionRef.current > 0) {
-        tableContainerRef.current.scrollTop = scrollPositionRef.current;
-      }
-    });
-  }, []);
-
-  // 监听 sources 变化时恢复滚动位置
-  useEffect(() => {
-    restoreScrollPosition();
-  }, [sources.length, restoreScrollPosition]);
-
   // 初始化
   useEffect(() => {
     if (config?.SourceConfig) {
-      // 保存当前滚动位置
-      saveScrollPosition();
       setSources(config.SourceConfig);
       // 进入时重置 orderChanged
       setOrderChanged(false);
@@ -4480,8 +4528,6 @@ const VideoSourceConfig = ({
   };
 
   const handleToggleEnable = (key: string) => {
-    // 保存滚动位置
-    saveScrollPosition();
     const target = sources.find((s) => s.key === key);
     if (!target) return;
     const action = target.disabled ? 'enable' : 'disable';
@@ -4493,8 +4539,6 @@ const VideoSourceConfig = ({
   };
 
   const handleDelete = (key: string) => {
-    // 保存滚动位置
-    saveScrollPosition();
     withLoading(`deleteSource_${key}`, () =>
       callSourceApi({ action: 'delete', key })
     ).catch(() => {
@@ -4503,8 +4547,6 @@ const VideoSourceConfig = ({
   };
 
   const handleToggleProxyMode = (key: string) => {
-    // 保存滚动位置
-    saveScrollPosition();
     const target = sources.find((s) => s.key === key);
     if (!target) return;
 
@@ -4552,8 +4594,6 @@ const VideoSourceConfig = ({
   };
 
   const handleUpdateWeight = (key: string, weight: number) => {
-    // 保存滚动位置
-    saveScrollPosition();
     // 先乐观更新本地状态
     setSources((prev) =>
       prev.map((s) =>
@@ -5011,8 +5051,6 @@ const VideoSourceConfig = ({
   // 全选/取消全选
   const handleSelectAll = useCallback(
     (checked: boolean) => {
-      // 保存滚动位置
-      saveScrollPosition();
       if (checked) {
         const allKeys = sources.map((s) => s.key);
         setSelectedSources(new Set(allKeys));
@@ -5020,13 +5058,11 @@ const VideoSourceConfig = ({
         setSelectedSources(new Set());
       }
     },
-    [sources, saveScrollPosition]
+    [sources]
   );
 
   // 单个选择
   const handleSelectSource = useCallback((key: string, checked: boolean) => {
-    // 保存滚动位置
-    saveScrollPosition();
     setSelectedSources((prev) => {
       const newSelected = new Set(prev);
       if (checked) {
@@ -5036,14 +5072,12 @@ const VideoSourceConfig = ({
       }
       return newSelected;
     });
-  }, [saveScrollPosition]);
+  }, []);
 
   // 批量操作
   const handleBatchOperation = async (
-    action: 'batch_enable' | 'batch_disable' | 'batch_delete' | 'batch_top'
+    action: 'batch_enable' | 'batch_disable' | 'batch_delete'
   ) => {
-    // 保存滚动位置
-    saveScrollPosition();
     if (selectedSources.size === 0) {
       showAlert({
         type: 'warning',
@@ -5069,10 +5103,6 @@ const VideoSourceConfig = ({
       case 'batch_delete':
         confirmMessage = `确定要删除选中的 ${keys.length} 个视频源吗？此操作不可恢复！`;
         actionName = '批量删除';
-        break;
-      case 'batch_top':
-        confirmMessage = `确定要将选中的 ${keys.length} 个视频源置顶吗？`;
-        actionName = '批量置顶';
         break;
     }
 
@@ -5176,19 +5206,6 @@ const VideoSourceConfig = ({
                     已选择 {selectedSources.size} 个视频源
                   </span>
                 </span>
-                <button
-                  onClick={() => handleBatchOperation('batch_top')}
-                  disabled={isLoading('batchSource_batch_top')}
-                  className={`px-3 py-1 text-sm ${
-                    isLoading('batchSource_batch_top')
-                      ? buttonStyles.disabled
-                      : buttonStyles.primary
-                  }`}
-                >
-                  {isLoading('batchSource_batch_top')
-                    ? '置顶中...'
-                    : '批量置顶'}
-                </button>
                 <button
                   onClick={() => handleBatchOperation('batch_enable')}
                   disabled={isLoading('batchSource_batch_enable')}
@@ -5327,7 +5344,6 @@ const VideoSourceConfig = ({
 
       {/* 视频源表格 */}
       <div
-        ref={tableContainerRef}
         className='border border-gray-200 dark:border-gray-700 rounded-lg max-h-[28rem] overflow-y-auto overflow-x-auto relative'
         data-table='source-list'
       >
@@ -11879,17 +11895,6 @@ function AdminPageClient() {
       const data = (await response.json()) as AdminConfigResult;
       setConfig(data.Config);
       setRole(data.Role);
-
-      // 更新全局 runtimeConfig 并触发事件，让其他页面实时更新
-      if (typeof window !== 'undefined' && (window as any).RUNTIME_CONFIG) {
-        (window as any).RUNTIME_CONFIG.WEB_LIVE_ENABLED = data.Config.WebLiveEnabled ?? false;
-        (window as any).RUNTIME_CONFIG.PRIVATE_LIBRARY_ENABLED = 
-          (data.Config.OpenListConfig?.Enabled && data.Config.OpenListConfig?.URL && data.Config.OpenListConfig?.Username && data.Config.OpenListConfig?.Password) ||
-          (data.Config.EmbyConfig?.Sources && data.Config.EmbyConfig.Sources.length > 0 && data.Config.EmbyConfig.Sources.some(s => s.enabled && s.ServerURL)) ||
-          (data.Config.XiaoyaConfig?.Enabled && data.Config.XiaoyaConfig?.ServerURL);
-        // 触发事件通知其他组件更新
-        window.dispatchEvent(new Event('runtimeConfigUpdated'));
-      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : '获取配置失败';
       // 只在首次加载时设置错误状态，避免弹窗和错误页面同时显示
