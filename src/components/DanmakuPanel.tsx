@@ -353,7 +353,7 @@ export default function DanmakuPanel({
   }, [displayEpisodeGroupIndex]);
 
   return (
-    <div className='flex h-full flex-col overflow-hidden'>
+    <div className='flex h-full min-h-0 flex-col overflow-hidden'>
       {/* 搜索区域 - 固定在顶部 */}
       <div className='mb-4 flex-shrink-0'>
         <div className='flex flex-wrap gap-2'>
