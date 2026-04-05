@@ -359,24 +359,9 @@ function PlayPageClient() {
 
   // Anime4K超分相关状态
   const [webGPUSupported, setWebGPUSupported] = useState<boolean>(false);
-  const [anime4kEnabled, setAnime4kEnabled] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return loadPlayerAnime4kEnabled();
-    }
-    return false;
-  });
-  const [anime4kMode, setAnime4kMode] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return loadPlayerAnime4kMode();
-    }
-    return 'ModeA';
-  });
-  const [anime4kScale, setAnime4kScale] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      return loadPlayerAnime4kScale();
-    }
-    return 2.0;
-  });
+  const [anime4kEnabled, setAnime4kEnabled] = useState<boolean>(false);
+  const [anime4kMode, setAnime4kMode] = useState<string>('ModeA');
+  const [anime4kScale, setAnime4kScale] = useState<number>(2.0);
   const anime4kRef = useRef<any>(null);
   const anime4kEnabledRef = useRef(anime4kEnabled);
   const anime4kModeRef = useRef(anime4kMode);
@@ -386,6 +371,21 @@ function PlayPageClient() {
     anime4kModeRef.current = anime4kMode;
     anime4kScaleRef.current = anime4kScale;
   }, [anime4kEnabled, anime4kMode, anime4kScale]);
+
+  // 异步加载播放器设置（从服务端 API）
+  useEffect(() => {
+    const loadSettings = async () => {
+      const [enabled, mode, scale] = await Promise.all([
+        loadPlayerAnime4kEnabled(),
+        loadPlayerAnime4kMode(),
+        loadPlayerAnime4kScale(),
+      ]);
+      setAnime4kEnabled(enabled);
+      setAnime4kMode(mode);
+      setAnime4kScale(scale);
+    };
+    loadSettings();
+  }, []);
 
   // 检测WebGPU支持
   useEffect(() => {
@@ -2891,7 +2891,7 @@ function PlayPageClient() {
         await cleanupAnime4K();
       }
       setAnime4kEnabled(enabled);
-      savePlayerAnime4kEnabled(enabled);
+      await savePlayerAnime4kEnabled(enabled);
     } catch (err) {
       console.error('切换超分状态失败:', err);
     }
@@ -2901,7 +2901,7 @@ function PlayPageClient() {
   const changeAnime4KMode = async (mode: string) => {
     try {
       setAnime4kMode(mode);
-      savePlayerAnime4kMode(mode);
+      await savePlayerAnime4kMode(mode);
 
       if (anime4kEnabledRef.current) {
         await cleanupAnime4K();
@@ -2916,7 +2916,7 @@ function PlayPageClient() {
   const changeAnime4KScale = async (scale: number) => {
     try {
       setAnime4kScale(scale);
-      savePlayerAnime4kScale(scale);
+      await savePlayerAnime4kScale(scale);
 
       if (anime4kEnabledRef.current) {
         await cleanupAnime4K();
