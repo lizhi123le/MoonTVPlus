@@ -309,7 +309,7 @@ jobs:
         run: |
           echo "Starting Cloudflare build..."
           echo "Running: BUILD_TARGET=cloudflare npx @opennextjs/cloudflare build"
-          BUILD_TARGET=cloudflare npx @opennextjs/cloudflare build 2>&1
+          BUILD_TARGET=cloudflare npx @opennextjs/cloudflare build --dangerouslyUseUnsupportedNextVersion 2>&1
           BUILD_EXIT=$?
           echo "Build exit code: $BUILD_EXIT"
           if [ $BUILD_EXIT -ne 0 ]; then
