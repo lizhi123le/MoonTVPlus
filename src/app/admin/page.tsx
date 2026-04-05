@@ -45,7 +45,7 @@ import {
   Video,
 } from 'lucide-react';
 import { GripVertical } from 'lucide-react';
-import { memo, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { AdminConfig, AdminConfigResult } from '@/lib/admin.types';
@@ -4473,6 +4473,31 @@ const VideoSourceConfig = ({
     }>
   >([]);
 
+  // 表格滚动位置保持 ref
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const scrollPositionRef = useRef<number>(0);
+
+  // 保存滚动位置
+  const saveScrollPosition = useCallback(() => {
+    if (tableContainerRef.current) {
+      scrollPositionRef.current = tableContainerRef.current.scrollTop;
+    }
+  }, []);
+
+  // 恢复滚动位置
+  const restoreScrollPosition = useCallback(() => {
+    requestAnimationFrame(() => {
+      if (tableContainerRef.current && scrollPositionRef.current > 0) {
+        tableContainerRef.current.scrollTop = scrollPositionRef.current;
+      }
+    });
+  }, []);
+
+  // 监听 sources 变化时恢复滚动位置
+  useEffect(() => {
+    restoreScrollPosition();
+  }, [sources.length, restoreScrollPosition]);
+
   // dnd-kit 传感器
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -4528,6 +4553,7 @@ const VideoSourceConfig = ({
   };
 
   const handleToggleEnable = (key: string) => {
+    saveScrollPosition();
     const target = sources.find((s) => s.key === key);
     if (!target) return;
     const action = target.disabled ? 'enable' : 'disable';
@@ -4539,6 +4565,7 @@ const VideoSourceConfig = ({
   };
 
   const handleDelete = (key: string) => {
+    saveScrollPosition();
     withLoading(`deleteSource_${key}`, () =>
       callSourceApi({ action: 'delete', key })
     ).catch(() => {
@@ -4547,6 +4574,7 @@ const VideoSourceConfig = ({
   };
 
   const handleToggleProxyMode = (key: string) => {
+    saveScrollPosition();
     const target = sources.find((s) => s.key === key);
     if (!target) return;
 
@@ -4594,6 +4622,7 @@ const VideoSourceConfig = ({
   };
 
   const handleUpdateWeight = (key: string, weight: number) => {
+    saveScrollPosition();
     // 先乐观更新本地状态
     setSources((prev) =>
       prev.map((s) =>
@@ -5051,6 +5080,7 @@ const VideoSourceConfig = ({
   // 全选/取消全选
   const handleSelectAll = useCallback(
     (checked: boolean) => {
+      saveScrollPosition();
       if (checked) {
         const allKeys = sources.map((s) => s.key);
         setSelectedSources(new Set(allKeys));
@@ -5063,6 +5093,7 @@ const VideoSourceConfig = ({
 
   // 单个选择
   const handleSelectSource = useCallback((key: string, checked: boolean) => {
+    saveScrollPosition();
     setSelectedSources((prev) => {
       const newSelected = new Set(prev);
       if (checked) {
@@ -5088,6 +5119,7 @@ const VideoSourceConfig = ({
     }
 
     const keys = Array.from(selectedSources);
+    saveScrollPosition();
     let confirmMessage = '';
     let actionName = '';
 
@@ -5361,6 +5393,7 @@ const VideoSourceConfig = ({
 
       {/* 视频源表格 */}
       <div
+        ref={tableContainerRef}
         className='border border-gray-200 dark:border-gray-700 rounded-lg max-h-[28rem] overflow-y-auto overflow-x-auto relative'
         data-table='source-list'
       >
