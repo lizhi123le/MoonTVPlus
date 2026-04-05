@@ -352,6 +352,7 @@ export default function DanmakuPanel({
                   <div className='flex items-end gap-2'>
                     {/* 集数范围标签横向滚动区域 */}
                     <div
+                      data-danmaku-episode-scroll
                       className='flex items-center gap-4 overflow-x-auto pb-3 h-14 flex-1'
                       style={{ touchAction: 'pan-x' }}
                     >
