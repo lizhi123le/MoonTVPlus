@@ -348,69 +348,80 @@ export default function DanmakuPanel({
             {!isLoadingEpisodes && episodes.length > 0 && (
               <div className='pb-4'>
                 <div className='mb-4 border-b border-gray-300 dark:border-gray-700'>
-                  <div
-                    className='flex items-center gap-4 overflow-x-auto pb-3'
-                    style={{ maxHeight: '3rem', touchAction: 'pan-x' }}
-                  >
-                    {episodeGroups.map((label, idx) => {
-                      const isActive = idx === displayEpisodeGroupIndex;
-                      return (
+                  {/* 第一行：集数范围标签横向滚动 + 右侧按钮组 */}
+                  <div className='flex items-end gap-2'>
+                    {/* 集数范围标签横向滚动区域 */}
+                    <div
+                      className='flex items-center gap-4 overflow-x-auto pb-3 flex-1 min-h-[2rem]'
+                      style={{ touchAction: 'pan-x' }}
+                    >
+                      {episodeGroups.map((label, idx) => {
+                        const isActive = idx === displayEpisodeGroupIndex;
+                        return (
+                          <button
+                            key={label}
+                            onClick={() =>
+                              setEpisodeGroupIndex(
+                                episodeDescending ? episodeGroupCount - 1 - idx : idx
+                              )
+                            }
+                            className={`relative w-20 py-2 text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 text-center ${
+                              isActive
+                                ? 'text-green-500 dark:text-green-400'
+                                : 'text-gray-700 hover:text-green-600 dark:text-gray-300 dark:hover:text-green-400'
+                            }`}
+                          >
+                            {label}
+                            {isActive && (
+                              <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-green-500 dark:bg-green-400' />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* 右侧按钮组：正序/反序 + 视图切换 */}
+                    <div className='flex items-center gap-1 flex-shrink-0 pb-3'>
+                      <button
+                        onClick={() => setEpisodeDescending((prev) => !prev)}
+                        className='flex items-center gap-1 rounded-md px-2 py-1.5 text-gray-700 hover:bg-gray-100 hover:text-green-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-green-400'
+                        title={episodeDescending ? '切换正序' : '切换倒序'}
+                      >
+                        <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4' />
+                        </svg>
+                        <span className='text-xs hidden sm:inline'>
+                          {episodeDescending ? '正序' : '倒序'}
+                        </span>
+                      </button>
+                      <div className='flex items-center gap-1 rounded-md bg-gray-100 p-1 dark:bg-gray-800'>
                         <button
-                          key={label}
-                          onClick={() =>
-                            setEpisodeGroupIndex(
-                              episodeDescending ? episodeGroupCount - 1 - idx : idx
-                            )
-                          }
-                          className={`relative w-20 py-2 text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 text-center ${
-                            isActive
-                              ? 'text-green-500 dark:text-green-400'
-                              : 'text-gray-700 hover:text-green-600 dark:text-gray-300 dark:hover:text-green-400'
+                          onClick={() => setEpisodeViewMode('list')}
+                          title='列表视图'
+                          className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+                            episodeViewMode === 'list'
+                              ? 'bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400'
+                              : 'text-gray-600 dark:text-gray-400'
                           }`}
                         >
-                          {label}
-                          {isActive && (
-                            <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-green-500 dark:bg-green-400' />
-                          )}
+                          <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01' />
+                          </svg>
                         </button>
-                      );
-                    })}
-                    <button
-                      onClick={() => setEpisodeDescending((prev) => !prev)}
-                      className='flex-shrink-0 rounded-md p-2 text-gray-700 hover:bg-gray-100 hover:text-green-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-green-400'
-                      title={episodeDescending ? '切换正序' : '切换倒序'}
-                    >
-                      <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4' />
-                      </svg>
-                    </button>
-                    <div className='ml-auto flex items-center gap-1 rounded-md bg-gray-100 p-1 dark:bg-gray-800'>
-                      <button
-                        onClick={() => setEpisodeViewMode('list')}
-                        title='列表视图'
-                        className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
-                          episodeViewMode === 'list'
-                            ? 'bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400'
-                            : 'text-gray-600 dark:text-gray-400'
-                        }`}
-                      >
-                        <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01' />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => setEpisodeViewMode('grid')}
-                        title='格子视图'
-                        className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
-                          episodeViewMode === 'grid'
-                            ? 'bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400'
-                            : 'text-gray-600 dark:text-gray-400'
-                        }`}
-                      >
-                        <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z' />
-                        </svg>
-                      </button>
+                        <button
+                          onClick={() => setEpisodeViewMode('grid')}
+                          title='格子视图'
+                          className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+                            episodeViewMode === 'grid'
+                              ? 'bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400'
+                              : 'text-gray-600 dark:text-gray-400'
+                          }`}
+                        >
+                          <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z' />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
