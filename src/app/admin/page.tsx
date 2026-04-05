@@ -5446,6 +5446,19 @@ const VideoSourceConfig = ({
                   </span>
                 </span>
                 <button
+                  onClick={() => handleBatchOperation('batch_top')}
+                  disabled={isLoading('batchSource_batch_top')}
+                  className={`px-3 py-1 text-sm ${
+                    isLoading('batchSource_batch_top')
+                      ? buttonStyles.disabled
+                      : buttonStyles.primary
+                  }`}
+                >
+                  {isLoading('batchSource_batch_top')
+                    ? '置顶中...'
+                    : '批量置顶'}
+                </button>
+                <button
                   onClick={() => handleBatchOperation('batch_enable')}
                   disabled={isLoading('batchSource_batch_enable')}
                   className={`px-3 py-1 text-sm ${
@@ -5483,19 +5496,6 @@ const VideoSourceConfig = ({
                   {isLoading('batchSource_batch_delete')
                     ? '删除中...'
                     : '批量删除'}
-                </button>
-                <button
-                  onClick={() => handleBatchOperation('batch_top')}
-                  disabled={isLoading('batchSource_batch_top')}
-                  className={`px-3 py-1 text-sm ${
-                    isLoading('batchSource_batch_top')
-                      ? buttonStyles.disabled
-                      : buttonStyles.primary
-                  }`}
-                >
-                  {isLoading('batchSource_batch_top')
-                    ? '置顶中...'
-                    : '批量置顶'}
                 </button>
               </div>
               <div className='hidden sm:block w-px h-6 bg-gray-300 dark:bg-gray-600 order-2'></div>
