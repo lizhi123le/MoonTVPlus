@@ -116,3 +116,18 @@
     background-size: 0 2px, 100% 2px;
   }
 }
+
+/* 弹幕集数范围滚动条 - 始终显示 */
+[data-danmaku-episode-scroll]::-webkit-scrollbar {
+  height: 6px;
+}
+[data-danmaku-episode-scroll]::-webkit-scrollbar-track {
+  background: transparent;
+}
+[data-danmaku-episode-scroll]::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.5);
+  border-radius: 3px;
+}
+[data-danmaku-episode-scroll]::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.8);
+}
