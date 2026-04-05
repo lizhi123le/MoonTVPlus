@@ -231,7 +231,7 @@ export default function DanmakuPanel({
   }, [videoTitle]);
 
   return (
-    <div className='flex h-full flex-col overflow-hidden'>
+    <div className='flex h-full min-h-0 flex-col overflow-hidden'>
       {/* 搜索区域 - 固定在顶部 */}
       <div className='mb-4 flex-shrink-0'>
         <div className='flex flex-wrap gap-2'>
@@ -348,7 +348,10 @@ export default function DanmakuPanel({
             {!isLoadingEpisodes && episodes.length > 0 && (
               <div className='pb-4'>
                 <div className='mb-4 border-b border-gray-300 dark:border-gray-700'>
-                  <div className='flex items-center gap-4 overflow-x-auto pb-3'>
+                  <div
+                    className='flex items-center gap-4 overflow-x-auto pb-3'
+                    style={{ maxHeight: '3rem', touchAction: 'pan-x' }}
+                  >
                     {episodeGroups.map((label, idx) => {
                       const isActive = idx === displayEpisodeGroupIndex;
                       return (
