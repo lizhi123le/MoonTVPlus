@@ -655,6 +655,19 @@ export function generateStorageKey(source: string, id: string): string {
 
 // ---- API ----
 /**
+ * 获取缓存的播放记录快照（同步，不触发网络请求）。
+ * 用于在异步数据加载前快速展示已有缓存，提升首屏体验。
+ * 若无缓存数据则返回空对象。
+ */
+export function getCachedPlayRecordsSnapshot(): Record<string, PlayRecord> {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+  const cached = cacheManager.getCachedPlayRecords();
+  return cached ?? {};
+}
+
+/**
  * 读取全部播放记录。
  * 非本地存储模式下使用混合缓存策略：优先返回缓存数据，后台异步同步最新数据。
  * 在服务端渲染阶段 (window === undefined) 时返回空对象，避免报错。
