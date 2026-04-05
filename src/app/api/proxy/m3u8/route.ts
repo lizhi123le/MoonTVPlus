@@ -183,3 +183,16 @@ function rewriteKeyUri(line: string, baseUrl: string, proxyBase: string, allowCO
   }
   return line;
 }
+
+// 处理 OPTIONS 预检请求
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Range, Origin, Accept',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
+}

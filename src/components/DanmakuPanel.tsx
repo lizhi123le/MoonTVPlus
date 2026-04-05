@@ -74,50 +74,28 @@ export default function DanmakuPanel({
     }
   }, []);
 
-  // 选择动漫，自动匹配对应集数
+  // 选择动漫，加载剧集列表
   const handleAnimeSelect = useCallback(async (anime: DanmakuAnime) => {
+    setSelectedAnime(anime);
     setIsLoadingEpisodes(true);
 
     try {
       const response = await getEpisodes(anime.animeId);
 
       if (response.success && response.bangumi.episodes.length > 0) {
-        const episodes = response.bangumi.episodes;
-        let matchedEpisode = null;
-
-        // 根据当前集数索引匹配对应弹幕集数
-        // 优先使用currentEpisodeIndex直接匹配（如果范围有效）
-        if (currentEpisodeIndex >= 0 && currentEpisodeIndex < episodes.length) {
-          matchedEpisode = episodes[currentEpisodeIndex];
-        } else if (episodes.length > 0) {
-          // 如果索引超出范围，使用最后一集（有些弹幕源可能集数不全）
-          matchedEpisode = episodes[episodes.length - 1];
-        }
-
-        if (matchedEpisode) {
-          const selection: DanmakuSelection = {
-            animeId: anime.animeId,
-            episodeId: matchedEpisode.episodeId,
-            animeTitle: anime.animeTitle,
-            episodeTitle: matchedEpisode.episodeTitle,
-            searchKeyword: searchKeyword.trim() || undefined,
-          };
-
-          // 直接调用选择回调，不显示剧集列表
-          onDanmakuSelect(selection);
-        } else {
-          setSearchError('无法匹配到对应集数');
-        }
+        setEpisodes(response.bangumi.episodes);
       } else {
+        setEpisodes([]);
         setSearchError('该剧集暂无弹幕信息');
       }
     } catch (error) {
       console.error('获取剧集失败:', error);
+      setEpisodes([]);
       setSearchError('获取剧集失败');
     } finally {
       setIsLoadingEpisodes(false);
     }
-  }, [currentEpisodeIndex, onDanmakuSelect, searchKeyword]);
+  }, []);
 
   // 选择剧集
   const handleEpisodeSelect = useCallback(
@@ -183,6 +161,69 @@ export default function DanmakuPanel({
       }
     }
   }, [onUploadDanmaku]);
+
+  useEffect(() => {
+    if (episodes.length > 0) {
+      setEpisodeGroupIndex(Math.floor(currentEpisodeIndex / episodesPerGroup));
+    } else {
+      setEpisodeGroupIndex(0);
+    }
+  }, [episodes, currentEpisodeIndex]);
+
+  const episodeGroupCount = Math.ceil(episodes.length / episodesPerGroup);
+
+  const episodeGroups = useMemo(() => {
+    return Array.from({ length: episodeGroupCount }, (_, idx) => {
+      const start = idx * episodesPerGroup + 1;
+      const end = Math.min((idx + 1) * episodesPerGroup, episodes.length);
+      return `${start}-${end}`;
+    });
+  }, [episodeGroupCount, episodes.length]);
+
+  const displayEpisodeGroupIndex = useMemo(() => {
+    if (episodeDescending) {
+      return episodeGroupCount - 1 - episodeGroupIndex;
+    }
+    return episodeGroupIndex;
+  }, [episodeDescending, episodeGroupCount, episodeGroupIndex]);
+
+  const currentGroupEpisodes = useMemo(() => {
+    if (episodes.length === 0) return [];
+
+    const start = episodeGroupIndex * episodesPerGroup;
+    const end = Math.min(start + episodesPerGroup, episodes.length);
+    const groupEpisodes = episodes.slice(start, end);
+    const withEpisodeNumber = groupEpisodes.map((episode, index) => ({
+      ...episode,
+      episodeNumber: start + index + 1,
+    }));
+
+    return episodeDescending ? [...withEpisodeNumber].reverse() : withEpisodeNumber;
+  }, [episodes, episodeDescending, episodeGroupIndex]);
+
+  const getEpisodeDisplayLabel = useCallback((episodeTitle: string, episodeNumber: number) => {
+    if (!episodeTitle) {
+      return String(episodeNumber);
+    }
+
+    if (episodeTitle.match(/^OVA\s+\d+/i)) {
+      return episodeTitle;
+    }
+
+    const sxxexxMatch = episodeTitle.match(/[Ss](\d+)[Ee](\d{1,4}(?:\.\d+)?)/);
+    if (sxxexxMatch) {
+      const season = sxxexxMatch[1].padStart(2, '0');
+      const episode = sxxexxMatch[2];
+      return `S${season}E${episode}`;
+    }
+
+    const match = episodeTitle.match(/(?:第)?(\d+(?:\.\d+)?)(?:集|话)/);
+    if (match) {
+      return match[1];
+    }
+
+    return String(episodeNumber);
+  }, []);
 
   // 当视频标题首次加载时，初始化搜索关键词（仅执行一次）
   useEffect(() => {

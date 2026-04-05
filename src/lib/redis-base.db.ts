@@ -2004,4 +2004,96 @@ export abstract class BaseRedisStorage implements IStorage {
     );
     return userName || null;
   }
+
+  // ---------- 播放器设置（支持匿名用户） ----------
+  private playerSettingsKey(userId: string) {
+    return `player_settings:${userId}`;
+  }
+
+  async getPlayerSettings(userId: string): Promise<string | null> {
+    const val = await this.withRetry(() =>
+      this.adapter.get(this.playerSettingsKey(userId))
+    );
+    return val ? ensureString(val) : null;
+  }
+
+  async setPlayerSettings(userId: string, settings: string, updatedAt?: number): Promise<void> {
+    await this.withRetry(() =>
+      this.adapter.set(this.playerSettingsKey(userId), settings)
+    );
+  }
+
+  async deletePlayerSettings(userId: string): Promise<void> {
+    await this.withRetry(() =>
+      this.adapter.del(this.playerSettingsKey(userId))
+    );
+  }
+
+  // ---------- 跳过时间（跨来源共享） ----------
+  private skipTimeKey(titleNormalized: string) {
+    return `skip_time:${titleNormalized}`;
+  }
+
+  private skipTimesAllKey() {
+    return 'skip_times:all';
+  }
+
+  async getSkipTime(titleNormalized: string): Promise<{ intro_time: number; outro_time: number; updated_at: number } | null> {
+    const val = await this.withRetry(() =>
+      this.adapter.hGet(this.skipTimesAllKey(), titleNormalized)
+    );
+    if (!val) return null;
+    try {
+      return JSON.parse(val) as { intro_time: number; outro_time: number; updated_at: number };
+    } catch {
+      return null;
+    }
+  }
+
+  async setSkipTime(titleNormalized: string, intro_time: number, outro_time: number): Promise<void> {
+    const data = JSON.stringify({ intro_time, outro_time, updated_at: Date.now() });
+    await this.withRetry(() =>
+      this.adapter.hSet(this.skipTimesAllKey(), titleNormalized, data)
+    );
+  }
+
+  async getAllSkipTimes(): Promise<Array<{ title_normalized: string; intro_time: number; outro_time: number; updated_at: number }>> {
+    const hashData = await this.withRetry(() =>
+      this.adapter.hGetAll(this.skipTimesAllKey())
+    );
+    const result: Array<{ title_normalized: string; intro_time: number; outro_time: number; updated_at: number }> = [];
+    for (const [title_normalized, value] of Object.entries(hashData)) {
+      if (value) {
+        try {
+          const parsed = JSON.parse(value);
+          result.push({ title_normalized, ...parsed });
+        } catch {
+          // skip malformed entries
+        }
+      }
+    }
+    // Sort by updated_at DESC
+    return result.sort((a, b) => b.updated_at - a.updated_at);
+  }
+
+  async bulkSetSkipTimes(skipTimes: Array<{ title_normalized: string; intro_time: number; outro_time: number; updated_at: number }>): Promise<void> {
+    if (skipTimes.length === 0) return;
+    const hashData: Record<string, string> = {};
+    for (const skip of skipTimes) {
+      hashData[skip.title_normalized] = JSON.stringify({
+        intro_time: skip.intro_time,
+        outro_time: skip.outro_time,
+        updated_at: skip.updated_at,
+      });
+    }
+    await this.withRetry(() =>
+      this.adapter.hSet(this.skipTimesAllKey(), hashData)
+    );
+  }
+
+  async deleteSkipTime(titleNormalized: string): Promise<void> {
+    await this.withRetry(() =>
+      this.adapter.hDel(this.skipTimesAllKey(), titleNormalized)
+    );
+  }
 }
