@@ -495,49 +495,24 @@ export default function DanmakuPanel({
                               : 'text-gray-700 hover:text-green-600 dark:text-gray-300 dark:hover:text-green-400'
                           }`}
                         >
-                          {label}
-                          {isActive && (
-                            <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-green-500 dark:bg-green-400' />
-                          )}
+                          <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01' />
+                          </svg>
                         </button>
-                      );
-                    })}
-                    <button
-                      onClick={() => setEpisodeDescending((prev) => !prev)}
-                      className='flex-shrink-0 rounded-md p-2 text-gray-700 hover:bg-gray-100 hover:text-green-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-green-400'
-                      title={episodeDescending ? '切换正序' : '切换倒序'}
-                    >
-                      <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4' />
-                      </svg>
-                    </button>
-                    <div className='ml-auto flex items-center gap-1 rounded-md bg-gray-100 p-1 dark:bg-gray-800'>
-                      <button
-                        onClick={() => setEpisodeViewMode('list')}
-                        title='列表视图'
-                        className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
-                          episodeViewMode === 'list'
-                            ? 'bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400'
-                            : 'text-gray-600 dark:text-gray-400'
-                        }`}
-                      >
-                        <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01' />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => setEpisodeViewMode('grid')}
-                        title='格子视图'
-                        className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
-                          episodeViewMode === 'grid'
-                            ? 'bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400'
-                            : 'text-gray-600 dark:text-gray-400'
-                        }`}
-                      >
-                        <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z' />
-                        </svg>
-                      </button>
+                        <button
+                          onClick={() => setEpisodeViewMode('grid')}
+                          title='格子视图'
+                          className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+                            episodeViewMode === 'grid'
+                              ? 'bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400'
+                              : 'text-gray-600 dark:text-gray-400'
+                          }`}
+                        >
+                          <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z' />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
