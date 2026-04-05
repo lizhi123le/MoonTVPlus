@@ -5311,7 +5311,7 @@ const VideoSourceConfig = ({
 
   // 批量操作
   const handleBatchOperation = async (
-    action: 'batch_enable' | 'batch_disable' | 'batch_delete'
+    action: 'batch_enable' | 'batch_disable' | 'batch_delete' | 'batch_top'
   ) => {
     if (selectedSources.size === 0) {
       showAlert({
@@ -5338,6 +5338,10 @@ const VideoSourceConfig = ({
       case 'batch_delete':
         confirmMessage = `确定要删除选中的 ${keys.length} 个视频源吗？此操作不可恢复！`;
         actionName = '批量删除';
+        break;
+      case 'batch_top':
+        confirmMessage = `确定要将选中的 ${keys.length} 个视频源置顶吗？`;
+        actionName = '批量置顶';
         break;
     }
 
@@ -5479,6 +5483,19 @@ const VideoSourceConfig = ({
                   {isLoading('batchSource_batch_delete')
                     ? '删除中...'
                     : '批量删除'}
+                </button>
+                <button
+                  onClick={() => handleBatchOperation('batch_top')}
+                  disabled={isLoading('batchSource_batch_top')}
+                  className={`px-3 py-1 text-sm ${
+                    isLoading('batchSource_batch_top')
+                      ? buttonStyles.disabled
+                      : buttonStyles.primary
+                  }`}
+                >
+                  {isLoading('batchSource_batch_top')
+                    ? '置顶中...'
+                    : '批量置顶'}
                 </button>
               </div>
               <div className='hidden sm:block w-px h-6 bg-gray-300 dark:bg-gray-600 order-2'></div>
