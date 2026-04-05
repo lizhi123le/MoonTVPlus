@@ -476,97 +476,16 @@ class WatchRoomServer {
 }
 
 app.prepare().then(async () => {
-  // --- 环境检测逻辑 ---
-  const isCloudflare = process.env.CF_PAGES === '1' || process.env.BUILD_TARGET === 'cloudflare';
-  const isVercel = process.env.VERCEL === '1';
-  const isServerless = isCloudflare || isVercel;
-
-  console.log(`[Server] Environment: ${isServerless ? 'Serverless (Vercel/Cloudflare)' : 'Traditional Node.js (Docker/Local)'}`);
-
-  if (isServerless) {
-    // --- Serverless 模式 (Vercel / Cloudflare) ---
-    // 在 Serverless 环境中，不需要调用 httpServer.listen()
-    // Next.js 处理器会由平台自动调用
-    console.log(`> Ready on http://${hostname}:${port} (Serverless mode)`);
-    console.log(`> Socket.IO is disabled in Serverless mode`);
-  } else {
-    // --- 传统服务器模式 (Docker / 本地开发) ---
-    const httpServer = createServer(async (req, res) => {
-      try {
-        const parsedUrl = parse(req.url, true);
-        await handle(req, res, parsedUrl);
-      } catch (err) {
-        console.error('Error occurred handling', req.url, err);
-        res.statusCode = 500;
-        res.end('Internal server error');
-      }
-    });
-
-    // 读取观影室配置
-    const watchRoomConfig = await getWatchRoomConfig();
-    console.log('[WatchRoom] Config:', watchRoomConfig);
-
-    let watchRoomServer = null;
-
-    // 只在启用观影室且使用内部服务器时初始化 Socket.IO
-    if (watchRoomConfig.enabled && watchRoomConfig.serverType === 'internal') {
-      console.log('[WatchRoom] Initializing Socket.IO server...');
-
-      // 初始化 Socket.IO
-      const io = new Server(httpServer, {
-        path: '/socket.io',
-        cors: {
-          origin: '*',
-          methods: ['GET', 'POST'],
-        },
-      });
-
-      // 初始化观影室服务器
-      watchRoomServer = new WatchRoomServer(io);
-      console.log('[WatchRoom] Socket.IO server initialized');
-    } else {
-      if (!watchRoomConfig.enabled) {
-        console.log('[WatchRoom] Watch room is disabled');
-      } else if (watchRoomConfig.serverType === 'external') {
-        console.log('[WatchRoom] Using external watch room server');
-      }
+  const httpServer = createServer(async (req, res) => {
+    try {
+      const parsedUrl = parse(req.url, true);
+      await handle(req, res, parsedUrl);
+    } catch (err) {
+      console.error('Error occurred handling', req.url, err);
+      res.statusCode = 500;
+      res.end('Internal server error');
     }
-
-    httpServer
-      .once('error', (err) => {
-        console.error(err);
-        process.exit(1);
-      })
-      .listen(port, () => {
-        console.log(`> Ready on http://${hostname}:${port}`);
-        if (watchRoomConfig.enabled && watchRoomConfig.serverType === 'internal') {
-          console.log(`> Socket.IO ready on ws://${hostname}:${port}`);
-        }
-      });
-
-    // 优雅关闭
-    process.on('SIGINT', () => {
-      console.log('\n[Server] Shutting down...');
-      if (watchRoomServer) {
-        watchRoomServer.destroy();
-      }
-      httpServer.close(() => {
-        console.log('[Server] Server closed');
-        process.exit(0);
-      });
-    });
-
-    process.on('SIGTERM', () => {
-      console.log('\n[Server] Shutting down...');
-      if (watchRoomServer) {
-        watchRoomServer.destroy();
-      }
-      httpServer.close(() => {
-        console.log('[Server] Server closed');
-        process.exit(0);
-      });
-    });
-  }
+  });
 
   // 读取观影室配置
   const watchRoomConfig = await getWatchRoomConfig();

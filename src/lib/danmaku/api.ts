@@ -399,7 +399,7 @@ export function loadDanmakuMemory(
   }
 }
 
-// ---------------- 播放器设置本地缓存 ----------------
+// ---------------- 播放器设置服务端存储 ----------------
 
 // 播放器设置接口
 export interface playerSettings {
@@ -425,36 +425,46 @@ const defaultPlayerSettings: playerSettings = {
   anime4kScale: 2.0,
 };
 
-// 保存播放器设置到 localStorage
-export function savePlayerSettings(settings: Partial<playerSettings>): void {
+// 从 cookie 中获取有效用户 ID（登录用户用 username，匿名用户用 'anonymous'）
+function getEffectiveUserId(): string {
+  if (typeof document === 'undefined') return 'anonymous';
+  const match = document.cookie.match(/(?:^|;\s*)username=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : 'anonymous';
+}
+
+// 通过 API 保存播放器设置
+export async function savePlayerSettings(settings: Partial<playerSettings>): Promise<void> {
   if (typeof window === 'undefined') return;
 
   try {
+    const userId = getEffectiveUserId();
     // 读取现有设置
-    const saved = localStorage.getItem('player_settings');
-    const currentSettings: playerSettings = saved
-      ? { ...defaultPlayerSettings, ...JSON.parse(saved) }
-      : { ...defaultPlayerSettings };
-
+    const currentSettings = await loadPlayerSettings();
     // 合并新设置
     const mergedSettings = { ...currentSettings, ...settings };
-
-    // 保存到 localStorage
-    localStorage.setItem('player_settings', JSON.stringify(mergedSettings));
+    // POST 到服务端
+    await fetch('/api/player-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, settings: mergedSettings }),
+    });
   } catch (error) {
     console.error('保存播放器设置失败:', error);
   }
 }
 
-// 从 localStorage 读取播放器设置
-export function loadPlayerSettings(): playerSettings {
+// 通过 API 读取播放器设置
+export async function loadPlayerSettings(): Promise<playerSettings> {
   if (typeof window === 'undefined') return { ...defaultPlayerSettings };
 
   try {
-    const saved = localStorage.getItem('player_settings');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return { ...defaultPlayerSettings, ...parsed };
+    const userId = getEffectiveUserId();
+    const res = await fetch(`/api/player-settings?userId=${encodeURIComponent(userId)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.settings) {
+        return { ...defaultPlayerSettings, ...JSON.parse(data.settings) };
+      }
     }
   } catch (error) {
     console.error('读取播放器设置失败:', error);
@@ -464,99 +474,99 @@ export function loadPlayerSettings(): playerSettings {
 }
 
 // 保存音量
-export function savePlayerVolume(volume: number): void {
+export async function savePlayerVolume(volume: number): Promise<void> {
   if (typeof window === 'undefined') return;
-  savePlayerSettings({ volume: Math.max(0, Math.min(1, volume)) });
+  await savePlayerSettings({ volume: Math.max(0, Math.min(1, volume)) });
 }
 
 // 读取音量
-export function loadPlayerVolume(): number {
+export async function loadPlayerVolume(): Promise<number> {
   if (typeof window === 'undefined') return 0.7;
-  return loadPlayerSettings().volume;
+  return (await loadPlayerSettings()).volume;
 }
 
 // 保存播放速率
-export function savePlayerPlaybackRate(rate: number): void {
+export async function savePlayerPlaybackRate(rate: number): Promise<void> {
   if (typeof window === 'undefined') return;
-  savePlayerSettings({ playbackRate: rate });
+  await savePlayerSettings({ playbackRate: rate });
 }
 
 // 读取播放速率
-export function loadPlayerPlaybackRate(): number {
+export async function loadPlayerPlaybackRate(): Promise<number> {
   if (typeof window === 'undefined') return 1.0;
-  return loadPlayerSettings().playbackRate;
+  return (await loadPlayerSettings()).playbackRate;
 }
 
 // 保存自动播放设置
-export function savePlayerAutoPlay(autoPlay: boolean): void {
+export async function savePlayerAutoPlay(autoPlay: boolean): Promise<void> {
   if (typeof window === 'undefined') return;
-  savePlayerSettings({ autoPlay });
+  await savePlayerSettings({ autoPlay });
 }
 
 // 读取自动播放设置
-export function loadPlayerAutoPlay(): boolean {
+export async function loadPlayerAutoPlay(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
-  return loadPlayerSettings().autoPlay;
+  return (await loadPlayerSettings()).autoPlay;
 }
 
 // 保存弹幕开关状态
-export function savePlayerDanmakuEnabled(enabled: boolean): void {
+export async function savePlayerDanmakuEnabled(enabled: boolean): Promise<void> {
   if (typeof window === 'undefined') return;
-  savePlayerSettings({ danmakuEnabled: enabled });
+  await savePlayerSettings({ danmakuEnabled: enabled });
 }
 
 // 读取弹幕开关状态
-export function loadPlayerDanmakuEnabled(): boolean {
+export async function loadPlayerDanmakuEnabled(): Promise<boolean> {
   if (typeof window === 'undefined') return true;
-  return loadPlayerSettings().danmakuEnabled;
+  return (await loadPlayerSettings()).danmakuEnabled;
 }
 
 // 保存影院模式状态
-export function savePlayerTheaterMode(enabled: boolean): void {
+export async function savePlayerTheaterMode(enabled: boolean): Promise<void> {
   if (typeof window === 'undefined') return;
-  savePlayerSettings({ theaterMode: enabled });
+  await savePlayerSettings({ theaterMode: enabled });
 }
 
 // 读取影院模式状态
-export function loadPlayerTheaterMode(): boolean {
+export async function loadPlayerTheaterMode(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
-  return loadPlayerSettings().theaterMode;
+  return (await loadPlayerSettings()).theaterMode;
 }
 
 // 保存 Anime4K 超分开关状态
-export function savePlayerAnime4kEnabled(enabled: boolean): void {
+export async function savePlayerAnime4kEnabled(enabled: boolean): Promise<void> {
   if (typeof window === 'undefined') return;
-  savePlayerSettings({ anime4kEnabled: enabled });
+  await savePlayerSettings({ anime4kEnabled: enabled });
 }
 
 // 读取 Anime4K 超分开关状态
-export function loadPlayerAnime4kEnabled(): boolean {
+export async function loadPlayerAnime4kEnabled(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
-  return loadPlayerSettings().anime4kEnabled;
+  return (await loadPlayerSettings()).anime4kEnabled;
 }
 
 // 保存 Anime4K 超分模式
-export function savePlayerAnime4kMode(mode: string): void {
+export async function savePlayerAnime4kMode(mode: string): Promise<void> {
   if (typeof window === 'undefined') return;
-  savePlayerSettings({ anime4kMode: mode });
+  await savePlayerSettings({ anime4kMode: mode });
 }
 
 // 读取 Anime4K 超分模式
-export function loadPlayerAnime4kMode(): string {
+export async function loadPlayerAnime4kMode(): Promise<string> {
   if (typeof window === 'undefined') return 'ModeA';
-  return loadPlayerSettings().anime4kMode || 'ModeA';
+  return (await loadPlayerSettings()).anime4kMode || 'ModeA';
 }
 
 // 保存 Anime4K 超分倍数
-export function savePlayerAnime4kScale(scale: number): void {
+export async function savePlayerAnime4kScale(scale: number): Promise<void> {
   if (typeof window === 'undefined') return;
-  savePlayerSettings({ anime4kScale: scale });
+  await savePlayerSettings({ anime4kScale: scale });
 }
 
 // 读取 Anime4K 超分倍数
-export function loadPlayerAnime4kScale(): number {
+export async function loadPlayerAnime4kScale(): Promise<number> {
   if (typeof window === 'undefined') return 2.0;
-  return loadPlayerSettings().anime4kScale || 2.0;
+  return (await loadPlayerSettings()).anime4kScale || 2.0;
 }
 
 // ---------------- 跳过片头片尾时间跨来源共享 ----------------
