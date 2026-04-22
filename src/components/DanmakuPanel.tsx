@@ -162,69 +162,6 @@ export default function DanmakuPanel({
     }
   }, [onUploadDanmaku]);
 
-  useEffect(() => {
-    if (episodes.length > 0) {
-      setEpisodeGroupIndex(Math.floor(currentEpisodeIndex / episodesPerGroup));
-    } else {
-      setEpisodeGroupIndex(0);
-    }
-  }, [episodes, currentEpisodeIndex]);
-
-  const episodeGroupCount = Math.ceil(episodes.length / episodesPerGroup);
-
-  const episodeGroups = useMemo(() => {
-    return Array.from({ length: episodeGroupCount }, (_, idx) => {
-      const start = idx * episodesPerGroup + 1;
-      const end = Math.min((idx + 1) * episodesPerGroup, episodes.length);
-      return `${start}-${end}`;
-    });
-  }, [episodeGroupCount, episodes.length]);
-
-  const displayEpisodeGroupIndex = useMemo(() => {
-    if (episodeDescending) {
-      return episodeGroupCount - 1 - episodeGroupIndex;
-    }
-    return episodeGroupIndex;
-  }, [episodeDescending, episodeGroupCount, episodeGroupIndex]);
-
-  const currentGroupEpisodes = useMemo(() => {
-    if (episodes.length === 0) return [];
-
-    const start = episodeGroupIndex * episodesPerGroup;
-    const end = Math.min(start + episodesPerGroup, episodes.length);
-    const groupEpisodes = episodes.slice(start, end);
-    const withEpisodeNumber = groupEpisodes.map((episode, index) => ({
-      ...episode,
-      episodeNumber: start + index + 1,
-    }));
-
-    return episodeDescending ? [...withEpisodeNumber].reverse() : withEpisodeNumber;
-  }, [episodes, episodeDescending, episodeGroupIndex]);
-
-  const getEpisodeDisplayLabel = useCallback((episodeTitle: string, episodeNumber: number) => {
-    if (!episodeTitle) {
-      return String(episodeNumber);
-    }
-
-    if (episodeTitle.match(/^OVA\s+\d+/i)) {
-      return episodeTitle;
-    }
-
-    const sxxexxMatch = episodeTitle.match(/[Ss](\d+)[Ee](\d{1,4}(?:\.\d+)?)/);
-    if (sxxexxMatch) {
-      const season = sxxexxMatch[1].padStart(2, '0');
-      const episode = sxxexxMatch[2];
-      return `S${season}E${episode}`;
-    }
-
-    const match = episodeTitle.match(/(?:第)?(\d+(?:\.\d+)?)(?:集|话)/);
-    if (match) {
-      return match[1];
-    }
-
-    return String(episodeNumber);
-  }, []);
-
   // 当视频标题首次加载时，初始化搜索关键词（仅执行一次）
   useEffect(() => {
     if (videoTitle && !initializedRef.current) {
@@ -353,7 +290,7 @@ export default function DanmakuPanel({
   }, [displayEpisodeGroupIndex]);
 
   return (
-    <div className='flex h-full min-h-0 flex-col overflow-hidden'>
+    <div className='flex h-full flex-col overflow-hidden'>
       {/* 搜索区域 - 固定在顶部 */}
       <div className='mb-4 flex-shrink-0'>
         <div className='flex flex-wrap gap-2'>
@@ -495,24 +432,49 @@ export default function DanmakuPanel({
                               : 'text-gray-700 hover:text-green-600 dark:text-gray-300 dark:hover:text-green-400'
                           }`}
                         >
-                          <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01' />
-                          </svg>
+                          {label}
+                          {isActive && (
+                            <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-green-500 dark:bg-green-400' />
+                          )}
                         </button>
-                        <button
-                          onClick={() => setEpisodeViewMode('grid')}
-                          title='格子视图'
-                          className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
-                            episodeViewMode === 'grid'
-                              ? 'bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400'
-                              : 'text-gray-600 dark:text-gray-400'
-                          }`}
-                        >
-                          <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z' />
-                          </svg>
-                        </button>
-                      </div>
+                      );
+                    })}
+                    <button
+                      onClick={() => setEpisodeDescending((prev) => !prev)}
+                      className='flex-shrink-0 rounded-md p-2 text-gray-700 hover:bg-gray-100 hover:text-green-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-green-400'
+                      title={episodeDescending ? '切换正序' : '切换倒序'}
+                    >
+                      <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4' />
+                      </svg>
+                    </button>
+                    <div className='ml-auto flex items-center gap-1 rounded-md bg-gray-100 p-1 dark:bg-gray-800'>
+                      <button
+                        onClick={() => setEpisodeViewMode('list')}
+                        title='列表视图'
+                        className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+                          episodeViewMode === 'list'
+                            ? 'bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400'
+                            : 'text-gray-600 dark:text-gray-400'
+                        }`}
+                      >
+                        <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01' />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => setEpisodeViewMode('grid')}
+                        title='格子视图'
+                        className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+                          episodeViewMode === 'grid'
+                            ? 'bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400'
+                            : 'text-gray-600 dark:text-gray-400'
+                        }`}
+                      >
+                        <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z' />
+                        </svg>
+                      </button>
                     </div>
                   </div>
                 </div>

@@ -3,7 +3,7 @@
 import { ChevronLeft, ChevronRight, Play, Volume2, VolumeX } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef,useState } from 'react';
 
 import { type TMDBItem,getGenreNames, getTMDBImageUrl } from '@/lib/tmdb.client';
 import { getDoubanDetail } from '@/lib/douban.client';
@@ -23,7 +23,7 @@ interface BannerItem extends TMDBItem {
   genres?: string[]; // 豆瓣数据源的类型标签
 }
 
-export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = false }: BannerCarouselProps) {
+export default function BannerCarousel({ autoPlayInterval = 5000, delayLoad = false }: BannerCarouselProps) {
   const router = useRouter();
   const [items, setItems] = useState<BannerItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -36,14 +36,11 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
   const [dataSource, setDataSource] = useState<string>(''); // 当前数据源
   const [trailersLoaded, setTrailersLoaded] = useState(false); // 预告片是否已加载
   const [isMuted, setIsMuted] = useState(true); // 视频是否静音（默认静音）
-  const [isMounted, setIsMounted] = useState(false); // 标记组件是否已挂载（用于localStorage访问）
   const videoRef = useRef<HTMLVideoElement>(null); // 视频元素引用
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map()); // 所有视频元素的引用
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
   const isManualChange = useRef(false); // 标记是否为手动切换
-  const isFetchingTrailers = useRef(false); // 标记是否正在获取预告片，防止重复请求
-  const trailerUrlsRef = useRef<Map<number, string | null>>(new Map()); // 缓存预告片URL，避免重复获取
 
   // LocalStorage 缓存配置
   const LOCALSTORAGE_DURATION = 24 * 60 * 60 * 1000; // 1天
@@ -63,11 +60,6 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     e.stopPropagation();
     const newMutedState = !isMuted;
     setIsMuted(newMutedState);
-    
-    // 保存静音状态到浏览器缓存
-    if (isMounted) {
-      localStorage.setItem('bannerTrailerMuted', String(newMutedState));
-    }
 
     // 直接更新当前视频元素的静音状态
     const currentVideo = videoRefs.current.get(currentIndex);
@@ -87,109 +79,21 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     return getTMDBImageUrl(path, 'original');
   };
 
-  // 第三方 CORS 代理配置（按优先级排序）
-  const CORS_PROXIES = [
-    { name: 'corsproxy.io', url: 'https://corsproxy.io/?' },
-    { name: 'allorigins', url: 'https://api.allorigins.win/raw?url=' },
-    { name: 'cors.sh', url: 'https://cors.sh/?' },
-  ];
-
-  // 代理管理器
-  const proxyManagerRef = useRef({
-    currentIndex: 0,
-    failedProxies: new Set<string>(),
-    lastSuccessProxy: null as string | null,
-  });
-
-  // 获取可用的代理URL
-  const getProxyUrl = (originalUrl: string): string | null => {
-    const manager = proxyManagerRef.current;
-
-    // 优先使用上次成功的代理
-    if (manager.lastSuccessProxy) {
-      return manager.lastSuccessProxy + encodeURIComponent(originalUrl);
-    }
-
-    // 遍历寻找未失败的代理
-    for (let i = 0; i < CORS_PROXIES.length; i++) {
-      const proxy = CORS_PROXIES[(manager.currentIndex + i) % CORS_PROXIES.length];
-      if (!manager.failedProxies.has(proxy.name)) {
-        manager.currentIndex = (manager.currentIndex + i) % CORS_PROXIES.length;
-        return proxy.url + encodeURIComponent(originalUrl);
-      }
-    }
-
-    // 所有代理都失败
-    return null;
-  };
-
-  // 标记代理失败
-  const markProxyFailed = (proxyUrl: string) => {
-    const proxy = CORS_PROXIES.find(p => proxyUrl.startsWith(p.url));
-    if (proxy) {
-      proxyManagerRef.current.failedProxies.add(proxy.name);
-      console.log(`[BannerCarousel] 代理 ${proxy.name} 标记为失败`);
-
-      // 如果上次成功的代理失败了，清除记录
-      if (proxyManagerRef.current.lastSuccessProxy === proxy.url) {
-        proxyManagerRef.current.lastSuccessProxy = null;
-      }
-    }
-  };
-
-  // 标记代理成功
-  const markProxySuccess = (proxyUrl: string) => {
-    const proxy = CORS_PROXIES.find(p => proxyUrl.startsWith(p.url));
-    if (proxy) {
-      proxyManagerRef.current.lastSuccessProxy = proxy.url;
-    }
-  };
-
-  // 获取视频URL（使用第三方代理，避免Workers CPU超限）
-  const getVideoUrl = useCallback((url: string | null): string | null => {
+  // 获取视频URL（处理豆瓣视频代理）
+  const getVideoUrl = (url: string | null) => {
     if (!url) return null;
-
-    // 豆瓣视频使用第三方代理
+    // 豆瓣视频直接使用服务器代理
     if (url.includes('doubanio.com')) {
-      const proxyUrl = getProxyUrl(url);
-      if (proxyUrl) {
-        console.log(`[BannerCarousel] 使用代理: ${proxyUrl.substring(0, 60)}...`);
-        return proxyUrl;
-      }
-
-      // 所有代理都失败，返回null（降级为图片）
-      console.warn('[BannerCarousel] 所有代理都失败，降级为图片');
-      return null;
+      return `/api/video-proxy?url=${encodeURIComponent(url)}`;
     }
-
     return url;
-  }, []);
+  };
 
-  // 定期重置失败记录（每5分钟），允许重试
+  // 读取本地设置
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (proxyManagerRef.current.failedProxies.size > 0) {
-        console.log('[BannerCarousel] 重置代理失败记录');
-        proxyManagerRef.current.failedProxies.clear();
-      }
-    }, 5 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // 标记组件已挂载（用于localStorage访问）
-  useEffect(() => {
-    setIsMounted(true);
-    
-    // 从浏览器缓存读取设置
-    const savedTrailers = localStorage.getItem('enableTrailers');
-    if (savedTrailers !== null) {
-      setEnableTrailers(savedTrailers === 'true');
-    }
-    
-    const savedMuted = localStorage.getItem('bannerTrailerMuted');
-    if (savedMuted !== null) {
-      setIsMuted(savedMuted === 'true');
+    const setting = localStorage.getItem('enableTrailers');
+    if (setting !== null) {
+      setEnableTrailers(setting === 'true');
     }
   }, []);
 
@@ -258,8 +162,7 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
         // 遍历所有数据源，找到最新的缓存
         for (const source of sources) {
           const cacheKey = getLocalStorageKey(source);
-          // 只在挂载后访问 localStorage
-          const cached = isMounted ? localStorage.getItem(cacheKey) : null;
+          const cached = localStorage.getItem(cacheKey);
 
           if (cached) {
             try {
@@ -300,16 +203,14 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
             setTrailersLoaded(false); // 重置预告片加载状态
 
             // 保存到 localStorage（使用数据源特定的key）
-            if (isMounted) {
-              try {
-                localStorage.setItem(cacheKey, JSON.stringify({
-                  data: result.list,
-                  timestamp: Date.now()
-                }));
-              } catch (e) {
-                // localStorage 可能已满，忽略错误
-                console.error('保存到 localStorage 失败:', e);
-              }
+            try {
+              localStorage.setItem(cacheKey, JSON.stringify({
+                data: result.list,
+                timestamp: Date.now()
+              }));
+            } catch (e) {
+              // localStorage 可能已满，忽略错误
+              console.error('保存到 localStorage 失败:', e);
             }
           }
         }
@@ -321,36 +222,21 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     };
 
     fetchTrending();
-  }, [shouldLoad, isMounted]);
+  }, [shouldLoad]);
 
-  // 前端获取豆瓣预告片 - 修复：防止重复请求和循环更新
+  // 前端获取豆瓣预告片
   useEffect(() => {
     // 只有在启用预告片、数据源是豆瓣、有数据且未加载预告片时才执行
     if (!enableTrailers || dataSource !== 'Douban' || items.length === 0 || trailersLoaded) {
       return;
     }
 
-    // 防止重复请求
-    if (isFetchingTrailers.current) {
-      return;
-    }
-
     const fetchDoubanTrailers = async () => {
-      isFetchingTrailers.current = true;
       try {
         // 为每个项目获取预告片
         const itemsWithTrailers = await Promise.all(
-          items.map(async (item, index) => {
+          items.map(async (item) => {
             try {
-              // 检查是否已经缓存了该项目的预告片URL
-              const cachedUrl = trailerUrlsRef.current.get(index);
-              if (cachedUrl !== undefined) {
-                return {
-                  ...item,
-                  trailer_url: cachedUrl,
-                };
-              }
-
               // 使用统一的豆瓣详情获取函数（会根据用户配置的代理设置自动选择请求方式）
               const detail = await getDoubanDetail(item.id.toString());
 
@@ -359,17 +245,12 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
                 ? detail.trailers[0].video_url
                 : null;
 
-              // 缓存预告片URL
-              trailerUrlsRef.current.set(index, trailerUrl);
-
               return {
                 ...item,
                 trailer_url: trailerUrl,
               };
             } catch (error) {
               console.error(`获取豆瓣电影 ${item.id} 预告片失败:`, error);
-              // 缓存失败结果，避免重复请求
-              trailerUrlsRef.current.set(index, null);
               return item;
             }
           })
@@ -379,166 +260,33 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
         setTrailersLoaded(true);
       } catch (error) {
         console.error('获取豆瓣预告片失败:', error);
-      } finally {
-        isFetchingTrailers.current = false;
       }
     };
 
     fetchDoubanTrailers();
-    // 修复：移除 items 依赖，使用 items.length 和 trailersLoaded 控制执行
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enableTrailers, dataSource, items.length, trailersLoaded]);
 
-  const [hasStarted, setHasStarted] = useState(false); // 是否已经开始播放预告片
-
-  // 缓存 video ref 回调，避免重复创建
-  const setVideoRef = useCallback((el: HTMLVideoElement | null, index: number) => {
-    if (el) {
-      videoRefs.current.set(index, el);
-    } else {
-      videoRefs.current.delete(index);
-    }
-  }, []);
-
-  // 视频错误处理：代理失败时切换到下一个代理
-  const handleVideoError = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
-    const video = e.currentTarget;
-    const currentSrc = video.src;
-
-    console.warn('[BannerCarousel] 视频加载失败:', currentSrc.substring(0, 60));
-
-    // 标记当前代理失败
-    markProxyFailed(currentSrc);
-
-    // 尝试下一个代理
-    const originalUrl = items[currentIndex]?.trailer_url;
-    if (originalUrl) {
-      const nextProxyUrl = getProxyUrl(originalUrl);
-      if (nextProxyUrl && nextProxyUrl !== currentSrc) {
-        console.log('[BannerCarousel] 切换到下一个代理');
-        video.src = nextProxyUrl;
-        video.load();
-        return;
-      }
-    }
-
-    // 没有可用代理了，强制重新渲染显示图片
-    console.warn('[BannerCarousel] 无可用代理，显示图片');
-    video.style.display = 'none';
-  }, [currentIndex, items]);
-
-  // 视频加载成功
-  const handleVideoLoad = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
-    const video = e.currentTarget;
-    const currentSrc = video.src;
-    markProxySuccess(currentSrc);
-    video.style.display = 'block';
-  }, []);
+  // 切换轮播图时重置静音状态
+  useEffect(() => {
+    setIsMuted(true);
+  }, [currentIndex]);
 
   // 控制视频播放/暂停和静音状态
   useEffect(() => {
-    // 只控制当前显示的视频
-    const currentVideo = videoRefs.current.get(currentIndex);
-    if (currentVideo && hasStarted) {
-      currentVideo.muted = isMuted;
-      // 只有当视频真正需要播放时才调用 play
-      if (currentVideo.paused && currentVideo.style.display !== 'none') {
-        currentVideo.play().catch(() => {
+    // 遍历所有视频元素
+    videoRefs.current.forEach((video, index) => {
+      if (index === currentIndex) {
+        // 当前显示的视频：播放并设置静音状态
+        video.muted = isMuted;
+        video.play().catch(() => {
           // 忽略自动播放失败的错误
         });
+      } else {
+        // 非当前显示的视频：暂停
+        video.pause();
       }
-    }
-  }, [currentIndex, isMuted, hasStarted]);
-
-  // 获取当前项
-  const currentItem = items[currentIndex];
-
-  // 缓存当前显示的背景内容，避免不必要的重新渲染
-  const bannerBackground = useMemo(() => {
-    if (!currentItem) return null;
-
-    return (
-      <div
-        key={`banner-${currentItem.id}`}
-        className="absolute inset-0"
-      >
-        {currentItem.trailer_url && enableTrailers ? (
-          /* 显示豆瓣直链视频 */
-          <div className="absolute inset-0 overflow-hidden">
-            <video
-              key={`video-${currentItem.id}`}
-              ref={(el) => setVideoRef(el, currentIndex)}
-              src={getVideoUrl(currentItem.trailer_url) || undefined}
-              onError={handleVideoError}
-              onLoadedData={handleVideoLoad}
-              crossOrigin="anonymous"
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full w-auto h-auto object-cover"
-              muted={isMuted}
-              loop
-              playsInline
-              preload="metadata"
-            />
-          </div>
-        ) : currentItem.video_key && isYouTubeAccessible && enableTrailers ? (
-          /* 显示YouTube视频 */
-          <div className="absolute inset-0 overflow-hidden">
-            <iframe
-              key={`youtube-${currentItem.id}`}
-              title={`${currentItem.title} trailer`}
-              src={`https://www.youtube.com/embed/${currentItem.video_key}?listType=playlist&autoplay=1&mute=1&controls=0&loop=1&playlist=${currentItem.video_key}&modestbranding=1&rel=0&showinfo=0&vq=hd1080&hd=1&disablekb=1&fs=0&iv_load_policy=3`}
-              className="absolute top-1/2 left-1/2 pointer-events-none"
-              allow="autoplay; encrypted-media"
-              style={{
-                border: 'none',
-                width: '100vw',
-                height: '100vh',
-                minWidth: '100%',
-                minHeight: '100%',
-                transform: 'translate(-50%, -50%)',
-              }}
-            />
-          </div>
-        ) : (
-          /* 显示图片 */
-          <Image
-            key={`image-${currentItem.id}`}
-            src={getImageUrl(currentItem.backdrop_path || currentItem.poster_path)}
-            alt={currentItem.title}
-            fill
-            className="object-cover"
-            priority
-            sizes="100vw"
-          />
-        )}
-        {/* 渐变遮罩 */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent"></div>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
-      </div>
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    currentIndex,
-    currentItem,
-    enableTrailers,
-    isMuted,
-    isYouTubeAccessible,
-    getVideoUrl,
-    getImageUrl,
-    setVideoRef,
-  ]);
-
-  // 页面加载完成后开始播放（避免 CPU 超时）
-  useEffect(() => {
-    if (delayLoad) {
-      // 如果是延迟加载模式，等待页面加载完成后再开始播放
-      const timer = setTimeout(() => {
-        setHasStarted(true);
-      }, 2000); // 延迟 2 秒开始播放
-      return () => clearTimeout(timer);
-    } else {
-      setHasStarted(true);
-    }
-  }, [delayLoad]);
+    });
+  }, [currentIndex, isMuted]);
 
   // 自动播放
   useEffect(() => {
@@ -643,6 +391,8 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     return null;
   }
 
+  const currentItem = items[currentIndex];
+
   return (
     <div
       className="relative w-full h-[200px] sm:h-[300px] md:h-[400px] lg:h-[500px] overflow-hidden group"
@@ -660,60 +410,30 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
     >
       {/* 背景图片或视频 */}
       <div className="absolute inset-0">
-        {/* 只渲染当前显示的项目，避免隐藏的视频发送请求 */}
-        {items.map((item, index) => {
-          if (index !== currentIndex) return null;
-          
-          return (
-            <div
-              key={item.id}
-              className="absolute inset-0"
-            >
-              {item.trailer_url && enableTrailers ? (
-                /* 显示豆瓣直链视频 */
-                <div className="absolute inset-0 overflow-hidden">
-                  <video
-                    ref={(el) => {
-                      if (el) {
-                        videoRefs.current.set(index, el);
-                      } else {
-                        videoRefs.current.delete(index);
-                      }
-                    }}
-                    src={getVideoUrl(item.trailer_url) || undefined}
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full w-auto h-auto object-cover"
-                    muted={isMuted}
-                    loop
-                    playsInline
-                    preload="none"
-                  />
-                </div>
-              ) : item.video_key && isYouTubeAccessible && enableTrailers ? (
-                /* 显示YouTube视频 */
-                <div className="absolute inset-0 overflow-hidden">
-                  <iframe
-                    src={`https://www.youtube.com/embed/${item.video_key}?listType=playlist&autoplay=1&mute=1&controls=0&loop=1&playlist=${item.video_key}&modestbranding=1&rel=0&showinfo=0&vq=hd1080&hd=1&disablekb=1&fs=0&iv_load_policy=3`}
-                    className="absolute top-1/2 left-1/2 pointer-events-none"
-                    allow="autoplay; encrypted-media"
-                    style={{
-                      border: 'none',
-                      width: '100vw',
-                      height: '100vh',
-                      minWidth: '100%',
-                      minHeight: '100%',
-                      transform: 'translate(-50%, -50%)',
-                    }}
-                  />
-                </div>
-              ) : (
-                /* 显示图片 */
-                <Image
-                  src={getImageUrl(item.backdrop_path || item.poster_path)}
-                  alt={item.title}
-                  fill
-                  className="object-cover"
-                  priority
-                  sizes="100vw"
+        {items.map((item, index) => (
+          <div
+            key={item.id}
+            className={`absolute inset-0 transition-opacity duration-1000 ${
+              index === currentIndex ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            {item.trailer_url && enableTrailers ? (
+              /* 显示豆瓣直链视频 */
+              <div className="absolute inset-0 overflow-hidden">
+                <video
+                  ref={(el) => {
+                    if (el) {
+                      videoRefs.current.set(index, el);
+                    } else {
+                      videoRefs.current.delete(index);
+                    }
+                  }}
+                  src={getVideoUrl(item.trailer_url) || undefined}
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full w-auto h-auto object-cover"
+                  muted={isMuted}
+                  loop
+                  playsInline
+                  preload="metadata"
                 />
               </div>
             ) : item.video_key && isYouTubeAccessible && enableTrailers ? (
@@ -829,7 +549,7 @@ export default function BannerCarousel({ autoPlayInterval = 22000, delayLoad = f
       {currentItem.trailer_url && enableTrailers && (
         <button
           onClick={toggleMute}
-          className="absolute bottom-2 right-2 md:bottom-4 md:right-4 w-8 h-8 md:w-10 md:h-10 bg-black/30 hover:bg-black/60 text-white rounded-full flex items-center justify-center transition-all duration-300 z-10"
+          className="absolute top-2 right-2 md:top-4 md:right-4 w-8 h-8 md:w-10 md:h-10 bg-black/30 hover:bg-black/60 text-white rounded-full flex items-center justify-center transition-all duration-300 z-10"
           aria-label={isMuted ? "开启声音" : "关闭声音"}
         >
           {isMuted ? (
