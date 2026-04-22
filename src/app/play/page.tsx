@@ -3096,7 +3096,7 @@ function PlayPageClient() {
       const renderConfig: any = {
         video: isFirefox ? sourceCanvas : video, // Firefox使用canvas中转，其他浏览器直接使用video
         canvas: outputCanvas,
-        pipelineBuilder: (device: GPUDevice, inputTexture: GPUTexture) => {
+        pipelineBuilder: (device: any, inputTexture: any) => {
           if (!outputCanvas) {
             throw new Error('outputCanvas is null in pipelineBuilder');
           }
@@ -4468,6 +4468,8 @@ function PlayPageClient() {
         try {
           const migratedRecord = {
             title: finalTitle,
+            source: newSource,
+            id: newId,
             source_name: newDetail.source_name || '',
             year: newDetail.year || '',
             cover: finalCover || '',
@@ -5589,8 +5591,10 @@ function PlayPageClient() {
 
       await savePlayRecord(currentSourceRef.current, currentIdRef.current, {
         title: videoTitleRef.current,
+        source: currentSourceRef.current,
+        id: currentIdRef.current,
         source_name: detailRef.current?.source_name || '',
-        year: detailRef.current?.year,
+        year: detailRef.current?.year || '',
         cover: detailRef.current?.poster || '',
         index: currentEpisodeIndexRef.current + 1, // 转换为1基索引
         total_episodes: detailRef.current?.episodes.length || 1,

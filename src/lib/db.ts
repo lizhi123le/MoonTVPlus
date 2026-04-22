@@ -146,6 +146,18 @@ class NoOpStorage implements IStorage {
   async getAllSkipTimes(): Promise<Array<{ title_normalized: string; intro_time: number; outro_time: number; updated_at: number }>> { return this.throwError('getAllSkipTimes'); }
   async bulkSetSkipTimes(skipTimes: Array<{ title_normalized: string; intro_time: number; outro_time: number; updated_at: number }>): Promise<void> { return this.throwError('bulkSetSkipTimes'); }
   async deleteSkipTime(titleNormalized: string): Promise<void> { return this.throwError('deleteSkipTime'); }
+
+  // 漫画相关
+  async getMangaShelf(userName: string, key: string): Promise<MangaShelfItem | null> { return this.throwError('getMangaShelf'); }
+  async setMangaShelf(userName: string, key: string, item: MangaShelfItem): Promise<void> { return this.throwError('setMangaShelf'); }
+  async getAllMangaShelf(userName: string): Promise<{ [key: string]: MangaShelfItem }> { return this.throwError('getAllMangaShelf'); }
+  async deleteMangaShelf(userName: string, key: string): Promise<void> { return this.throwError('deleteMangaShelf'); }
+
+  async getMangaReadRecord(userName: string, key: string): Promise<MangaReadRecord | null> { return this.throwError('getMangaReadRecord'); }
+  async setMangaReadRecord(userName: string, key: string, record: MangaReadRecord): Promise<void> { return this.throwError('setMangaReadRecord'); }
+  async getAllMangaReadRecords(userName: string): Promise<{ [key: string]: MangaReadRecord }> { return this.throwError('getAllMangaReadRecords'); }
+  async deleteMangaReadRecord(userName: string, key: string): Promise<void> { return this.throwError('deleteMangaReadRecord'); }
+  async cleanupOldMangaReadRecords(userName: string): Promise<void> { return this.throwError('cleanupOldMangaReadRecords'); }
 }
 
 // storage type 常量: 'localstorage' | 'redis' | 'upstash' | 'kvrocks' | 'd1' | 'postgres'，默认 'localstorage'
@@ -258,7 +270,7 @@ function getD1Adapter(): any {
         const pathModule = await import('path');
 
   const dbPath =
-    process.env.SQLITE_DB_PATH || path.join(process.cwd(), '.data', 'moontv.db');
+    process.env.SQLITE_DB_PATH || pathModule.join(process.cwd(), '.data', 'moontv.db');
 
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL'); // 启用 WAL 模式提升性能

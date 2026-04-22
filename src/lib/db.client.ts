@@ -19,6 +19,13 @@ import { normalizeEpisodeFilterConfig } from './episode-filter';
 import { MangaReadRecord, MangaShelfItem } from './manga.types';
 import { DanmakuFilterConfig, EpisodeFilterConfig,SkipConfig } from './types';
 
+export function normalizeTitleForKey(title: string): string {
+  if (!title) return '';
+  return title.trim().toLowerCase()
+    .replace(/[\s\-_]+/g, '')  // 移除空格、连字符，下划线
+    .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');  // 只保留字母数字和中文
+}
+
 // 全局错误触发函数
 function triggerGlobalError(message: string) {
   if (typeof window !== 'undefined') {

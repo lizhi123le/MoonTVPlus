@@ -863,7 +863,7 @@ function LivePageClient() {
       const renderConfig: any = {
         video: isFirefox ? sourceCanvas : video,
         canvas: outputCanvas,
-        pipelineBuilder: (device: GPUDevice, inputTexture: GPUTexture) => {
+        pipelineBuilder: (device: any, inputTexture: any) => {
           if (!outputCanvas) {
             throw new Error('outputCanvas is null in pipelineBuilder');
           }
