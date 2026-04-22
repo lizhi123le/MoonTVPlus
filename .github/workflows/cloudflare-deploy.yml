@@ -215,13 +215,13 @@ jobs:
           append_var WATCH_ROOM_EXTERNAL_SERVER_URL "${{ secrets.WATCH_ROOM_EXTERNAL_SERVER_URL }}"
           append_var WATCH_ROOM_SERVER_TYPE "${{ secrets.WATCH_ROOM_SERVER_TYPE }}"
           
-          echo "Updated wrangler.toml:"
-          cat wrangler.toml
+echo "Updated wrangler.toml:"
+           cat wrangler.toml
 
-      - name: Build for Cloudflare
-        id: build
-        run: |
-          # Replace name if PROJECT_NAME secret is set
+       - name: Configure wrangler.toml
+         id: configure-wrangler
+         run: |
+           # Replace name if PROJECT_NAME secret is set
           if [ -n "${{ secrets.PROJECT_NAME }}" ]; then
             sed -i 's/^name = ".*"/name = "${{ secrets.PROJECT_NAME }}"/' wrangler.toml
             echo "Project name replaced with: ${{ secrets.PROJECT_NAME }}"
@@ -297,17 +297,17 @@ jobs:
           append_var "D1_DATABASE_ID" "${{ secrets.D1_DATABASE_ID }}"
 
           echo "Updated wrangler.toml:"
-          cat wrangler.toml
+cat wrangler.toml
 
-      - name: Generate manifest
-        run: |
-          echo "Running gen:manifest..."
-          pnpm run gen:manifest || echo "gen:manifest failed"
+       - name: Generate manifest
+         run: |
+           echo "Running gen:manifest..."
+           pnpm run gen:manifest || echo "gen:manifest failed"
 
-      - name: Build for Cloudflare
-        id: build
-        run: |
-          echo "Starting Cloudflare build..."
+       - name: Build for Cloudflare
+         id: cloudflare-build
+         run: |
+           echo "Starting Cloudflare build..."
           echo "Running: BUILD_TARGET=cloudflare npx @opennextjs/cloudflare build"
           BUILD_TARGET=cloudflare npx @opennextjs/cloudflare build --dangerouslyUseUnsupportedNextVersion 2>&1
           BUILD_EXIT=$?
