@@ -101,43 +101,7 @@ export default function PansouSearch({
     }
   }, [keyword, onError]);
 
-  // 提取搜索函数，以便在重试时调用
-  const searchPansou = useCallback(async () => {
-    const currentKeyword = keyword.trim();
-    if (!currentKeyword) {
-      return;
-    }
 
-    setLoading(true);
-    setError(null);
-    setResults(null);
-
-    try {
-      const response = await fetch('/api/pansou/search', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          keyword: currentKeyword,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || '搜索失败');
-      }
-
-      const data: PansouSearchResult = await response.json();
-      setResults(data);
-    } catch (err: any) {
-      const errorMsg = err.message || '搜索失败，请检查配置';
-      setError(errorMsg);
-      onError?.(errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  }, [keyword, onError]);
 
   useEffect(() => {
     // triggerSearch 变化时触发搜索（无论是 true 还是 false）
