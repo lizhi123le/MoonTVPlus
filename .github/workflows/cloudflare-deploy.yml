@@ -227,8 +227,6 @@ jobs:
             echo "USERNAME or PASSWORD not set, skipping owner user creation"
             exit 0
           fi
-<<<<<<< HEAD
-# We must use the DATABASE_NAME for wrangler d1 execute
           if [ -n "${{ secrets.PROJECT_NAME }}" ]; then
             DATABASE_NAME="${{ secrets.PROJECT_NAME }}"
           elif [ -n "${{ secrets.D1_DATABASE_NAME }}" ]; then
