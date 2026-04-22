@@ -213,8 +213,9 @@ jobs:
           append_var WATCH_ROOM_ENABLED "${{ secrets.WATCH_ROOM_ENABLED }}"
           append_var WATCH_ROOM_EXTERNAL_SERVER_AUTH "${{ secrets.WATCH_ROOM_EXTERNAL_SERVER_AUTH }}"
           append_var WATCH_ROOM_EXTERNAL_SERVER_URL "${{ secrets.WATCH_ROOM_EXTERNAL_SERVER_URL }}"
-          append_var WATCH_ROOM_SERVER_TYPE "${{ secrets.WATCH_ROOM_SERVER_TYPE }}"
-          
+append_var WATCH_ROOM_SERVER_TYPE "${{ secrets.WATCH_ROOM_SERVER_TYPE }}"
+           append_var CONFIG_SUBSCRIPTION_URL "${{ secrets.CONFIG_SUBSCRIPTION_URL }}"
+
 echo "Updated wrangler.toml:"
            cat wrangler.toml
 
@@ -222,25 +223,25 @@ echo "Updated wrangler.toml:"
          id: configure-wrangler
          run: |
            # Replace name if PROJECT_NAME secret is set
-          if [ -n "${{ secrets.PROJECT_NAME }}" ]; then
-            sed -i 's/^name = ".*"/name = "${{ secrets.PROJECT_NAME }}"/' wrangler.toml
-            echo "Project name replaced with: ${{ secrets.PROJECT_NAME }}"
-          else
-            echo "PROJECT_NAME secret not set, keeping default name"
-          fi
+           if [ -n "${{ secrets.PROJECT_NAME }}" ]; then
+             sed -i 's/^name = ".*"/name = "${{ secrets.PROJECT_NAME }}"/' wrangler.toml
+             echo "Project name replaced with: ${{ secrets.PROJECT_NAME }}"
+           else
+             echo "PROJECT_NAME secret not set, keeping default name"
+           fi
 
-          # Replace database_name if D1_DATABASE_NAME secret is set
-          if [ -n "${{ secrets.D1_DATABASE_NAME }}" ]; then
-            sed -i 's/database_name = ".*"/database_name = "${{ secrets.D1_DATABASE_NAME }}"/' wrangler.toml
-            echo "Database name replaced with: ${{ secrets.D1_DATABASE_NAME }}"
-          else
-            echo "D1_DATABASE_NAME secret not set, keeping default database name"
-          fi
+           # Replace database_name if D1_DATABASE_NAME secret is set
+           if [ -n "${{ secrets.D1_DATABASE_NAME }}" ]; then
+             sed -i 's/database_name = ".*"/database_name = "${{ secrets.D1_DATABASE_NAME }}"/' wrangler.toml
+             echo "Database name replaced with: ${{ secrets.D1_DATABASE_NAME }}"
+           else
+             echo "D1_DATABASE_NAME secret not set, keeping default database name"
+           fi
 
-          echo "Updated wrangler.toml:"
-          cat wrangler.toml
+           echo "Updated wrangler.toml:"
+           cat wrangler.toml
 
-      - name: Replace D1 Database ID in wrangler.toml
+       - name: Replace D1 Database ID in wrangler.toml
         run: |
           if [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
             sed -i 's/REPLACE_WITH_YOUR_D1_DATABASE_ID/${{ secrets.D1_DATABASE_ID }}/g' wrangler.toml
