@@ -924,8 +924,8 @@ export async function savePlayRecord(
  * 使用title-based key来删除记录。
  */
 export async function deletePlayRecord(
-  source: string,
-  id: string,
+  source: string | undefined,
+  id: string | undefined,
   title?: string
 ): Promise<void> {
   // 优先使用 title 生成 key，与 savePlayRecord 保持一致
