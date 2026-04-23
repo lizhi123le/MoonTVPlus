@@ -925,12 +925,14 @@ export async function savePlayRecord(
  */
 export async function deletePlayRecord(
   source: string,
-  id: string
+  id: string,
+  title?: string
 ): Promise<void> {
-  // 使用title-based key（如果传入的是原始source+id，需要转换为title-based）
-  // 注意：source参数现在可能是title（当从ContinueWatching删除时）
+  // 优先使用 title 生成 key，与 savePlayRecord 保持一致
   let key: string;
-  if (source && id && source.includes('+')) {
+  if (title) {
+    key = normalizeTitleForKey(title);
+  } else if (source && id && source.includes('+')) {
     // 旧格式source+id（兼容）
     key = generateStorageKey(source, id);
   } else if (source && !id) {

@@ -357,19 +357,19 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
       setError(null);
 
       try {
+        let dataFound = false;
+
         // 如果正在使用 TMDB 数据，强制使用 TMDB
         if (isUsingTmdb && title) {
           await fetchTmdbData();
           return;
         }
 
-        // 优先使用苹果CMS数据（短剧等）
-        // 如果 cmsData 存在但 desc 为空，尝试通过 source-detail API 获取
+        // 1. 优先使用苹果CMS数据（短剧等）
         if (cmsData) {
           setCurrentSource('cms');
           setOriginalSource('cms');
           if (cmsData.desc) {
-            // 有 desc，直接使用
             const data = {
               title: title,
               intro: cmsData.desc,
@@ -378,12 +378,9 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
             };
             setDetailData(data);
             setOriginalDetailData(data);
-            setLoading(false);
-            return;
-          }
-
-          // cmsData 存在但 desc 为空，尝试通过 API 获取详情
-          if (sourceId && source) {
+            dataFound = true;
+          } else if (sourceId && source) {
+            // cmsData 存在但 desc 为空，尝试通过 API 获取详情
             try {
               const response = await fetch(
                 `/api/source-detail?id=${encodeURIComponent(sourceId)}&source=${encodeURIComponent(source)}&title=${encodeURIComponent(title)}`
@@ -399,125 +396,138 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
                 };
                 setDetailData(detailData);
                 setOriginalDetailData(detailData);
-                setLoading(false);
-                return;
-              } else if (response.status === 401) {
-                // 未认证，跳过 source-detail，继续尝试其他数据源
-                console.log('source-detail 需要认证，跳过');
-              } else {
-                console.error('获取 source-detail 失败:', response.status);
+                dataFound = true;
               }
             } catch (err) {
-              console.error('获取 source-detail 失败:', err);
-              // 继续执行后续逻辑
+              console.error('获取 CMS source-detail 失败:', err);
             }
           }
-        }
-
-        // 优先使用 Bangumi ID（因为 isBangumi 为 true 时，doubanId 实际上是 bangumiId）
-        if (bangumiId || (isBangumi && doubanId)) {
-          setCurrentSource('bangumi');
-          setOriginalSource('bangumi');
-          const actualBangumiId = bangumiId || doubanId;
-          const response = await fetch(`https://api.bgm.tv/v0/subjects/${actualBangumiId}`);
-          if (!response.ok) {
-            throw new Error('获取Bangumi详情失败');
+          if (dataFound) {
+            setLoading(false);
+            return;
           }
-          const data = await response.json();
-
-          const detailData = {
-            title: data.name_cn || data.name,
-            originalTitle: data.name,
-            year: data.date ? data.date.substring(0, 4) : undefined,
-            poster: data.images?.large || poster,
-            rating: data.rating
-              ? {
-                  value: data.rating.score,
-                  count: data.rating.total,
-                }
-              : undefined,
-            intro: data.summary,
-            genres: data.tags?.map((tag: any) => tag.name).slice(0, 5),
-            episodesCount: data.eps,
-            releaseDate: data.date,
-          };
-          setDetailData(detailData);
-          setOriginalDetailData(detailData);
-          return;
         }
 
-        // 使用豆瓣ID
-        if (doubanId && !isBangumi) {
-          setCurrentSource('douban');
-          setOriginalSource('douban');
-          const response = await fetch(`/api/douban/detail?id=${doubanId}`);
-          if (!response.ok) {
-            throw new Error('获取豆瓣详情失败');
+        // 2. 尝试使用 Bangumi ID
+        if (!dataFound && (bangumiId || (isBangumi && doubanId))) {
+          try {
+            const actualBangumiId = bangumiId || doubanId;
+            const response = await fetch(`https://api.bgm.tv/v0/subjects/${actualBangumiId}`);
+            if (response.ok) {
+              const data = await response.json();
+              const detailData = {
+                title: data.name_cn || data.name,
+                originalTitle: data.name,
+                year: data.date ? data.date.substring(0, 4) : undefined,
+                poster: data.images?.large || poster,
+                rating: data.rating
+                  ? {
+                      value: data.rating.score,
+                      count: data.rating.total,
+                    }
+                  : undefined,
+                intro: data.summary,
+                genres: data.tags?.map((tag: any) => tag.name).slice(0, 5),
+                episodesCount: data.eps,
+                releaseDate: data.date,
+              };
+              setDetailData(detailData);
+              setOriginalDetailData(detailData);
+              setCurrentSource('bangumi');
+              setOriginalSource('bangumi');
+              dataFound = true;
+              setLoading(false);
+              return;
+            }
+          } catch (err) {
+            console.error('获取 Bangumi 详情失败:', err);
           }
-          const data = await response.json();
-
-          const detailData = {
-            title: data.title,
-            originalTitle: data.original_title,
-            year: data.year,
-            poster: data.pic?.large || data.pic?.normal || poster,
-            rating: data.rating
-              ? {
-                  value: data.rating.value,
-                  count: data.rating.count,
-                }
-              : undefined,
-            intro: data.intro,
-            genres: data.genres,
-            directors: data.directors,
-            actors: data.actors,
-            countries: data.countries,
-            languages: data.languages,
-            duration: data.durations?.[0],
-            episodesCount: data.episodes_count,
-          };
-          setDetailData(detailData);
-          setOriginalDetailData(detailData);
-          return;
         }
 
-        // 使用源详情 API（当 doubanId 为空时）
-        if (source && sourceId && title) {
+        // 3. 尝试使用豆瓣ID
+        if (!dataFound && doubanId && !isBangumi) {
+          try {
+            const response = await fetch(`/api/douban/detail?id=${doubanId}`);
+            if (response.ok) {
+              const data = await response.json();
+              const detailData = {
+                title: data.title,
+                originalTitle: data.original_title,
+                year: data.year,
+                poster: data.pic?.large || data.pic?.normal || poster,
+                rating: data.rating
+                  ? {
+                      value: data.rating.value,
+                      count: data.rating.count,
+                    }
+                  : undefined,
+                intro: data.intro,
+                genres: data.genres,
+                directors: data.directors,
+                actors: data.actors,
+                countries: data.countries,
+                languages: data.languages,
+                duration: data.durations?.[0],
+                episodesCount: data.episodes_count,
+              };
+              setDetailData(detailData);
+              setOriginalDetailData(detailData);
+              setCurrentSource('douban');
+              setOriginalSource('douban');
+              dataFound = true;
+              setLoading(false);
+              return;
+            }
+          } catch (err) {
+            console.error('获取豆瓣详情失败:', err);
+          }
+        }
+
+        // 4. 使用源详情 API 兜底 (非常重要)
+        if (!dataFound && source && sourceId && title) {
           try {
             const sourceDetailResponse = await fetch(
               `/api/source-detail?id=${encodeURIComponent(sourceId)}&source=${encodeURIComponent(source)}&title=${encodeURIComponent(title)}`
             );
             if (sourceDetailResponse.ok) {
               const sourceData = await sourceDetailResponse.json();
-              // 如果源详情中有豆瓣ID，重新获取豆瓣详情
+              // 如果源详情中有豆瓣ID，尝试再次获取豆瓣详情以丰富内容
               if (sourceData.douban_id && !isBangumi) {
-                const doubanResponse = await fetch(`/api/douban/detail?id=${sourceData.douban_id}`);
-                if (doubanResponse.ok) {
-                  const doubanData = await doubanResponse.json();
-                  setDetailData({
-                    title: doubanData.title,
-                    originalTitle: doubanData.original_title,
-                    year: doubanData.year,
-                    poster: (doubanData.pic?.large || doubanData.pic?.normal) ? processImageUrl(doubanData.pic?.large || doubanData.pic?.normal) : poster,
-                    rating: doubanData.rating
-                      ? {
-                          value: doubanData.rating.value,
-                          count: doubanData.rating.count,
-                        }
-                      : undefined,
-                    intro: doubanData.intro,
-                    genres: doubanData.genres,
-                    directors: doubanData.directors,
-                    actors: doubanData.actors,
-                    countries: doubanData.countries,
-                    languages: doubanData.languages,
-                    duration: doubanData.durations?.[0],
-                    episodesCount: doubanData.episodes_count,
-                  });
-                  return;
+                try {
+                  const doubanResponse = await fetch(`/api/douban/detail?id=${sourceData.douban_id}`);
+                  if (doubanResponse.ok) {
+                    const doubanData = await doubanResponse.json();
+                    setDetailData({
+                      title: doubanData.title,
+                      originalTitle: doubanData.original_title,
+                      year: doubanData.year,
+                      poster: (doubanData.pic?.large || doubanData.pic?.normal) ? processImageUrl(doubanData.pic?.large || doubanData.pic?.normal) : poster,
+                      rating: doubanData.rating
+                        ? {
+                            value: doubanData.rating.value,
+                            count: doubanData.rating.count,
+                          }
+                        : undefined,
+                      intro: doubanData.intro,
+                      genres: doubanData.genres,
+                      directors: doubanData.directors,
+                      actors: doubanData.actors,
+                      countries: doubanData.countries,
+                      languages: doubanData.languages,
+                      duration: doubanData.durations?.[0],
+                      episodesCount: doubanData.episodes_count,
+                    });
+                    setCurrentSource('douban');
+                    setOriginalSource('douban');
+                    dataFound = true;
+                    setLoading(false);
+                    return;
+                  }
+                } catch (doubanErr) {
+                  console.error('从源详情提供的豆瓣ID获取失败:', doubanErr);
                 }
               }
-              // 如果没有豆瓣ID，使用源详情的 desc 作为 intro
+              // 如果没有豆瓣ID或获取失败，使用源详情的数据
               setDetailData({
                 title: sourceData.title || title,
                 intro: sourceData.desc || '',
@@ -525,6 +535,10 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
                 year: sourceData.year,
                 episodesCount: sourceData.episodes?.length,
               });
+              setCurrentSource('cms');
+              setOriginalSource('cms');
+              dataFound = true;
+              setLoading(false);
               return;
             }
           } catch (err) {
@@ -532,15 +546,19 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
           }
         }
 
-        // 使用 TMDB 搜索
-        if (title) {
-          setCurrentSource('tmdb');
-          setOriginalSource('tmdb');
-          await fetchTmdbData();
-          return;
+        // 5. 最后的尝试：使用 TMDB 搜索
+        if (!dataFound && title) {
+          try {
+            await fetchTmdbData();
+            return;
+          } catch (err) {
+            console.error('TMDB 兜底失败:', err);
+          }
         }
 
-        throw new Error('缺少必要的查询参数');
+        if (!dataFound) {
+          throw new Error('未找到相关内容详情');
+        }
       } catch (err) {
         console.error('获取详情失败:', err);
         setError(err instanceof Error ? err.message : '获取详情失败');
