@@ -285,7 +285,7 @@ const VideoCard = forwardRef<VideoCardHandle, VideoCardProps>(function VideoCard
     async (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (from !== 'playrecord' || (!actualSource && !actualId)) return;
+      if (from !== 'playrecord') return;
       try {
         await deletePlayRecord(actualSource, actualId, actualTitle);
         onDelete?.();
@@ -598,7 +598,7 @@ const VideoCard = forwardRef<VideoCardHandle, VideoCardProps>(function VideoCard
     }
 
     // 删除播放记录操作
-    if (config.showCheckCircle && from === 'playrecord' && (actualSource || actualId)) {
+    if (from === 'playrecord') {
       actions.push({
         id: 'delete',
         label: '删除记录',

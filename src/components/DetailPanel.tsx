@@ -365,50 +365,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
           return;
         }
 
-        // 1. 优先使用苹果CMS数据（短剧等）
-        if (cmsData) {
-          setCurrentSource('cms');
-          setOriginalSource('cms');
-          if (cmsData.desc) {
-            const data = {
-              title: title,
-              intro: cmsData.desc,
-              episodesCount: cmsData.episodes?.length,
-              poster: poster,
-            };
-            setDetailData(data);
-            setOriginalDetailData(data);
-            dataFound = true;
-          } else if (sourceId && source) {
-            // cmsData 存在但 desc 为空，尝试通过 API 获取详情
-            try {
-              const response = await fetch(
-                `/api/source-detail?id=${encodeURIComponent(sourceId)}&source=${encodeURIComponent(source)}&title=${encodeURIComponent(title)}`
-              );
-              if (response.ok) {
-                const data = await response.json();
-                const detailData = {
-                  title: data.title || title,
-                  intro: data.desc || '',
-                  episodesCount: data.episodes?.length || cmsData.episodes?.length,
-                  poster: data.poster || poster,
-                  year: data.year,
-                };
-                setDetailData(detailData);
-                setOriginalDetailData(detailData);
-                dataFound = true;
-              }
-            } catch (err) {
-              console.error('获取 CMS source-detail 失败:', err);
-            }
-          }
-          if (dataFound) {
-            setLoading(false);
-            return;
-          }
-        }
-
-        // 2. 尝试使用 Bangumi ID
+        // 1. 尝试使用 Bangumi ID
         if (!dataFound && (bangumiId || (isBangumi && doubanId))) {
           try {
             const actualBangumiId = bangumiId || doubanId;
@@ -436,15 +393,13 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
               setCurrentSource('bangumi');
               setOriginalSource('bangumi');
               dataFound = true;
-              setLoading(false);
-              return;
             }
           } catch (err) {
             console.error('获取 Bangumi 详情失败:', err);
           }
         }
 
-        // 3. 尝试使用豆瓣ID
+        // 2. 尝试使用豆瓣ID
         if (!dataFound && doubanId && !isBangumi) {
           try {
             const response = await fetch(`/api/douban/detail?id=${doubanId}`);
@@ -475,15 +430,13 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
               setCurrentSource('douban');
               setOriginalSource('douban');
               dataFound = true;
-              setLoading(false);
-              return;
             }
           } catch (err) {
             console.error('获取豆瓣详情失败:', err);
           }
         }
 
-        // 4. 使用源详情 API 兜底 (非常重要)
+        // 3. 使用源详情 API 兜底 (非常重要，尤其是当 Douban/Bangumi 失败或不存在时)
         if (!dataFound && source && sourceId && title) {
           try {
             const sourceDetailResponse = await fetch(
@@ -491,6 +444,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
             );
             if (sourceDetailResponse.ok) {
               const sourceData = await sourceDetailResponse.json();
+              
               // 如果源详情中有豆瓣ID，尝试再次获取豆瓣详情以丰富内容
               if (sourceData.douban_id && !isBangumi) {
                 try {
@@ -520,29 +474,45 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
                     setCurrentSource('douban');
                     setOriginalSource('douban');
                     dataFound = true;
-                    setLoading(false);
-                    return;
                   }
                 } catch (doubanErr) {
                   console.error('从源详情提供的豆瓣ID获取失败:', doubanErr);
                 }
               }
-              // 如果没有豆瓣ID或获取失败，使用源详情的数据
-              setDetailData({
-                title: sourceData.title || title,
-                intro: sourceData.desc || '',
-                poster: sourceData.poster ? processImageUrl(sourceData.poster) : poster,
-                year: sourceData.year,
-                episodesCount: sourceData.episodes?.length,
-              });
-              setCurrentSource('cms');
-              setOriginalSource('cms');
-              dataFound = true;
-              setLoading(false);
-              return;
+              
+              if (!dataFound) {
+                // 如果没有豆瓣ID或获取失败，使用源详情的数据
+                setDetailData({
+                  title: sourceData.title || title,
+                  intro: sourceData.desc || '',
+                  poster: sourceData.poster ? processImageUrl(sourceData.poster) : poster,
+                  year: sourceData.year,
+                  episodesCount: sourceData.episodes?.length,
+                });
+                setCurrentSource('cms');
+                setOriginalSource('cms');
+                dataFound = true;
+              }
             }
           } catch (err) {
             console.error('获取源详情失败:', err);
+          }
+        }
+
+        // 4. 使用苹果CMS数据兜底 (如果之前已经有了，且上面的步骤都没找到更好的数据)
+        if (!dataFound && cmsData) {
+          if (cmsData.desc) {
+            const data = {
+              title: title,
+              intro: cmsData.desc,
+              episodesCount: cmsData.episodes?.length,
+              poster: poster,
+            };
+            setDetailData(data);
+            setOriginalDetailData(data);
+            setCurrentSource('cms');
+            setOriginalSource('cms');
+            dataFound = true;
           }
         }
 
@@ -550,18 +520,31 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
         if (!dataFound && title) {
           try {
             await fetchTmdbData();
+            dataFound = true;
             return;
           } catch (err) {
             console.error('TMDB 兜底失败:', err);
           }
         }
 
-        if (!dataFound) {
-          throw new Error('未找到相关内容详情');
+        if (dataFound) {
+          setLoading(false);
+          return;
         }
+
+        throw new Error('未找到相关内容详情');
       } catch (err) {
         console.error('获取详情失败:', err);
         setError(err instanceof Error ? err.message : '获取详情失败');
+        
+        // 即使出错，如果已经有 title，尝试显示最基本的信息
+        if (title && !detailData) {
+          setDetailData({
+            title: title,
+            intro: '',
+            poster: poster,
+          });
+        }
       } finally {
         setLoading(false);
       }

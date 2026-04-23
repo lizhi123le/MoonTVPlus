@@ -157,11 +157,11 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
                     style={{ position: 'relative' }}
                   >
                     <VideoCard
-                      id={record.id}
+                      id={record.id || id}
                       title={record.title}
                       poster={record.cover}
                       year={record.year}
-                      source={record.source}
+                      source={record.source || source}
                       source_name={record.source_name}
                       progress={getProgress(record)}
                       episodes={record.total_episodes}
