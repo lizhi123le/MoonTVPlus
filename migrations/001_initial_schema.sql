@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS danmaku_filter_configs (
 CREATE TABLE IF NOT EXISTS notifications (
   id TEXT PRIMARY KEY,
   username TEXT NOT NULL,
-  type TEXT NOT NULL CHECK(type IN ('favorite_update', 'system', 'announcement', 'movie_request', 'request_fulfilled')),
+  type TEXT NOT NULL CHECK(type IN ('favorite_update', 'manga_update', 'system', 'announcement', 'movie_request', 'request_fulfilled', 'anime_subscription_update')),
   title TEXT NOT NULL,
   message TEXT NOT NULL,
   timestamp INTEGER NOT NULL,

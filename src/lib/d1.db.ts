@@ -93,9 +93,10 @@ export class D1Storage implements IStorage {
           INSERT INTO play_records (
             username, key, title, source_name, cover, year,
             episode_index, total_episodes, play_time, total_time,
-            save_time, search_title, douban_id, origin, new_episodes
+            save_time, search_title, douban_id, origin, new_episodes,
+            source, id
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(username, key) DO UPDATE SET
             title = excluded.title,
             source_name = excluded.source_name,
@@ -109,7 +110,9 @@ export class D1Storage implements IStorage {
             search_title = excluded.search_title,
             douban_id = excluded.douban_id,
             origin = excluded.origin,
-            new_episodes = excluded.new_episodes
+            new_episodes = excluded.new_episodes,
+            source = excluded.source,
+            id = excluded.id
         `)
         .bind(
           userName,
@@ -126,7 +129,9 @@ export class D1Storage implements IStorage {
           record.search_title || '',
           record.douban_id || null,
           record.origin || null,
-          record.new_episodes || null
+          record.new_episodes || null,
+          record.source || '',
+          record.id || ''
         )
         .run();
     } catch (err) {
@@ -1736,7 +1741,7 @@ export class D1Storage implements IStorage {
   async getSearchHistory(userName: string): Promise<string[]> {
     try {
       const results = await this.db
-        .prepare('SELECT keyword FROM search_history WHERE username = ? ORDER BY created_at DESC LIMIT 20')
+        .prepare('SELECT keyword FROM search_history WHERE username = ? ORDER BY timestamp DESC LIMIT 20')
         .bind(userName)
         .all();
 
@@ -1755,9 +1760,9 @@ export class D1Storage implements IStorage {
       // 插入或更新时间戳
       await this.db
         .prepare(`
-          INSERT INTO search_history (username, keyword, created_at)
+          INSERT INTO search_history (username, keyword, timestamp)
           VALUES (?, ?, ?)
-          ON CONFLICT(username, keyword) DO UPDATE SET created_at = excluded.created_at
+          ON CONFLICT(username, keyword) DO UPDATE SET timestamp = excluded.timestamp
         `)
         .bind(userName, keyword, created_at)
         .run();
@@ -1777,7 +1782,7 @@ export class D1Storage implements IStorage {
             AND id NOT IN (
               SELECT id FROM search_history
               WHERE username = ?
-              ORDER BY created_at DESC
+              ORDER BY timestamp DESC
               LIMIT 20
             )
           `)

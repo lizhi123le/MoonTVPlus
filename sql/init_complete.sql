@@ -35,7 +35,8 @@ CREATE TABLE IF NOT EXISTS users (
   skip_migrated INTEGER DEFAULT 0,
   last_movie_request_time INTEGER,
   email TEXT,
-  email_notifications INTEGER DEFAULT 1
+  email_notifications INTEGER DEFAULT 1,
+  tvbox_subscribe_token TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_oidc_sub ON users(oidc_sub) WHERE oidc_sub IS NOT NULL;
@@ -56,6 +57,10 @@ CREATE TABLE IF NOT EXISTS play_records (
   save_time INTEGER NOT NULL,
   search_title TEXT,
   douban_id INTEGER, -- 豆瓣ID，用于获取详情
+  origin TEXT CHECK(origin IN ('vod', 'live')), -- 来源类型
+  new_episodes INTEGER, -- 新增的剧集数量（用于显示更新提示）
+  source TEXT, -- 来源标识（用于播放跳转）
+  id TEXT, -- 影片ID（用于播放跳转）
   PRIMARY KEY (username, key),
   FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
 );
@@ -116,7 +121,7 @@ CREATE TABLE IF NOT EXISTS danmaku_filter_configs (
 CREATE TABLE IF NOT EXISTS notifications (
   id TEXT PRIMARY KEY,
   username TEXT NOT NULL,
-  type TEXT NOT NULL CHECK(type IN ('favorite_update', 'system', 'announcement', 'movie_request', 'request_fulfilled')),
+  type TEXT NOT NULL CHECK(type IN ('favorite_update', 'manga_update', 'system', 'announcement', 'movie_request', 'request_fulfilled', 'anime_subscription_update')),
   title TEXT NOT NULL,
   message TEXT NOT NULL,
   timestamp INTEGER NOT NULL,
