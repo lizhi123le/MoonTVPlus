@@ -61,7 +61,7 @@ import {
   setRecommendationCache,
 } from '@/lib/recommendations/cache';
 import { DanmakuFilterConfig, EpisodeFilterConfig, SearchResult } from '@/lib/types';
-import { base58Decode, getVideoResolutionFromM3u8, processImageUrl } from '@/lib/utils';
+import { base58Decode, getProxyDomain, getVideoResolutionFromM3u8, processImageUrl } from '@/lib/utils';
 import { useEnableAIComments } from '@/hooks/useEnableAIComments';
 import { useEnableComments } from '@/hooks/useEnableComments';
 import { usePlaySync } from '@/hooks/usePlaySync';
@@ -2617,13 +2617,15 @@ function PlayPageClient() {
 
         if (sourceProxyMode && newUrl && isM3u8) {
           // 如果视频源启用了代理模式,且不是本地下载,则通过代理播放
-          newUrl = `/api/proxy/vod/m3u8?url=${encodeURIComponent(newUrl)}&source=${encodeURIComponent(currentSource)}`;
+          const proxyBase = getProxyDomain() || (typeof window !== 'undefined' ? window.location.origin : '');
+          newUrl = `${proxyBase}/api/proxy/vod/m3u8?url=${encodeURIComponent(newUrl)}&source=${encodeURIComponent(currentSource)}`;
           console.log('使用代理模式播放:', newUrl);
         } else if (currentSource === 'directplay' && newUrl && isM3u8) {
           // 直链播放模式：检查 localStorage 是否记录了该域名需要代理
           if (isDirectplayDomainProxied(newUrl)) {
             const tokenParam = proxyToken ? `&token=${encodeURIComponent(proxyToken)}` : '';
-            newUrl = `/api/proxy-m3u8?url=${encodeURIComponent(newUrl)}&source=directplay${tokenParam}`;
+            const proxyBase = getProxyDomain() || (typeof window !== 'undefined' ? window.location.origin : '');
+            newUrl = `${proxyBase}/api/proxy-m3u8?url=${encodeURIComponent(newUrl)}&source=directplay${tokenParam}`;
             console.log('直链播放（域名已记忆）使用代理模式:', newUrl);
           } else {
             console.log('直链播放默认直连模式，不使用代理:', newUrl);

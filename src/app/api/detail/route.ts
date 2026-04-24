@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getAuthInfoFromCookie } from '@/lib/auth';
 import { getAvailableApiSites, getCacheTime, getConfig } from '@/lib/config';
+import { resolveProxyOrigin } from '@/lib/server/proxy-utils';
 import { getDetailFromApi } from '@/lib/downstream';
 import {
   executeSavedSourceScript,
@@ -205,6 +206,9 @@ export async function GET(request: NextRequest) {
       // 3. 从 metainfo 中获取元数据
       const { getTMDBImageUrl } = await import('@/lib/tmdb.search');
 
+      // 获取随机代理 origin
+      const proxyOrigin = await resolveProxyOrigin(request, config);
+
       const result = {
         source: 'openlist',
         source_name: '私人影库',
@@ -214,9 +218,9 @@ export async function GET(request: NextRequest) {
         year: folderMeta?.release_date ? folderMeta.release_date.split('-')[0] : '',
         douban_id: 0,
         desc: folderMeta?.overview || '',
-        episodes: episodes.map((ep) => `/api/openlist/play?folder=${encodeURIComponent(folderName)}&fileName=${encodeURIComponent(ep.fileName)}`),
+        episodes: episodes.map((ep) => `${proxyOrigin}/api/openlist/play?folder=${encodeURIComponent(folderName)}&fileName=${encodeURIComponent(ep.fileName)}`),
         episodes_titles: episodes.map((ep) => ep.title),
-        proxyMode: false, // openlist 源不使用代理模式
+        proxyMode: false, // openlist 源不使用前端代理模式，因为我们已经构建了绝对 URL
       };
 
       return NextResponse.json(result);

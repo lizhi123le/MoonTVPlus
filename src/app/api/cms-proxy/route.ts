@@ -11,6 +11,7 @@ import {
 } from '@/lib/openlist-cache';
 import { getTMDBImageUrl } from '@/lib/tmdb.search';
 import { yellowWords } from '@/lib/yellow';
+import { resolveProxyOrigin } from '@/lib/server/proxy-utils';
 
 export const runtime = 'nodejs';
 
@@ -85,35 +86,11 @@ export async function GET(request: NextRequest) {
 
       // 获取当前配置
       const adminConfig = await getConfig();
-      const proxyDomains = adminConfig.SiteConfig.ProxyDomains || [];
       
       // 获取当前请求的 origin
-      // 优先级：ProxyDomains (随机选择) > SITE_BASE 环境变量 > 从请求头构建
-      let origin = '';
+      const origin = await resolveProxyOrigin(request, adminConfig);
 
-      if (proxyDomains.length > 0) {
-        // 随机选择一个
-        const randomIndex = Math.floor(Math.random() * proxyDomains.length);
-        origin = proxyDomains[randomIndex];
-        
-        // 格式化域名
-        if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
-          origin = 'https://' + origin;
-        }
-        if (origin && origin.endsWith('/')) {
-          origin = origin.slice(0, -1);
-        }
-      } else {
-        origin = process.env.SITE_BASE || '';
-      }
-
-      if (!origin) {
-        // 从请求头中获取 Host 和协议
-        const host = request.headers.get('host') || request.headers.get('x-forwarded-host');
-        const proto = request.headers.get('x-forwarded-proto') ||
-                      (host?.includes('localhost') || host?.includes('127.0.0.1') ? 'http' : 'https');
-        origin = `${proto}://${host}`;
-      }
+      console.log('CMS 代理 origin:', origin);
 
       console.log('CMS 代理 origin:', origin);
 
@@ -383,10 +360,18 @@ async function handleOpenListProxy(request: NextRequest) {
 
     const folderName = info.folderName;
 
+    // 获取当前配置和 origin
+    const adminConfig = await getConfig();
+    const proxyOrigin = await resolveProxyOrigin(request, adminConfig);
+
     // 获取视频详情
     try {
+      // 内部调用详情接口，始终使用当前的 host 以确保能调通
+      const currentHost = request.headers.get('host') || request.headers.get('x-forwarded-host');
+      const proto = request.headers.get('x-forwarded-proto') || (currentHost?.includes('localhost') ? 'http' : 'https');
+      
       const detailResponse = await fetch(
-        `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}/api/openlist/detail?folder=${encodeURIComponent(folderName)}`
+        `${proto}://${currentHost}/api/openlist/detail?folder=${encodeURIComponent(folderName)}`
       );
 
       if (!detailResponse.ok) {
@@ -399,11 +384,21 @@ async function handleOpenListProxy(request: NextRequest) {
         throw new Error('获取视频详情失败');
       }
 
+      // 获取 M3U8 代理 token
+      const proxyToken = process.env.NEXT_PUBLIC_PROXY_M3U8_TOKEN || '';
+      const tokenParam = proxyToken ? `&token=${encodeURIComponent(proxyToken)}` : '';
+
       // 构建播放列表
       const playUrls = detailData.episodes
         .map((ep: any) => {
           const title = ep.title || `第${ep.episode}集`;
-          return `${title}$${ep.playUrl}`;
+          const playUrl = ep.playUrl || '';
+          
+          // 如果是 m3u8，则使用代理
+          if (playUrl.includes('.m3u8')) {
+            return `${title}$${proxyOrigin}/api/proxy-m3u8?url=${encodeURIComponent(playUrl)}&source=OpenList${tokenParam}`;
+          }
+          return `${title}$${playUrl}`;
         })
         .join('#');
 
