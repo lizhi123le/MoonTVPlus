@@ -8372,19 +8372,22 @@ const SiteConfigComponent = ({
           播放代理多域名（用于避免限流）
         </label>
         <textarea
-          value={siteSettings.ProxyDomains?.join('\n')}
+          value={siteSettings.ProxyDomains?.join(', ')}
           onChange={(e) =>
             setSiteSettings((prev) => ({
               ...prev,
-              ProxyDomains: e.target.value.split('\n').filter(line => line.trim() !== ''),
+              ProxyDomains: e.target.value
+                .split(/[\n,]/)
+                .map((s) => s.trim())
+                .filter((s) => s !== ''),
             }))
           }
           rows={3}
-          placeholder="每行一个域名，例如：https://proxy1.example.com"
+          placeholder="多个域名用英文逗号分隔，例如：https://proxy1.example.com, https://proxy2.example.com"
           className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent'
         />
         <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
-          配置多个域名后，系统在调用播放代理 API 时会从中随机抽取。不填则默认使用当前域名。
+          多个域名用英文逗号分隔（也支持换行分隔）。配置后系统在调用播放代理 API 时会随机抽取；不填则默认使用当前域名。
         </p>
       </div>
 
