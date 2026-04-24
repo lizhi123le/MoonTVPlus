@@ -83,34 +83,36 @@ export async function GET(request: NextRequest) {
         listCount: data.list?.length || 0,
       });
 
+      // 获取当前配置
+      const adminConfig = await getConfig();
+      const proxyDomains = adminConfig.SiteConfig.ProxyDomains || [];
+      
       // 获取当前请求的 origin
-      // 优先级：SITE_BASE 环境变量 > 从请求头构建
-      let origin = process.env.SITE_BASE;
+      // 优先级：ProxyDomains (随机选择) > SITE_BASE 环境变量 > 从请求头构建
+      let origin = '';
+
+      if (proxyDomains.length > 0) {
+        // 随机选择一个
+        const randomIndex = Math.floor(Math.random() * proxyDomains.length);
+        origin = proxyDomains[randomIndex];
+        
+        // 格式化域名
+        if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
+          origin = 'https://' + origin;
+        }
+        if (origin && origin.endsWith('/')) {
+          origin = origin.slice(0, -1);
+        }
+      } else {
+        origin = process.env.SITE_BASE || '';
+      }
 
       if (!origin) {
-        // 先检查是否有配置多个代理域名
-        const adminConfig = await getConfig();
-        const proxyDomains = adminConfig.SiteConfig.ProxyDomains || [];
-        
-        if (proxyDomains.length > 0) {
-          // 随机选择一个
-          const randomIndex = Math.floor(Math.random() * proxyDomains.length);
-          origin = proxyDomains[randomIndex];
-          
-          // 格式化域名
-          if (origin && !origin.startsWith('http://') && !origin.startsWith('https://')) {
-            origin = 'https://' + origin;
-          }
-          if (origin && origin.endsWith('/')) {
-            origin = origin.slice(0, -1);
-          }
-        } else {
-          // 从请求头中获取 Host 和协议
-          const host = request.headers.get('host') || request.headers.get('x-forwarded-host');
-          const proto = request.headers.get('x-forwarded-proto') ||
-                        (host?.includes('localhost') || host?.includes('127.0.0.1') ? 'http' : 'https');
-          origin = `${proto}://${host}`;
-        }
+        // 从请求头中获取 Host 和协议
+        const host = request.headers.get('host') || request.headers.get('x-forwarded-host');
+        const proto = request.headers.get('x-forwarded-proto') ||
+                      (host?.includes('localhost') || host?.includes('127.0.0.1') ? 'http' : 'https');
+        origin = `${proto}://${host}`;
       }
 
       console.log('CMS 代理 origin:', origin);
