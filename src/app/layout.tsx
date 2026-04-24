@@ -98,6 +98,7 @@ export default async function RootLayout({
   let suwayomiEnabled = false;
   let musicProxyEnabled = true;
   let advancedRecommendationEnabled = false;
+  let proxyDomains = [] as string[];
   let customCategories = [] as {
     name: string;
     type: 'movie' | 'tv';
@@ -113,6 +114,7 @@ export default async function RootLayout({
     doubanImageProxyType = config.SiteConfig.DoubanImageProxyType;
     doubanImageProxy = config.SiteConfig.DoubanImageProxy;
     disableYellowFilter = config.SiteConfig.DisableYellowFilter;
+    proxyDomains = config.SiteConfig.ProxyDomains || [];
     customCategories = config.CustomCategories.filter(
       (category) => !category.disabled
     ).map((category) => ({
@@ -195,6 +197,7 @@ export default async function RootLayout({
     DOUBAN_PROXY: doubanProxy,
     DOUBAN_IMAGE_PROXY_TYPE: doubanImageProxyType,
     DOUBAN_IMAGE_PROXY: doubanImageProxy,
+    PROXY_DOMAINS: proxyDomains,
     DISABLE_YELLOW_FILTER: disableYellowFilter,
     CUSTOM_CATEGORIES: customCategories,
     FLUID_SEARCH: fluidSearch,

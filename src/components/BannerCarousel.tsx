@@ -9,6 +9,7 @@ import { type TMDBItem,getGenreNames, getTMDBImageUrl } from '@/lib/tmdb.client'
 import { getDoubanDetail } from '@/lib/douban.client';
 
 import ProxyImage from '@/components/ProxyImage';
+import { processVideoUrl } from '@/lib/utils';
 
 interface BannerCarouselProps {
   autoPlayInterval?: number; // 自动播放间隔（毫秒）
@@ -82,11 +83,7 @@ export default function BannerCarousel({ autoPlayInterval = 5000, delayLoad = fa
   // 获取视频URL（处理豆瓣视频代理）
   const getVideoUrl = (url: string | null) => {
     if (!url) return null;
-    // 豆瓣视频直接使用服务器代理
-    if (url.includes('doubanio.com')) {
-      return `/api/video-proxy?url=${encodeURIComponent(url)}`;
-    }
-    return url;
+    return processVideoUrl(url);
   };
 
   // 读取本地设置

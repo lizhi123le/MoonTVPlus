@@ -280,6 +280,7 @@ async function getInitConfig(configFile: string, subConfig: {
       TurnstileSiteKey: '',
       TurnstileSecretKey: '',
       DefaultUserTags: [],
+      ProxyDomains: [],
     },
     UserConfig: {
       Users: [],
@@ -469,6 +470,7 @@ export function configSelfCheck(adminConfig: AdminConfig): AdminConfig {
       TurnstileSiteKey: '',
       TurnstileSecretKey: '',
       DefaultUserTags: [],
+      ProxyDomains: [],
     };
   }
   // 确保弹幕配置存在
@@ -529,6 +531,9 @@ export function configSelfCheck(adminConfig: AdminConfig): AdminConfig {
   }
   if (adminConfig.SiteConfig.MagnetAcgripReverseProxy === undefined) {
     adminConfig.SiteConfig.MagnetAcgripReverseProxy = '';
+  }
+  if (adminConfig.SiteConfig.ProxyDomains === undefined) {
+    adminConfig.SiteConfig.ProxyDomains = [];
   }
   if (!adminConfig.UserConfig) {
     adminConfig.UserConfig = { Users: [] };

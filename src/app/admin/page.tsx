@@ -377,6 +377,7 @@ interface SiteConfig {
   OIDCClientId?: string;
   OIDCClientSecret?: string;
   OIDCButtonText?: string;
+  ProxyDomains?: string[];
 }
 
 // 视频源数据类型
@@ -7881,6 +7882,7 @@ const SiteConfigComponent = ({
     OIDCClientId: '',
     OIDCClientSecret: '',
     OIDCButtonText: '',
+    ProxyDomains: [],
   });
 
   // 豆瓣数据源相关状态
@@ -7964,6 +7966,7 @@ const SiteConfigComponent = ({
         MagnetDmhyReverseProxy: config.SiteConfig.MagnetDmhyReverseProxy || '',
         MagnetAcgripReverseProxy: config.SiteConfig.MagnetAcgripReverseProxy || '',
         EnableComments: config.SiteConfig.EnableComments || false,
+        ProxyDomains: config.SiteConfig.ProxyDomains || [],
       });
     }
   }, [config]);
@@ -8361,6 +8364,28 @@ const SiteConfigComponent = ({
           }
           className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent'
         />
+      </div>
+
+      {/* 播放代理多域名 */}
+      <div>
+        <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+          播放代理多域名（用于避免限流）
+        </label>
+        <textarea
+          value={siteSettings.ProxyDomains?.join('\n')}
+          onChange={(e) =>
+            setSiteSettings((prev) => ({
+              ...prev,
+              ProxyDomains: e.target.value.split('\n').filter(line => line.trim() !== ''),
+            }))
+          }
+          rows={3}
+          placeholder="每行一个域名，例如：https://proxy1.example.com"
+          className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent'
+        />
+        <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
+          配置多个域名后，系统在调用播放代理 API 时会从中随机抽取。不填则默认使用当前域名。
+        </p>
       </div>
 
       {/* 禁用黄色过滤器 */}

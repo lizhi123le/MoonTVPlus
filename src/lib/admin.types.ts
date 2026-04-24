@@ -65,6 +65,7 @@ export interface AdminConfig {
     OIDCClientSecret?: string; // OIDC Client Secret
     OIDCButtonText?: string; // OIDC登录按钮文字
     OIDCMinTrustLevel?: number; // 最低信任等级（仅LinuxDo网站有效，为0时不判断）
+    ProxyDomains?: string[]; // 播放代理多域名
   };
   UserConfig: {
     Users: {

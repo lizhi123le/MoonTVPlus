@@ -109,6 +109,33 @@ function getDoubanImageProxyConfig(): {
   };
 }
 
+export function getProxyDomain(): string {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  const proxyDomains = (window as any).RUNTIME_CONFIG?.PROXY_DOMAINS || [];
+  if (proxyDomains.length === 0) {
+    return '';
+  }
+
+  // 随机抽取一个域名
+  const randomIndex = Math.floor(Math.random() * proxyDomains.length);
+  let domain = proxyDomains[randomIndex];
+  
+  // 确保域名以 http:// 或 https:// 开头
+  if (domain && !domain.startsWith('http://') && !domain.startsWith('https://')) {
+    domain = 'https://' + domain;
+  }
+  
+  // 去掉末尾的斜杠
+  if (domain && domain.endsWith('/')) {
+    domain = domain.slice(0, -1);
+  }
+
+  return domain;
+}
+
 export function getDoubanImageFallbackUrl(originalUrl: string): string | null {
   if (!originalUrl || !originalUrl.includes('doubanio.com')) {
     return null;
@@ -204,9 +231,13 @@ export function processVideoUrl(originalUrl: string): string {
       // 直连，不使用代理
       return originalUrl;
 
-    case 'server':
+    case 'server': {
       // 使用服务器代理
-      return `/api/video-proxy?url=${encodeURIComponent(originalUrl)}`;
+      const proxyDomain = getProxyDomain();
+      // 当 ProxyDomains 未配置时，getProxyDomain() 返回 ''，降级使用当前页面的 origin
+      const proxyBase = proxyDomain || (typeof window !== 'undefined' ? window.location.origin : '');
+      return `${proxyBase}/api/video-proxy?url=${encodeURIComponent(originalUrl)}`;
+    }
 
     case 'img3':
       // 使用 img3.doubanio.com 代理
