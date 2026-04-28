@@ -165,12 +165,30 @@ export async function fetchApi(input: string | Request, init?: RequestInit): Pro
       const randomizedUrl = getApiUrl(input);
       url = randomizedUrl;
       
-      // 如果使用了代理域名（跨域），则需要带上凭证
+      // 如果使用了代理域名（跨域），则需要处理凭证和 Header
       if (randomizedUrl.startsWith('http')) {
         requestInit = {
           ...requestInit,
           credentials: requestInit.credentials || 'include',
         };
+
+        // 尝试从 Cookie 中提取 auth 信息，并通过 Authorization Header 发送
+        // 这样可以绕过跨域 SameSite=Lax Cookie 无法发送的问题
+        try {
+          const cookies = document.cookie.split('; ');
+          const authCookie = cookies.find(c => c.startsWith('auth='));
+          if (authCookie) {
+            const token = authCookie.split('=')[1];
+            if (token) {
+              requestInit.headers = {
+                ...requestInit.headers,
+                'Authorization': `Bearer ${token}`,
+              };
+            }
+          }
+        } catch (e) {
+          // 忽略客户端环境以外的错误
+        }
       }
     } else {
       url = input;

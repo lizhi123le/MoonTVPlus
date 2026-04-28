@@ -7,6 +7,24 @@ import { TOKEN_CONFIG } from '@/lib/refresh-token';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const origin = request.headers.get('origin');
+
+  // 处理 CORS
+  if (pathname.startsWith('/api/') && origin) {
+    // 检查是否是 OPTIONS 请求（预检请求）
+    if (request.method === 'OPTIONS') {
+      return new NextResponse(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': origin,
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+          'Access-Control-Allow-Credentials': 'true',
+          'Access-Control-Max-Age': '86400',
+        },
+      });
+    }
+  }
 
   // 跳过不需要认证的路径
   if (shouldSkipAuth(pathname)) {
@@ -64,7 +82,13 @@ export async function middleware(request: NextRequest) {
     console.log(`Access token expired for ${authInfo.username}`);
     // 对于 API 请求，返回 401，让前端拦截器刷新并重试
     if (pathname.startsWith('/api')) {
-      return new NextResponse('Access token expired', { status: 401 });
+      const origin = request.headers.get('origin');
+      const headers: Record<string, string> = {};
+      if (origin) {
+        headers['Access-Control-Allow-Origin'] = origin;
+        headers['Access-Control-Allow-Credentials'] = 'true';
+      }
+      return new NextResponse('Access token expired', { status: 401, headers });
     }
     // 对于页面请求，允许通过，让前端 TokenRefreshManager 在页面加载后刷新
     // 不能返回 401 或重定向，否则页面无法加载，前端代码无法运行
@@ -86,7 +110,17 @@ export async function middleware(request: NextRequest) {
 
   // 签名验证通过
   // 注意：Token 续期由前端负责，Middleware 不再自动刷新
-  return NextResponse.next();
+  const response = NextResponse.next();
+
+  // 为所有 API 请求添加 CORS 头部
+  if (pathname.startsWith('/api/') && origin) {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  }
+
+  return response;
 }
 
 // 验证签名
@@ -143,7 +177,13 @@ function handleAuthFailure(
 ): NextResponse {
   // 如果是 API 路由，返回 401 状态码
   if (pathname.startsWith('/api')) {
-    return new NextResponse('Unauthorized', { status: 401 });
+    const origin = request.headers.get('origin');
+    const headers: Record<string, string> = {};
+    if (origin) {
+      headers['Access-Control-Allow-Origin'] = origin;
+      headers['Access-Control-Allow-Credentials'] = 'true';
+    }
+    return new NextResponse('Unauthorized', { status: 401, headers });
   }
 
   // 否则重定向到登录页面
@@ -151,7 +191,17 @@ function handleAuthFailure(
   // 保留完整的URL，包括查询参数
   const fullUrl = `${pathname}${request.nextUrl.search}`;
   loginUrl.searchParams.set('redirect', fullUrl);
-  return NextResponse.redirect(loginUrl);
+  
+  const response = NextResponse.redirect(loginUrl);
+  
+  // 即使是重定向，如果是 API 请求，也要带上 CORS
+  const origin = request.headers.get('origin');
+  if (pathname.startsWith('/api/') && origin) {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+  }
+  
+  return response;
 }
 
 // 判断是否需要跳过认证的路径
