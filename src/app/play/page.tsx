@@ -61,7 +61,7 @@ import {
   setRecommendationCache,
 } from '@/lib/recommendations/cache';
 import { DanmakuFilterConfig, EpisodeFilterConfig, SearchResult } from '@/lib/types';
-import { base58Decode, getProxyDomain, getVideoResolutionFromM3u8, processImageUrl } from '@/lib/utils';
+import { base58Decode, fetchApi, getProxyDomain, getVideoResolutionFromM3u8, processImageUrl, processVideoUrl } from '@/lib/utils';
 import { useEnableAIComments } from '@/hooks/useEnableAIComments';
 import { useEnableComments } from '@/hooks/useEnableComments';
 import { usePlaySync } from '@/hooks/usePlaySync';
@@ -306,9 +306,9 @@ function PlayPageClient() {
   // 初始化时获取自定义去广告代码
   useEffect(() => {
     const fetchAdFilterCode = async () => {
-      if (typeof window === 'undefined') return;
-
       try {
+        if (typeof window === 'undefined') return;
+
         // 先从 localStorage 获取缓存的代码，立即可用
         const cachedCode = localStorage.getItem('custom_ad_filter_code_cache');
         const cachedVersion = localStorage.getItem('custom_ad_filter_version_cache');
@@ -335,7 +335,7 @@ function PlayPageClient() {
           console.log('检测到去广告代码更新（版本 ' + version + '），获取最新代码');
 
           // 获取完整代码
-          const fullResponse = await fetch('/api/ad-filter?full=true');
+          const fullResponse = await fetchApi('/api/ad-filter?full=true');
           if (!fullResponse.ok) {
             console.warn('获取完整去广告代码失败，使用缓存');
             return;
@@ -2065,7 +2065,7 @@ function PlayPageClient() {
     }
 
     try {
-      const response = await fetch(
+      const response = await fetchApi(
         `/api/offline-download?action=check&source=${encodeURIComponent(source)}&videoId=${encodeURIComponent(videoId)}&episodeIndex=${episodeIndex}`
       );
 
@@ -2242,7 +2242,7 @@ function PlayPageClient() {
       const separator = currentXiaoyaUrlRef.current.includes('?') ? '&' : '?';
       const fetchUrl = `${currentXiaoyaUrlRef.current}${separator}format=json&t=${Date.now()}`;
 
-      const response = await fetch(fetchUrl);
+      const response = await fetchApi(fetchUrl);
       const data = await response.json();
 
       if (!data.url) {
@@ -2496,7 +2496,7 @@ function PlayPageClient() {
         const separator = newUrl.includes('?') ? '&' : '?';
         const fetchUrl = `${newUrl}${separator}format=json`;
 
-        const response = await fetch(fetchUrl);
+        const response = await fetchApi(fetchUrl);
         const data = await response.json();
         if (requestSeq !== videoUrlRequestSeqRef.current) {
           return;
@@ -2681,7 +2681,7 @@ function PlayPageClient() {
         // 离线下载模式 - 调用服务器API
         try {
           const downloadTitle = `${videoTitle}_第${episodeIndex + 1}集`;
-          const response = await fetch('/api/offline-download', {
+          const response = await fetchApi('/api/offline-download', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -3501,7 +3501,7 @@ function PlayPageClient() {
         if (fileNameParam) {
           url += `&fileName=${encodeURIComponent(fileNameParam)}`;
         }
-        const detailResponse = await fetch(url);
+        const detailResponse = await fetchApi(url);
         if (!detailResponse.ok) {
           throw new Error('获取视频详情失败');
         }
@@ -3705,7 +3705,7 @@ function PlayPageClient() {
         }
 
         // 如果没有缓存，调用 API
-        const response = await fetch(
+        const response = await fetchApi(
           `/api/search?q=${encodeURIComponent(query.trim())}`
         );
         if (!response.ok) {
@@ -4358,7 +4358,7 @@ function PlayPageClient() {
       // 这类源统一通过详情接口补全播放数据
       if (isLazyDetailSource(newDetail.source) && (!newDetail.episodes || newDetail.episodes.length === 0)) {
         try {
-          const detailResponse = await fetch(`/api/source-detail?source=${newSource}&id=${newId}&title=${encodeURIComponent(newTitle)}`);
+          const detailResponse = await fetchApi(`/api/source-detail?source=${newSource}&id=${newId}&title=${encodeURIComponent(newTitle)}`);
           if (detailResponse.ok) {
             const detailData = await detailResponse.json();
             if (!detailData) {
@@ -8374,7 +8374,7 @@ function PlayPageClient() {
                   // 判断是否是m3u8流
                   if (nextEpisodeUrl.includes('.m3u8') || nextEpisodeUrl.includes('m3u8')) {
                     // 1. 先fetch m3u8文件
-                    const m3u8Response = await fetch(nextEpisodeUrl);
+                    const m3u8Response = await fetchApi(nextEpisodeUrl);
                     const m3u8Text = await m3u8Response.text();
 
                     // 2. 解析m3u8，提取ts分片URL
@@ -8400,7 +8400,7 @@ function PlayPageClient() {
 
                     for (let i = 0; i < maxFragmentsToPreload; i++) {
                       try {
-                        await fetch(tsUrls[i]);
+                        await fetchApi(tsUrls[i]);
                       } catch (err) {
                         // 静默处理分片加载失败
                       }

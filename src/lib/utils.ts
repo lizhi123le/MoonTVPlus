@@ -136,6 +136,53 @@ export function getProxyDomain(): string {
   return domain;
 }
 
+/**
+ * 获取随机代理 API 地址
+ */
+export function getApiUrl(path: string): string {
+  if (!path || path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+
+  const proxyDomain = getProxyDomain();
+  if (!proxyDomain) return path;
+
+  // 确保 path 以 / 开头
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${proxyDomain}${normalizedPath}`;
+}
+
+/**
+ * 封装 fetch 用于 API 请求，支持多域名随机化和跨域凭证
+ */
+export async function fetchApi(input: string | Request, init?: RequestInit): Promise<Response> {
+  let url: string;
+  let requestInit = init || {};
+
+  if (typeof input === 'string') {
+    // 只有内部 API 路径才进行随机化
+    if (input.startsWith('/api/') || (!input.startsWith('http') && input.includes('/api/'))) {
+      const randomizedUrl = getApiUrl(input);
+      url = randomizedUrl;
+      
+      // 如果使用了代理域名（跨域），则需要带上凭证
+      if (randomizedUrl.startsWith('http')) {
+        requestInit = {
+          ...requestInit,
+          credentials: requestInit.credentials || 'include',
+        };
+      }
+    } else {
+      url = input;
+    }
+  } else {
+    // 如果是 Request 对象，暂不处理随机化（通常传给 fetch 的都是 string 路径）
+    url = input.url;
+  }
+
+  return fetch(url, requestInit);
+}
+
 export function getDoubanImageFallbackUrl(originalUrl: string): string | null {
   if (!originalUrl || !originalUrl.includes('doubanio.com')) {
     return null;
