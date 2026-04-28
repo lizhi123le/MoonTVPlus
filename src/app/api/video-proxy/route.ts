@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { validateProxyUrlServerSide } from '@/lib/server/ssrf';
+import { getRandomUA } from '@/lib/server/ua';
 
 // 视频代理接口 - 支持 Range 请求和浏览器缓存
 export async function GET(request: Request) {
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
     const range = request.headers.get('range');
 
     const fetchHeaders: Record<string, string> = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+      'User-Agent': getRandomUA(),
       'Accept': 'video/mp4,video/*;q=0.9,*/*;q=0.8',
       'Referer': 'https://movie.douban.com/',
     };

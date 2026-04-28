@@ -12,6 +12,7 @@ import {
 import { getTMDBImageUrl } from '@/lib/tmdb.search';
 import { yellowWords } from '@/lib/yellow';
 import { resolveProxyOrigin } from '@/lib/server/proxy-utils';
+import { getRandomUA } from '@/lib/server/ua';
 
 export const runtime = 'nodejs';
 
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
     try {
       const response = await fetch(targetUrl.toString(), {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'User-Agent': getRandomUA(),
           'Accept': 'application/json',
         },
         signal: controller.signal,

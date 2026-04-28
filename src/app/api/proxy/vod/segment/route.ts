@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { getConfig } from '@/lib/config';
 import { validateProxyUrlServerSide } from '@/lib/server/ssrf';
 import { buildProxyStreamHeaders } from '@/lib/server/proxy-headers';
+import { getRandomUA } from '@/lib/server/ua';
 
 export const runtime = 'nodejs';
 
@@ -53,7 +54,7 @@ export async function GET(request: Request) {
 
     response = await fetch(decodedUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': getRandomUA(),
         'Referer': decodedUrl,
       },
     });

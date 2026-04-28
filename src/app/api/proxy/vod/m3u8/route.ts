@@ -6,6 +6,7 @@ import { getConfig } from "@/lib/config";
 import { getBaseUrl, resolveUrl } from "@/lib/live";
 import { validateProxyUrlServerSide } from '@/lib/server/ssrf';
 import { buildProxyM3u8Headers, buildProxyStreamHeaders } from '@/lib/server/proxy-headers';
+import { getRandomUA } from '@/lib/server/ua';
 
 export const runtime = 'nodejs';
 
@@ -51,7 +52,7 @@ export async function GET(request: Request) {
       redirect: 'follow',
       credentials: 'same-origin',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': getRandomUA(),
         'Referer': decodedUrl,
       },
     });

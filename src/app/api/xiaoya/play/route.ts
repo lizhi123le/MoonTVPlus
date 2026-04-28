@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthInfoFromCookie } from '@/lib/auth';
 import { getConfig } from '@/lib/config';
 import { XiaoyaClient } from '@/lib/xiaoya.client';
+import { getRandomUA } from '@/lib/server/ua';
 
 export const runtime = 'nodejs';
 
@@ -21,7 +22,7 @@ async function getFinalUrl(url: string, maxRedirects = 5): Promise<string> {
         method: 'HEAD',
         redirect: 'manual',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'User-Agent': getRandomUA(),
         },
       });
 
