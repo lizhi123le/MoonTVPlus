@@ -159,6 +159,18 @@ class NoOpStorage implements IStorage {
   async getAllMangaReadRecords(userName: string): Promise<{ [key: string]: MangaReadRecord }> { return this.throwError('getAllMangaReadRecords'); }
   async deleteMangaReadRecord(userName: string, key: string): Promise<void> { return this.throwError('deleteMangaReadRecord'); }
   async cleanupOldMangaReadRecords(userName: string): Promise<void> { return this.throwError('cleanupOldMangaReadRecords'); }
+
+  // 电子书相关
+  async getBookShelf(userName: string, key: string): Promise<BookShelfItem | null> { return this.throwError('getBookShelf'); }
+  async setBookShelf(userName: string, key: string, item: BookShelfItem): Promise<void> { return this.throwError('setBookShelf'); }
+  async getAllBookShelf(userName: string): Promise<{ [key: string]: BookShelfItem }> { return this.throwError('getAllBookShelf'); }
+  async deleteBookShelf(userName: string, key: string): Promise<void> { return this.throwError('deleteBookShelf'); }
+
+  async getBookReadRecord(userName: string, key: string): Promise<BookReadRecord | null> { return this.throwError('getBookReadRecord'); }
+  async setBookReadRecord(userName: string, key: string, record: BookReadRecord): Promise<void> { return this.throwError('setBookReadRecord'); }
+  async getAllBookReadRecords(userName: string): Promise<{ [key: string]: BookReadRecord }> { return this.throwError('getAllBookReadRecords'); }
+  async deleteBookReadRecord(userName: string, key: string): Promise<void> { return this.throwError('deleteBookReadRecord'); }
+  async cleanupOldBookReadRecords(userName: string): Promise<void> { return this.throwError('cleanupOldBookReadRecords'); }
 }
 
 // storage type 常量: 'localstorage' | 'redis' | 'upstash' | 'kvrocks' | 'd1' | 'postgres'，默认 'localstorage'
@@ -866,9 +878,8 @@ export class DbManager {
           user.username,
           password,
           migratedRole,
-          user.tags,
-          (user as any).oidcSub,
-          user.enabledApis
+          user.userGroup ? [user.userGroup] : [],
+          (user as any).oidcSub
         );
 
         // 如果用户被封禁，更新状态

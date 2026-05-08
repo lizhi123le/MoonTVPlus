@@ -135,9 +135,9 @@ export async function POST(request: NextRequest) {
         }
 
         // 清理用户权限
-        adminConfig.UserConfig.Users.forEach(user => {
+        adminConfig.UserConfig.Users.forEach((user: any) => {
           if (user.enabledApis) {
-            user.enabledApis = user.enabledApis.filter(api => api !== key);
+            user.enabledApis = user.enabledApis.filter((api: any) => api !== key);
           }
         });
         break;
@@ -206,9 +206,9 @@ export async function POST(request: NextRequest) {
           }
 
           // 清理用户权限
-          adminConfig.UserConfig.Users.forEach(user => {
+          adminConfig.UserConfig.Users.forEach((user: any) => {
             if (user.enabledApis) {
-              user.enabledApis = user.enabledApis.filter(api => !keysToDelete.includes(api));
+              user.enabledApis = user.enabledApis.filter((api: any) => !keysToDelete.includes(api));
             }
           });
         }

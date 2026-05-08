@@ -665,7 +665,7 @@ const UserConfig = ({ config, role, refreshConfig, usersV2, userPage, userTotalP
     // 计算会受影响的用户数量
     const affectedUsers =
       config?.UserConfig?.Users?.filter(
-        (user) => user.tags && user.tags.includes(groupName)
+        (user) => user.userGroup === groupName
       ) || [];
 
     setDeletingUserGroup({

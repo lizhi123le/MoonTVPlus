@@ -98,6 +98,10 @@ export default async function RootLayout({
   let enableMovieRequest = true;
   let liveEnabled = true;
   let webLiveEnabled = false;
+
+  const authCookie = cookies().get('auth');
+  const authInfo = authCookie ? parseAuthInfo(authCookie.value) : null;
+  const userFeatureAccess = await getUserFeatureAccess(authInfo?.username);
   let customAdFilterVersion = 0;
   let musicFeatureEnabled = false;
   let suwayomiEnabled = false;
@@ -111,10 +115,6 @@ export default async function RootLayout({
     query: string;
   }[];
   if (storageType !== 'localstorage') {
-    const cookieStore = await cookies();
-    const authInfo = parseAuthInfo(cookieStore.get('auth')?.value);
-    userFeatureAccess = await getUserFeatureAccess(authInfo?.username);
-
     const config = await getConfig();
     siteName = config.SiteConfig.SiteName;
     announcement = config.SiteConfig.Announcement;
