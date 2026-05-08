@@ -70,14 +70,14 @@ export interface AdminConfig {
   UserConfig: {
     Users: {
       username: string;
-      role: 'user' | 'admin' | 'owner';
-      banned?: boolean;
-      enabledApis?: string[]; // 优先级高于tags限制
-      tags?: string[]; // 多 tags 取并集限制
+      role: 'owner' | 'admin' | 'user';
+      banned: boolean;
+      userGroup?: string; // 所属用户组名
     }[];
     Tags?: {
       name: string;
       enabledApis: string[];
+      permissions?: string[];
     }[];
   };
   SourceConfig: {
@@ -126,6 +126,7 @@ export interface AdminConfig {
     cacheVersion: number; // CSS版本号（用于缓存控制）
     loginBackgroundImage?: string; // 登录界面背景图
     registerBackgroundImage?: string; // 注册界面背景图
+    homeBackgroundImage?: string; // 首页背景图
     // 进度条图标配置
     progressThumbType?: 'default' | 'preset' | 'custom'; // 图标类型
     progressThumbPresetId?: string; // 预制图标ID
@@ -150,8 +151,34 @@ export interface AdminConfig {
       Enabled: boolean;
       Cookie: string;
       SavePath: string;
-      PlayTempSavePath: string;
-      OpenListTempPath: string;
+    };
+    Mobile?: {
+      Enabled: boolean;
+      Authorization: string;
+    };
+    Baidu?: {
+      Enabled: boolean;
+      Cookie: string;
+    };
+    Tianyi?: {
+      Enabled: boolean;
+      Account: string;
+      Password: string;
+    };
+    Pan123?: {
+      Enabled: boolean;
+      Account: string;
+      Password: string;
+    };
+    UC?: {
+      Enabled: boolean;
+      Cookie: string;
+      Token?: string;
+      SavePath: string;
+    };
+    Pan115?: {
+      Enabled: boolean;
+      Cookie: string;
     };
   };
   AIConfig?: {
