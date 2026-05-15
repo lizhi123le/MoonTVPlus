@@ -7,6 +7,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 
 import { SearchResult } from '@/lib/types';
 
+import CapsuleSwitch from '@/components/CapsuleSwitch';
 import PageLayout from '@/components/PageLayout';
 import VideoCard from '@/components/VideoCard';
 
@@ -28,10 +29,28 @@ function DuanjuPageClient() {
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const loadMoreRef = useRef<HTMLDivElement>(null);
-  const sourceScrollContainerRef = useRef<HTMLDivElement>(null);
-  const isDraggingRef = useRef(false);
-  const startXRef = useRef(0);
-  const scrollLeftRef = useRef(0);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // 保存来源到 localStorage
+  const saveSourceToStorage = (source: string) => {
+    if (!isInitialized) return;
+    try {
+      localStorage.setItem('duanju_lastSource', source);
+    } catch (e) {
+      console.error('[短剧] 保存来源失败:', e);
+    }
+  };
+
+  // 从 localStorage 恢复来源
+  const restoreSourceFromStorage = (): string => {
+    try {
+      if (typeof window === 'undefined') return '';
+      return localStorage.getItem('duanju_lastSource') || '';
+    } catch (e) {
+      console.error('[短剧] 读取来源失败:', e);
+      return '';
+    }
+  };
 
   useEffect(() => {
     const fetchSources = async () => {
@@ -42,8 +61,18 @@ function DuanjuPageClient() {
         if (data.code === 200 && Array.isArray(data.data)) {
           setSources(data.data);
           if (data.data.length > 0) {
-            setSelectedSource(data.data[0].key);
-            setSelectedCategory(data.data[0].typeId || '');
+            const savedSource = restoreSourceFromStorage();
+            const sourceExists = data.data.some((s: DuanjuSource) => s.key === savedSource);
+            
+            if (sourceExists && savedSource) {
+              const source = data.data.find((s: DuanjuSource) => s.key === savedSource);
+              setSelectedSource(savedSource);
+              setSelectedCategory(source?.typeId || '');
+            } else {
+              setSelectedSource(data.data[0].key);
+              setSelectedCategory(data.data[0].typeId || '');
+            }
+            setIsInitialized(true);
           }
         }
       } catch (error) {
@@ -63,6 +92,7 @@ function DuanjuPageClient() {
     setCurrentPage(1);
     setVideos([]);
     setHasMore(true);
+    saveSourceToStorage(sourceKey);
   };
 
   useEffect(() => {
@@ -136,9 +166,6 @@ function DuanjuPageClient() {
 
         <div className='max-w-4xl mx-auto mb-8'>
           <div className='relative'>
-            <div className='text-xs text-gray-500 dark:text-gray-400 mb-2 px-4'>
-              服务
-            </div>
             {isLoadingSources ? (
               <div className='flex items-center justify-center h-12 bg-gray-50/80 rounded-lg border border-gray-200/50 dark:bg-gray-800 dark:border-gray-700'>
                 <Loader2 className='h-5 w-5 animate-spin text-gray-400' />
@@ -153,54 +180,15 @@ function DuanjuPageClient() {
                 </span>
               </div>
             ) : (
-              <div className='relative'>
-                <div
-                  ref={sourceScrollContainerRef}
-                  className='overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing'
-                  onMouseDown={(e) => {
-                    if (!sourceScrollContainerRef.current) return;
-                    isDraggingRef.current = true;
-                    startXRef.current = e.pageX - sourceScrollContainerRef.current.offsetLeft;
-                    scrollLeftRef.current = sourceScrollContainerRef.current.scrollLeft;
-                    sourceScrollContainerRef.current.style.cursor = 'grabbing';
-                    sourceScrollContainerRef.current.style.userSelect = 'none';
-                  }}
-                  onMouseLeave={() => {
-                    if (!sourceScrollContainerRef.current) return;
-                    isDraggingRef.current = false;
-                    sourceScrollContainerRef.current.style.cursor = 'grab';
-                    sourceScrollContainerRef.current.style.userSelect = 'auto';
-                  }}
-                  onMouseUp={() => {
-                    if (!sourceScrollContainerRef.current) return;
-                    isDraggingRef.current = false;
-                    sourceScrollContainerRef.current.style.cursor = 'grab';
-                    sourceScrollContainerRef.current.style.userSelect = 'auto';
-                  }}
-                  onMouseMove={(e) => {
-                    if (!isDraggingRef.current || !sourceScrollContainerRef.current) return;
-                    e.preventDefault();
-                    const x = e.pageX - sourceScrollContainerRef.current.offsetLeft;
-                    const walk = (x - startXRef.current) * 2;
-                    sourceScrollContainerRef.current.scrollLeft = scrollLeftRef.current - walk;
-                  }}
-                >
-                  <div className='flex gap-2 px-4 min-w-min'>
-                    {sources.map((source) => (
-                      <button
-                        key={source.key}
-                        onClick={() => handleSourceChange(source.key)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
-                          selectedSource === source.key
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        {source.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <div className='flex justify-center'>
+                <CapsuleSwitch
+                  options={sources.map((source) => ({
+                    label: source.name,
+                    value: source.key,
+                  }))}
+                  active={selectedSource}
+                  onChange={handleSourceChange}
+                />
               </div>
             )}
           </div>

@@ -41,6 +41,7 @@ import {
   getSkipConfig,
   isFavorited,
   migratePlayRecord,
+  normalizeTitleForKey,
   saveFavorite,
   savePlayRecord,
   saveSkipConfig,
@@ -4173,8 +4174,11 @@ function PlayPageClient() {
           searchType,
         });
         const allRecords = await getAllPlayRecords();
-        const key = generateStorageKey(detailData.source, detailData.id);
-        const record = allRecords[key];
+        // savePlayRecord 以 normalizeTitleForKey(title) 为 key 存储，这里需要用相同方式查找。
+        // 同时兼容旧的 source+id key 格式（向后兼容）。
+        const titleKey = normalizeTitleForKey(detailData.title);
+        const sourceIdKey = generateStorageKey(detailData.source, detailData.id);
+        const record = allRecords[titleKey] || allRecords[sourceIdKey] || null;
 
         // 确定初始集数索引
         let initialIndex = 0;
