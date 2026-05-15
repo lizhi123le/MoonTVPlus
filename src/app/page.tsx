@@ -13,7 +13,7 @@ import {
 import { getDoubanCategories } from '@/lib/douban.client';
 import { getTMDBImageUrl, TMDBItem } from '@/lib/tmdb.client';
 import { DoubanItem } from '@/lib/types';
-import { base58Encode, processImageUrl } from '@/lib/utils';
+import { base58Encode, processImageUrl, fetchApi } from '@/lib/utils';
 
 import AIChatPanel from '@/components/AIChatPanel';
 import BannerCarousel from '@/components/BannerCarousel';
@@ -397,7 +397,7 @@ function HomeClient() {
           }
 
           try {
-            const duanjuResponse = await fetch('/api/duanju/recommends');
+            const duanjuResponse = await fetchApi('/api/duanju/recommends');
             if (duanjuResponse.ok) {
               const duanjuResult = await duanjuResponse.json();
               if (duanjuResult.code === 200 && duanjuResult.data && duanjuResult.data.length > 0) {
@@ -410,7 +410,7 @@ function HomeClient() {
           }
 
           try {
-            const response = await fetch('/api/tmdb/upcoming');
+            const response = await fetchApi('/api/tmdb/upcoming');
             if (response.ok) {
               const result = await response.json();
               if (result.code === 200 && result.data && result.data.length > 0) {

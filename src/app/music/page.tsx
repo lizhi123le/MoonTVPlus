@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import AddToPlaylistModal from '@/components/AddToPlaylistModal';
+import { fetchApi, getDoubanImageFallbackUrl, getProxyDomain, tryApplyDoubanImageFallback } from '@/lib/utils';
 import Toast, { ToastProps } from '@/components/Toast';
 import LyricsPiPWindow from '@/components/LyricsPiPWindow';
 
@@ -351,7 +352,7 @@ export default function MusicPage() {
     songQuality: '128k' | '320k' | 'flac' | 'flac24bit',
     includeUrl = false
   ) => {
-    const response = await fetch('/api/music/v2/play', {
+    const response = await fetchApi('/api/music/v2/play', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -389,7 +390,7 @@ export default function MusicPage() {
     totalDuration: number,
     lastPlayedAt = Date.now()
   ) => {
-    await fetch('/api/music/v2/history', {
+    await fetchApi('/api/music/v2/history', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -490,7 +491,7 @@ export default function MusicPage() {
   useEffect(() => {
     const initializePlayState = async () => {
       try {
-        const response = await fetch('/api/music/v2/history');
+        const response = await fetchApi('/api/music/v2/history');
         const history = await response.json();
         const dbRecords = (history.data?.records || []) as DbRecord[];
 
@@ -702,7 +703,7 @@ export default function MusicPage() {
   const loadPlaylists = async (source: string) => {
     setLoading(true);
     try {
-      const boardsResponse = await fetch(`/api/music/v2/discovery/boards?source=${source}`);
+      const boardsResponse = await fetchApi(`/api/music/v2/discovery/boards?source=${source}`);
       const boardsData = await boardsResponse.json();
 
       if (boardsResponse.ok && boardsData.success) {
@@ -729,7 +730,7 @@ export default function MusicPage() {
     setLoading(true);
     try {
       const source = playlistSource || currentSource;
-      const response = await fetch(
+      const response = await fetchApi(
         `/api/music/v2/discovery/board-songs?source=${source}&boardId=${playlistId}`
       );
       const data = await response.json();
@@ -758,7 +759,7 @@ export default function MusicPage() {
         return;
       }
 
-      await fetch('/api/music/v2/history', { method: 'DELETE' });
+      await fetchApi('/api/music/v2/history', { method: 'DELETE' });
 
       const baseTime = Date.now();
       const recordsToAdd = songs.map((song, i) => ({
@@ -779,7 +780,7 @@ export default function MusicPage() {
         lastQuality: quality,
       }));
 
-      await fetch('/api/music/v2/history', {
+      await fetchApi('/api/music/v2/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ records: recordsToAdd }),
@@ -821,7 +822,7 @@ export default function MusicPage() {
 
     setLoading(true);
     try {
-      const response = await fetch(
+      const response = await fetchApi(
         `/api/music/v2/search?source=${currentSource}&q=${encodeURIComponent(searchKeyword)}&page=1&limit=20`
       );
       const data = await response.json();
@@ -886,7 +887,7 @@ export default function MusicPage() {
   const loadUserPlaylists = async () => {
     try {
       setLoadingUserPlaylists(true);
-      const response = await fetch('/api/music/v2/playlists');
+      const response = await fetchApi('/api/music/v2/playlists');
       if (response.ok) {
         const data = await response.json();
         setUserPlaylists(data.data?.playlists || []);
@@ -902,7 +903,7 @@ export default function MusicPage() {
   const loadUserPlaylistSongs = async (playlistId: string) => {
     try {
       setLoadingUserPlaylistSongs(true);
-      const response = await fetch(`/api/music/v2/playlists/${playlistId}/songs`);
+      const response = await fetchApi(`/api/music/v2/playlists/${playlistId}/songs`);
       if (response.ok) {
         const data = await response.json();
         setUserPlaylistSongs((data.data?.songs || []).map((song: any) => ({
@@ -940,7 +941,7 @@ export default function MusicPage() {
     setLoadingPlayAll(true);
     try {
       // 1. 清空所有播放历史
-      await fetch('/api/music/v2/history', { method: 'DELETE' });
+      await fetchApi('/api/music/v2/history', { method: 'DELETE' });
 
       // 2. 清空本地状态
       setPlayRecords([]);
@@ -967,7 +968,7 @@ export default function MusicPage() {
       }));
 
       // 一次性批量添加所有歌曲
-      const response = await fetch('/api/music/v2/history', {
+      const response = await fetchApi('/api/music/v2/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1045,7 +1046,7 @@ export default function MusicPage() {
         // 然后执行删除
         setDeletingPlaylistId(playlistId);
         try {
-          const response = await fetch(`/api/music/v2/playlists/${playlistId}`, { method: 'DELETE' });
+          const response = await fetchApi(`/api/music/v2/playlists/${playlistId}`, { method: 'DELETE' });
 
           if (response.ok) {
             setToast({
@@ -1099,7 +1100,7 @@ export default function MusicPage() {
       message: `确定要从歌单中移除 "${song.name}" 吗？`,
       onConfirm: async () => {
         try {
-          const response = await fetch(
+          const response = await fetchApi(
             `/api/music/v2/playlists/${selectedUserPlaylist.id}/songs?songId=${encodeURIComponent(song.id)}`,
             { method: 'DELETE' }
           );
@@ -1393,7 +1394,7 @@ export default function MusicPage() {
       message: '确定要清空全部播放记录吗？',
       onConfirm: async () => {
         try {
-          await fetch('/api/music/v2/history', { method: 'DELETE' });
+          await fetchApi('/api/music/v2/history', { method: 'DELETE' });
           clearCurrentPlaybackState();
           setPlaylist([]);
           setPlayRecords([]);
@@ -2874,7 +2875,7 @@ export default function MusicPage() {
                         onClick={async (e) => {
                           e.stopPropagation();
                           try {
-                            await fetch(`/api/music/v2/history?songId=${encodeURIComponent(song.id)}`, { method: 'DELETE' });
+                            await fetchApi(`/api/music/v2/history?songId=${encodeURIComponent(song.id)}`, { method: 'DELETE' });
 
                             // 更新本地状态
                             const newPlaylist = playlist.filter((_, i) => i !== index);

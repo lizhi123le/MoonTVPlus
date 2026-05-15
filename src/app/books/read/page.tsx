@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { fetchApi } from '@/lib/utils';
 import { saveBookReadRecord } from '@/lib/book.db.client';
 import { BookReadManifest, BookReadRecord, BookTtsProgress, BookTtsVoice } from '@/lib/book.types';
 import {
@@ -331,7 +332,7 @@ async function downloadBookWithProgress(
   manifest: Pick<BookReadManifest, 'book' | 'format' | 'acquisitionHref'>,
   onProgress: (received: number, total: number | null) => void
 ): Promise<Blob> {
-  const response = await fetch('/api/books/file', {
+  const response = await fetchApi('/api/books/file', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -682,7 +683,7 @@ export default function BookReadPage() {
 
   useEffect(() => {
     if (!sourceId || !bookId) return;
-    fetch('/api/books/read/manifest', {
+    fetchApi('/api/books/read/manifest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -709,7 +710,7 @@ export default function BookReadPage() {
   useEffect(() => {
     if (!manifest || manifest.format !== 'epub') return;
     let cancelled = false;
-    fetch('/api/books/tts/voices')
+    fetchApi('/api/books/tts/voices')
       .then(async (res) => {
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || '获取朗读配置失败');
@@ -965,7 +966,7 @@ export default function BookReadPage() {
       return url;
     }
 
-    const response = await fetch('/api/books/tts/synthesize', {
+    const response = await fetchApi('/api/books/tts/synthesize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
