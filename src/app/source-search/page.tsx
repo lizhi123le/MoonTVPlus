@@ -144,9 +144,7 @@ function SourceSearchPageClient() {
 
     const fetchCategories = async () => {
       setIsLoadingCategories(true);
-      setIsInitialized(false); // 切换源时重置初始化状态，防止误保存空分类
       setCategories([]);
-      setSelectedCategory('');
       setVideos([]);
       setCurrentPage(1);
       setHasMore(true);
@@ -274,6 +272,10 @@ function SourceSearchPageClient() {
 
   // 处理源选择
   const handleSourceChange = (value: string, name: string) => {
+    // 立即重置初始化状态和分类，防止在加载新源分类前误保存旧分类
+    setIsInitialized(false);
+    setSelectedCategory('');
+    
     setSelectedSource(value);
     setSelectedSourceName(name);
     setShowCategoryDropdown(true);
