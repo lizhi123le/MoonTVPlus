@@ -277,13 +277,13 @@ const useAlertModal = () => {
     title: '',
   });
 
-  const showAlert = (config: Omit<typeof alertModal, 'isOpen'>) => {
+  const showAlert = useCallback((config: Omit<typeof alertModal, 'isOpen'>) => {
     setAlertModal({ ...config, isOpen: true });
-  };
+  }, []);
 
-  const hideAlert = () => {
+  const hideAlert = useCallback(() => {
     setAlertModal((prev) => ({ ...prev, isOpen: false }));
-  };
+  }, []);
 
   return { alertModal, showAlert, hideAlert };
 };
