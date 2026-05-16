@@ -6011,26 +6011,44 @@ const VideoSourceConfig = ({
     })
   );
 
-  // 初始化 - 合并服务端配置与本地状态，防止覆盖乐观更新的字段
+  // 初始化 - 合并服务端配置与本地状态
+  // 注意：必须保留本地顺序（prev.map）和乐观更新字段（disabled），
+  // 因为 callSourceApi 内部会调用 refreshConfig()，导致此 effect 触发，
+  // 若使用服务端顺序会覆盖拖拽排序结果，服务端的 disabled 字段也会覆盖乐观更新。
   useEffect(() => {
     if (config?.SourceConfig) {
       setSources((prev) => {
-        // 如果 prev 为空（首次加载），直接用服务端数据
+        // 首次加载直接用服务端数据
         if (prev.length === 0) return config.SourceConfig;
-        // 合并：保留本地 proxyMode 等可能在服务端响应中缺失的字段
-        return config.SourceConfig.map((s) => {
-          const prevSource = prev.find((p) => p.key === s.key);
-          if (!prevSource) return s;
+
+        const serverMap = new Map(
+          config.SourceConfig.map((s) => [s.key, s])
+        );
+
+        // ① 保留本地顺序和乐观更新字段，合并服务端字段值
+        const merged = prev.map((p) => {
+          const serverSource = serverMap.get(p.key);
+          if (!serverSource) return p; // 本地有但服务端无——保留
           return {
-            ...s,
-            proxyMode: s.proxyMode ?? prevSource.proxyMode ?? false,
-            weight: s.weight ?? prevSource.weight ?? 0,
+            ...p,                // 本地值优先（保留顺序、乐观更新）
+            ...serverSource,     // 服务端填充缺失字段
+            // 显式处理：本地乐观更新优先于可能滞后的服务端数据
+            disabled: p.disabled,
+            proxyMode: serverSource.proxyMode ?? p.proxyMode ?? false,
+            weight: serverSource.weight ?? p.weight ?? 0,
           };
         });
+
+        // ② 追加服务端新增的源
+        config.SourceConfig.forEach((s) => {
+          if (!merged.find((m) => m.key === s.key)) {
+            merged.push(s);
+          }
+        });
+
+        return merged;
       });
-      // 进入时重置 orderChanged
       setOrderChanged(false);
-      // 重置选择状态
       setSelectedSources(new Set());
     }
   }, [config]);
