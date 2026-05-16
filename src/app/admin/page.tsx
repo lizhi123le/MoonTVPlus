@@ -5759,7 +5759,7 @@ const SortableSourceRow = memo(
   }: {
     source: DataSource;
     selectedSources: Set<string>;
-    handleSelectSource: (key: string, checked: boolean) => void;
+    handleSelectSource: (key: string, checked: boolean, shiftKey?: boolean) => void;
     handleToggleEnable: (key: string) => void;
     handleDelete: (key: string) => void;
     handleToggleProxyMode: (key: string) => void;
@@ -5791,11 +5791,22 @@ const SortableSourceRow = memo(
       <tr
         ref={setNodeRef}
         style={style}
-        className='hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors'
+        className={`transition-colors duration-200 cursor-pointer ${
+          selectedSources.has(source.key)
+            ? 'bg-blue-50 dark:bg-blue-900/30'
+            : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+        }`}
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('button') || target.closest('input') || target.closest('a') || target.closest('.cursor-grab')) {
+            return;
+          }
+          handleSelectSource(source.key, !selectedSources.has(source.key), e.shiftKey);
+        }}
       >
         <td className='w-10 px-1 py-4 text-center'>
           <div
-            className='inline-flex items-center justify-center cursor-grab text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+            className='cursor-grab inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
             style={{ touchAction: 'none' }}
             {...attributes}
             {...listeners}
@@ -5808,7 +5819,11 @@ const SortableSourceRow = memo(
             type='checkbox'
             checked={selectedSources.has(source.key)}
             onChange={(e) =>
-              handleSelectSource(source.key, e.target.checked)
+              handleSelectSource(
+                source.key,
+                e.target.checked,
+                (e.nativeEvent as any).shiftKey || false
+              )
             }
             className='w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
           />
@@ -5954,6 +5969,7 @@ const VideoSourceConfig = ({
   const [selectedSources, setSelectedSources] = useState<Set<string>>(
     new Set()
   );
+  const [lastSelectedIdx, setLastSelectedIdx] = useState<number | null>(null);
 
   // 使用 useMemo 计算全选状态，避免每次渲染都重新计算
   const selectAll = useMemo(() => {
@@ -6727,19 +6743,38 @@ const VideoSourceConfig = ({
     });
   }, [sources, saveScrollPosition]);
 
-  // 单个选择
-  const handleSelectSource = useCallback((key: string, checked: boolean) => {
+  // 单个选择/按住Shift多选
+  const handleSelectSource = useCallback((key: string, checked: boolean, shiftKey?: boolean) => {
     saveScrollPosition();
+    const currentIndex = sources.findIndex((s) => s.key === key);
+    if (currentIndex === -1) return;
+
     setSelectedSources((prev) => {
       const newSelected = new Set(prev);
-      if (checked) {
-        newSelected.add(key);
+      
+      if (shiftKey && lastSelectedIdx !== null) {
+        const start = Math.min(lastSelectedIdx, currentIndex);
+        const end = Math.max(lastSelectedIdx, currentIndex);
+        
+        for (let i = start; i <= end; i++) {
+          const targetKey = sources[i].key;
+          if (checked) {
+            newSelected.add(targetKey);
+          } else {
+            newSelected.delete(targetKey);
+          }
+        }
       } else {
-        newSelected.delete(key);
+        if (checked) {
+          newSelected.add(key);
+        } else {
+          newSelected.delete(key);
+        }
       }
       return newSelected;
     });
-  }, []);
+    setLastSelectedIdx(currentIndex);
+  }, [sources, lastSelectedIdx, saveScrollPosition]);
 
   // 批量操作
   const handleBatchOperation = async (
