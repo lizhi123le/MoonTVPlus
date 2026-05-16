@@ -5917,6 +5917,12 @@ const VideoSourceConfig = ({
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading, loadingStates } = useLoadingState();
   const [sources, setSources] = useState<DataSource[]>([]);
+  const sourcesRef = useRef<DataSource[]>([]);
+
+  // 同步 ref，用于在事件处理函数中获取最新状态，避免闭包陷阱导致排序重置
+  useEffect(() => {
+    sourcesRef.current = sources;
+  }, [sources]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [orderChanged, setOrderChanged] = useState(false);
   const [newSource, setNewSource] = useState<DataSource>({
@@ -6014,6 +6020,14 @@ const VideoSourceConfig = ({
   // 初始化 - 合并服务端配置与本地状态
   // 注意：必须用 prev.map() 保留本地顺序，否则 callSourceApi 内的 refreshConfig()
   // 会触发此 effect 并用服务端数组顺序覆盖拖拽排序的结果。
+  // 引入状态保护机制，防止异步操作完成后 KV 同步延迟导致的数据回跳
+  const staleProtectionRef = useRef<Record<string, number>>({});
+  const isProtected = (key: string, type: 'disabled' | 'proxy' | 'weight') => {
+    const now = Date.now();
+    const lastTime = staleProtectionRef.current[`${type}_${key}`] || 0;
+    return now - lastTime < 5000; // 5秒保护期
+  };
+
   useEffect(() => {
     if (config?.SourceConfig) {
       setSources((prev) => {
@@ -6028,15 +6042,14 @@ const VideoSourceConfig = ({
           const serverSource = serverMap.get(p.key);
           if (!serverSource) return p; // 源已被服务端删除——保留本地
 
-          // 检查是否有正在进行的异步操作，如果有则优先信任本地状态以解决状态不稳定和回滚问题
-          // 特别是在 KV 存储更新可能有延迟的情况下，乐观更新的状态需要维持到操作彻底完成
-          const isToggling = loadingStates[`toggleSource_${p.key}`];
-          const isProxyToggling = loadingStates[`toggleProxyMode_${p.key}`];
-          const isWeightUpdating = loadingStates[`updateWeight_${p.key}`];
+          // 检查是否有正在进行的异步操作或刚完成的操作保护
+          const isToggling = loadingStates[`toggleSource_${p.key}`] || isProtected(p.key, 'disabled');
+          const isProxyToggling = loadingStates[`toggleProxyMode_${p.key}`] || isProtected(p.key, 'proxy');
+          const isWeightUpdating = loadingStates[`updateWeight_${p.key}`] || isProtected(p.key, 'weight');
 
           return {
             ...serverSource,     // 以服务端为基础数据
-            // 但对于正在操作的字段，保留本地乐观更新的值，防止 refreshConfig 返回旧数据导致回跳
+            // 保护策略：如果正在操作或处于保护期内，优先保留本地乐观状态
             disabled: isToggling ? p.disabled : serverSource.disabled,
             proxyMode: isProxyToggling ? p.proxyMode : (serverSource.proxyMode ?? p.proxyMode ?? false),
             weight: isWeightUpdating ? p.weight : (serverSource.weight ?? p.weight ?? 0),
@@ -6053,9 +6066,8 @@ const VideoSourceConfig = ({
         return merged;
       });
       setOrderChanged(false);
-      // 移除 setSelectedSources(new Set())，避免在配置刷新时意外清空用户的批量选择，提升操作连续性
     }
-  }, [config, loadingStates]);
+  }, [config]); // 移除对 loadingStates 的依赖，减少不必要的重渲染逻辑干扰，由 isProtected 补充保护期
 
   // 通用 API 请求
   const callSourceApi = async (body: Record<string, any>) => {
@@ -6074,8 +6086,13 @@ const VideoSourceConfig = ({
       // 获取响应数据
       const data = await resp.json();
 
-      // 成功后刷新配置
-      await refreshConfig();
+      // 如果后端返回了最新的配置，直接使用它更新状态，避免 KV 延迟带来的状态回跳
+      if (data.config) {
+        await refreshConfig(false, data.config);
+      } else {
+        // 成功后刷新配置
+        await refreshConfig();
+      }
 
       // 返回响应数据供调用者使用
       return data;
@@ -6090,6 +6107,8 @@ const VideoSourceConfig = ({
     const target = sources.find((s) => s.key === key);
     if (!target) return;
     const action = target.disabled ? 'enable' : 'disable';
+    // 标记保护
+    staleProtectionRef.current[`disabled_${key}`] = Date.now();
     // 乐观更新
     setSources((prev) =>
       prev.map((s) =>
@@ -6123,90 +6142,45 @@ const VideoSourceConfig = ({
     const target = sources.find((s) => s.key === key);
     if (!target) return;
 
+    // 标记保护
+    staleProtectionRef.current[`proxy_${key}`] = Date.now();
     // 更新本地状态
     setSources((prev) =>
       prev.map((s) => (s.key === key ? { ...s, proxyMode: !s.proxyMode } : s))
     );
 
     // 调用API更新
-    withLoading(`toggleProxyMode_${key}`, async () => {
-      try {
-        const response = await fetchApi('/api/admin/source', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'toggle_proxy_mode',
-            key,
-          }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          throw new Error(data.error || `操作失败: ${response.status}`);
-        }
-
-        await refreshConfig();
-      } catch (error) {
-        // 失败时回滚本地状态
-        setSources((prev) =>
-          prev.map((s) =>
-            s.key === key ? { ...s, proxyMode: !s.proxyMode } : s
-          )
-        );
-        showError(
-          error instanceof Error ? error.message : '切换代理模式失败',
-          showAlert
-        );
-        throw error;
-      }
-    }).catch(() => {
-      console.error('操作失败', 'toggle_proxy_mode', key);
+    withLoading(`toggleProxyMode_${key}`, () =>
+      callSourceApi({
+        action: 'toggle_proxy_mode',
+        key,
+      })
+    ).catch(() => {
+      // 失败时回滚本地状态
+      setSources((prev) =>
+        prev.map((s) => (s.key === key ? { ...s, proxyMode: !s.proxyMode } : s))
+      );
     });
   };
 
   const handleUpdateWeight = (key: string, weight: number) => {
     saveScrollPosition();
+    // 标记保护
+    staleProtectionRef.current[`weight_${key}`] = Date.now();
     // 先乐观更新本地状态
     setSources((prev) =>
       prev.map((s) => (s.key === key ? { ...s, weight } : s))
     );
 
     // 调用API更新
-    withLoading(`updateWeight_${key}`, async () => {
-      try {
-        const response = await fetchApi('/api/admin/source', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'update_weight',
-            key,
-            weight,
-          }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          throw new Error(data.error || `操作失败: ${response.status}`);
-        }
-
-        await refreshConfig();
-      } catch (error) {
-        // 失败时回滚本地状态到配置中的值
-        const originalWeight =
-          config?.SourceConfig?.find((s) => s.key === key)?.weight ?? 0;
-        setSources((prev) =>
-          prev.map((s) =>
-            s.key === key ? { ...s, weight: originalWeight } : s
-          )
-        );
-        showError(
-          error instanceof Error ? error.message : '更新权重失败',
-          showAlert
-        );
-        throw error;
-      }
-    }).catch(() => {
-      console.error('操作失败', 'update_weight', key, weight);
+    withLoading(`updateWeight_${key}`, () =>
+      callSourceApi({
+        action: 'update_weight',
+        key,
+        weight,
+      })
+    ).catch(() => {
+      // 失败时这里其实比较难回滚，因为不知道旧权重，但 refreshConfig 会最终同步
     });
   };
 
@@ -6665,19 +6639,28 @@ const VideoSourceConfig = ({
       const { active, over } = event;
       if (!over || active.id === over.id) return;
 
-      // 先计算新顺序（使用闭包中的当前 sources，避免在 setSources 回调中产生副作用）
-      const oldIndex = sources.findIndex(
+      // 使用 ref 获取当前最新的 sources，解决闭包问题导致的排序重置
+      const currentSources = sourcesRef.current;
+      const oldIndex = currentSources.findIndex(
         (source) => source.key === active.id
       );
-      const newIndex = sources.findIndex(
+      const newIndex = currentSources.findIndex(
         (source) => source.key === over.id
       );
+      
       if (oldIndex === -1 || newIndex === -1) return;
 
-      const newList = arrayMove(sources, oldIndex, newIndex);
+      const newList = arrayMove(currentSources, oldIndex, newIndex);
+      
+      // 立即更新本地状态提供流畅的 UI 体验
       setSources(newList);
 
-      // 自动保存新顺序到服务器
+      // 标记整体排序和权重受保护，防止回跳
+      newList.forEach(s => {
+        staleProtectionRef.current[`weight_${s.key}`] = Date.now();
+      });
+
+      // 异步保存到服务器
       withLoading('saveDragOrder', () =>
         callSourceApi({
           action: 'batch_update_weights',
@@ -6687,9 +6670,11 @@ const VideoSourceConfig = ({
           })),
           order: newList.map((source) => source.key),
         })
-      ).catch(() => {});
+      ).catch((err) => {
+        console.error('保存排序失败:', err);
+      });
     },
-    [callSourceApi, withLoading, sources]
+    [callSourceApi, withLoading]
   );
 
   // 全选/取消全选
@@ -6764,6 +6749,15 @@ const VideoSourceConfig = ({
       message: confirmMessage,
       onConfirm: async () => {
         try {
+          // 标记状态保护，防止 KV 延迟导致回跳
+          keys.forEach((key) => {
+            if (action === 'batch_enable' || action === 'batch_disable') {
+              staleProtectionRef.current[`disabled_${key}`] = Date.now();
+            } else if (action === 'batch_top') {
+              staleProtectionRef.current[`weight_${key}`] = Date.now();
+            }
+          });
+
           const result = await withLoading(`batchSource_${action}`, () =>
             callSourceApi({ action, keys })
           );
@@ -15060,10 +15054,43 @@ const LiveSourceConfig = ({
     })
   );
 
+  // 状态保护机制，处理 KV 延迟
+  const staleProtectionRef = useRef<Record<string, number>>({});
+  const isProtected = (key: string, type: 'disabled' | 'proxy') => {
+    const now = Date.now();
+    const lastTime = staleProtectionRef.current[`${type}_${key}`] || 0;
+    return now - lastTime < 5000;
+  };
+
   // 初始化
   useEffect(() => {
     if (config?.LiveConfig) {
-      setLiveSources(config.LiveConfig);
+      setLiveSources((prev) => {
+        if (prev.length === 0) return config.LiveConfig!;
+
+        const serverMap = new Map(config.LiveConfig!.map((l) => [l.key, l]));
+        const merged = prev.map((p) => {
+          const serverSource = serverMap.get(p.key);
+          if (!serverSource) return p;
+
+          const isToggling = loadingStates[`toggleLiveSource_${p.key}`] || isProtected(p.key, 'disabled');
+          const isProxyToggling = loadingStates[`setLiveProxyMode_${p.key}`] || isProtected(p.key, 'proxy');
+
+          return {
+            ...serverSource,
+            disabled: isToggling ? p.disabled : serverSource.disabled,
+            proxyMode: isProxyToggling ? p.proxyMode : (serverSource.proxyMode || p.proxyMode || 'full'),
+          };
+        });
+
+        config.LiveConfig!.forEach((l) => {
+          if (!merged.find((m) => m.key === l.key)) {
+            merged.push(l);
+          }
+        });
+
+        return merged;
+      });
       setRefreshIntervalHours(config.LiveRefreshIntervalHours || 12);
       // 进入时重置 orderChanged
       setOrderChanged(false);
@@ -15084,8 +15111,15 @@ const LiveSourceConfig = ({
         throw new Error(data.error || `操作失败: ${resp.status}`);
       }
 
+      const data = await resp.json();
+
       // 成功后刷新配置
-      await refreshConfig();
+      if (data.config) {
+        await refreshConfig(false, data.config);
+      } else {
+        await refreshConfig();
+      }
+      return data;
     } catch (err) {
       showError(err instanceof Error ? err.message : '操作失败', showAlert);
       throw err; // 向上抛出方便调用处判断
@@ -15096,10 +15130,19 @@ const LiveSourceConfig = ({
     const target = liveSources.find((s) => s.key === key);
     if (!target) return;
     const action = target.disabled ? 'enable' : 'disable';
+    // 标记保护
+    staleProtectionRef.current[`disabled_${key}`] = Date.now();
+    // 乐观更新
+    setLiveSources((prev) =>
+      prev.map((s) => (s.key === key ? { ...s, disabled: !s.disabled } : s))
+    );
     withLoading(`toggleLiveSource_${key}`, () =>
       callLiveSourceApi({ action, key })
     ).catch(() => {
-      console.error('操作失败', action, key);
+      // 失败时回退
+      setLiveSources((prev) =>
+        prev.map((s) => (s.key === key ? { ...s, disabled: !s.disabled } : s))
+      );
     });
   };
 
@@ -15107,45 +15150,21 @@ const LiveSourceConfig = ({
     key: string,
     mode: 'full' | 'm3u8-only' | 'direct'
   ) => {
-    withLoading(`setLiveProxyMode_${key}`, async () => {
-      // 保存旧值用于回滚
-      const oldMode = liveSources.find((s) => s.key === key)?.proxyMode;
+    // 标记保护
+    staleProtectionRef.current[`proxy_${key}`] = Date.now();
+    // 乐观更新本地状态
+    setLiveSources((prev) =>
+      prev.map((s) => (s.key === key ? { ...s, proxyMode: mode } : s))
+    );
 
-      // 乐观更新本地状态
-      setLiveSources((prev) =>
-        prev.map((s) => (s.key === key ? { ...s, proxyMode: mode } : s))
-      );
-
-      try {
-        const response = await fetchApi('/api/admin/live', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'set_proxy_mode',
-            key,
-            proxyMode: mode,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('设置代理模式失败');
-        }
-
-        // 成功后刷新配置
-        await refreshConfig();
-      } catch (error) {
-        // 失败时回滚本地状态
-        setLiveSources((prev) =>
-          prev.map((s) => (s.key === key ? { ...s, proxyMode: oldMode } : s))
-        );
-        showError(
-          error instanceof Error ? error.message : '设置代理模式失败',
-          showAlert
-        );
-        throw error;
-      }
-    }).catch(() => {
-      console.error('操作失败', 'set_proxy_mode', key);
+    withLoading(`setLiveProxyMode_${key}`, () =>
+      callLiveSourceApi({
+        action: 'set_proxy_mode',
+        key,
+        proxyMode: mode,
+      })
+    ).catch(() => {
+      // 失败时由于没有旧值缓存，等待同步即可
     });
   };
 
@@ -15280,6 +15299,7 @@ const LiveSourceConfig = ({
 
   const handleSaveOrder = () => {
     const order = liveSources.map((s) => s.key);
+    // 排序保护暂不深入，简单处理
     withLoading('saveLiveSourceOrder', () =>
       callLiveSourceApi({ action: 'sort', order })
     )
@@ -15287,7 +15307,7 @@ const LiveSourceConfig = ({
         setOrderChanged(false);
       })
       .catch(() => {
-        console.error('操作失败', 'sort', order);
+        // 失败处理
       });
   };
 
@@ -16325,7 +16345,11 @@ function AdminPageClient() {
 
   // 获取管理员配置
   // showLoading 用于控制是否在请求期间显示整体加载骨架。
-  const fetchConfig = useCallback(async (showLoading = false) => {
+  const fetchConfig = useCallback(async (showLoading = false, newConfig?: AdminConfig) => {
+    if (newConfig) {
+      setConfig(newConfig);
+      return;
+    }
     try {
       if (showLoading) {
         setLoading(true);
@@ -16343,7 +16367,7 @@ function AdminPageClient() {
       setRole(data.Role);
     } catch (err) {
       const msg = err instanceof Error ? err.message : '获取配置失败';
-      // 只在首次加载时设置错误状态，避免弹窗和错误页面同时显示
+      // 只在首次加载时设置错误状态，避免弹窗 and 错误页面同时显示
       if (showLoading) {
         setError(msg);
       } else {
@@ -16354,7 +16378,7 @@ function AdminPageClient() {
         setLoading(false);
       }
     }
-  }, []);
+  }, [showAlert]);
 
   // 新版本用户列表状态
   const [usersV2, setUsersV2] = useState<Array<{

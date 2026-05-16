@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getAuthInfoFromCookie } from '@/lib/auth';
-import { getConfig } from '@/lib/config';
+import { clearConfigCache, getConfig } from '@/lib/config';
 import { db } from '@/lib/db';
 import { deleteCachedLiveChannels, refreshLiveChannels } from '@/lib/live';
 
@@ -171,8 +171,10 @@ export async function POST(request: NextRequest) {
 
     // 保存配置
     await db.saveAdminConfig(config);
+    // 清除本地缓存
+    await clearConfigCache();
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, config });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : '操作失败' },

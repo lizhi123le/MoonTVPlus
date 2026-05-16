@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getAuthInfoFromCookie } from '@/lib/auth';
-import { getConfig } from '@/lib/config';
+import { clearConfigCache, getConfig } from '@/lib/config';
 import { db } from '@/lib/db';
 
 export const runtime = 'nodejs';
@@ -397,6 +397,8 @@ export async function POST(request: NextRequest) {
 
     // 持久化到存储
     await db.saveAdminConfig(adminConfig);
+    // 清除本地缓存，确保后续请求（包括其他节点的请求）能获取到最新配置
+    await clearConfigCache();
 
     // 清除短剧视频源缓存（因为视频源发生了变动）
     try {
@@ -408,7 +410,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 构建响应数据
-    const responseData: Record<string, any> = { ok: true };
+    const responseData: Record<string, any> = { 
+      ok: true,
+      config: adminConfig // 返回更新后的完整配置供前端同步
+    };
 
     // 如果是批量删除操作，包含统计信息
     if (action === 'batch_delete' && (body as any)._batchDeleteResult) {
