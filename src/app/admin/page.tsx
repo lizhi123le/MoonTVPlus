@@ -501,7 +501,7 @@ const CollapsibleTab = ({
 interface UserConfigProps {
   config: AdminConfig | null;
   role: 'owner' | 'admin' | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
   usersV2: Array<{
     username: string;
     role: 'owner' | 'admin' | 'user';
@@ -3062,7 +3062,7 @@ const OpenListConfigComponent = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -3846,7 +3846,7 @@ const NetDiskConfigComponent = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -4704,7 +4704,7 @@ const EmbyConfigComponent = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -5912,7 +5912,7 @@ const VideoSourceConfig = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading, loadingStates } = useLoadingState();
@@ -7388,7 +7388,7 @@ const CategoryConfig = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -8364,7 +8364,7 @@ const ConfigFileComponent = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -8753,7 +8753,7 @@ const ThemeConfigComponent = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -9576,7 +9576,7 @@ const SiteConfigComponent = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -10838,7 +10838,7 @@ const RegistrationConfigComponent = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -11740,7 +11740,7 @@ const CustomAdFilterConfig = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -12016,7 +12016,7 @@ const SuwayomiConfigComponent = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -12319,7 +12319,7 @@ const OPDSConfigComponent = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -13262,7 +13262,7 @@ const XiaoyaConfigComponent = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -13507,7 +13507,7 @@ const EmailConfigComponent = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -13922,7 +13922,7 @@ const MovieRequestsComponent = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -14220,7 +14220,7 @@ const AIConfigComponent = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -14813,7 +14813,7 @@ const MusicConfigComponent = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
@@ -15018,10 +15018,10 @@ const LiveSourceConfig = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
-  const { isLoading, withLoading } = useLoadingState();
+  const { isLoading, withLoading, loadingStates } = useLoadingState();
   const [liveSources, setLiveSources] = useState<LiveDataSource[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingLiveSource, setEditingLiveSource] =
@@ -15801,7 +15801,7 @@ const WebLiveConfig = ({
   refreshConfig,
 }: {
   config: AdminConfig | null;
-  refreshConfig: () => Promise<void>;
+  refreshConfig: (showLoading?: boolean, newConfig?: AdminConfig) => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
