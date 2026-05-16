@@ -75,6 +75,22 @@ import DataMigration from '@/components/DataMigration';
 import PageLayout from '@/components/PageLayout';
 import { fetchApi } from '@/lib/utils';
 
+// 全局 API 请求队列，确保并发操作不会导致 KV 配置被覆盖或引发数据竞争
+let globalConfigUpdateQueue = Promise.resolve<any>(undefined);
+
+const enqueueConfigUpdate = <T,>(operation: () => Promise<T>): Promise<T> => {
+  return new Promise((resolve, reject) => {
+    globalConfigUpdateQueue = globalConfigUpdateQueue.then(async () => {
+      try {
+        const result = await operation();
+        resolve(result);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  });
+};
+
 // 统一按钮样式系统
 const buttonStyles = {
   // 主要操作按钮（蓝色）- 用于配置、设置、确认等
@@ -6071,35 +6087,37 @@ const VideoSourceConfig = ({
 
   // 通用 API 请求
   const callSourceApi = async (body: Record<string, any>) => {
-    try {
-      const resp = await fetchApi('/api/admin/source', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...body }),
-      });
+    return enqueueConfigUpdate(async () => {
+      try {
+        const resp = await fetchApi('/api/admin/source', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...body }),
+        });
 
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => ({}));
-        throw new Error(data.error || `操作失败: ${resp.status}`);
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          throw new Error(data.error || `操作失败: ${resp.status}`);
+        }
+
+        // 获取响应数据
+        const data = await resp.json();
+
+        // 如果后端返回了最新的配置，直接使用它更新状态，避免 KV 延迟带来的状态回跳
+        if (data.config) {
+          await refreshConfig(false, data.config);
+        } else {
+          // 成功后刷新配置
+          await refreshConfig();
+        }
+
+        // 返回响应数据供调用者使用
+        return data;
+      } catch (err) {
+        showError(err instanceof Error ? err.message : '操作失败', showAlert);
+        throw err; // 向上抛出方便调用处判断
       }
-
-      // 获取响应数据
-      const data = await resp.json();
-
-      // 如果后端返回了最新的配置，直接使用它更新状态，避免 KV 延迟带来的状态回跳
-      if (data.config) {
-        await refreshConfig(false, data.config);
-      } else {
-        // 成功后刷新配置
-        await refreshConfig();
-      }
-
-      // 返回响应数据供调用者使用
-      return data;
-    } catch (err) {
-      showError(err instanceof Error ? err.message : '操作失败', showAlert);
-      throw err; // 向上抛出方便调用处判断
-    }
+    });
   };
 
   const handleToggleEnable = (key: string) => {
@@ -15099,31 +15117,33 @@ const LiveSourceConfig = ({
 
   // 通用 API 请求
   const callLiveSourceApi = async (body: Record<string, any>) => {
-    try {
-      const resp = await fetchApi('/api/admin/live', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...body }),
-      });
+    return enqueueConfigUpdate(async () => {
+      try {
+        const resp = await fetchApi('/api/admin/live', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...body }),
+        });
 
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => ({}));
-        throw new Error(data.error || `操作失败: ${resp.status}`);
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          throw new Error(data.error || `操作失败: ${resp.status}`);
+        }
+
+        const data = await resp.json();
+
+        // 成功后刷新配置
+        if (data.config) {
+          await refreshConfig(false, data.config);
+        } else {
+          await refreshConfig();
+        }
+        return data;
+      } catch (err) {
+        showError(err instanceof Error ? err.message : '操作失败', showAlert);
+        throw err; // 向上抛出方便调用处判断
       }
-
-      const data = await resp.json();
-
-      // 成功后刷新配置
-      if (data.config) {
-        await refreshConfig(false, data.config);
-      } else {
-        await refreshConfig();
-      }
-      return data;
-    } catch (err) {
-      showError(err instanceof Error ? err.message : '操作失败', showAlert);
-      throw err; // 向上抛出方便调用处判断
-    }
+    });
   };
 
   const handleToggleEnable = (key: string) => {
@@ -15832,21 +15852,23 @@ const WebLiveConfig = ({
   }, [showDisclaimerModal, countdown]);
 
   const callApi = async (body: Record<string, any>) => {
-    try {
-      const resp = await fetchApi('/api/admin/web-live', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => ({}));
-        throw new Error(data.error || `操作失败: ${resp.status}`);
+    return enqueueConfigUpdate(async () => {
+      try {
+        const resp = await fetchApi('/api/admin/web-live', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          throw new Error(data.error || `操作失败: ${resp.status}`);
+        }
+        await refreshConfig();
+      } catch (err) {
+        showError(err instanceof Error ? err.message : '操作失败', showAlert);
+        throw err;
       }
-      await refreshConfig();
-    } catch (err) {
-      showError(err instanceof Error ? err.message : '操作失败', showAlert);
-      throw err;
-    }
+    });
   };
 
   const handleAdd = () => {
