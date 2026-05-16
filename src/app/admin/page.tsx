@@ -6012,28 +6012,23 @@ const VideoSourceConfig = ({
   );
 
   // 初始化 - 合并服务端配置与本地状态
-  // 注意：必须保留本地顺序（prev.map）和乐观更新字段（disabled），
-  // 因为 callSourceApi 内部会调用 refreshConfig()，导致此 effect 触发，
-  // 若使用服务端顺序会覆盖拖拽排序结果，服务端的 disabled 字段也会覆盖乐观更新。
+  // 注意：必须用 prev.map() 保留本地顺序，否则 callSourceApi 内的 refreshConfig()
+  // 会触发此 effect 并用服务端数组顺序覆盖拖拽排序的结果。
   useEffect(() => {
     if (config?.SourceConfig) {
       setSources((prev) => {
-        // 首次加载直接用服务端数据
         if (prev.length === 0) return config.SourceConfig;
 
         const serverMap = new Map(
           config.SourceConfig.map((s) => [s.key, s])
         );
 
-        // ① 保留本地顺序和乐观更新字段，合并服务端字段值
+        // ① 保留本地顺序（prev），只从服务端合并字段值
         const merged = prev.map((p) => {
           const serverSource = serverMap.get(p.key);
-          if (!serverSource) return p; // 本地有但服务端无——保留
+          if (!serverSource) return p; // 源已被服务端删除——保留本地
           return {
-            ...p,                // 本地值优先（保留顺序、乐观更新）
-            ...serverSource,     // 服务端填充缺失字段
-            // 显式处理：本地乐观更新优先于可能滞后的服务端数据
-            disabled: p.disabled,
+            ...serverSource,     // 服务端为真实数据源（disabled 等字段）
             proxyMode: serverSource.proxyMode ?? p.proxyMode ?? false,
             weight: serverSource.weight ?? p.weight ?? 0,
           };
