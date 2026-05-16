@@ -5915,7 +5915,7 @@ const VideoSourceConfig = ({
   refreshConfig: () => Promise<void>;
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
-  const { isLoading, withLoading } = useLoadingState();
+  const { isLoading, withLoading, loadingStates } = useLoadingState();
   const [sources, setSources] = useState<DataSource[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [orderChanged, setOrderChanged] = useState(false);
@@ -6027,10 +6027,19 @@ const VideoSourceConfig = ({
         const merged = prev.map((p) => {
           const serverSource = serverMap.get(p.key);
           if (!serverSource) return p; // 源已被服务端删除——保留本地
+
+          // 检查是否有正在进行的异步操作，如果有则优先信任本地状态以解决状态不稳定和回滚问题
+          // 特别是在 KV 存储更新可能有延迟的情况下，乐观更新的状态需要维持到操作彻底完成
+          const isToggling = loadingStates[`toggleSource_${p.key}`];
+          const isProxyToggling = loadingStates[`toggleProxyMode_${p.key}`];
+          const isWeightUpdating = loadingStates[`updateWeight_${p.key}`];
+
           return {
-            ...serverSource,     // 服务端为真实数据源（disabled 等字段）
-            proxyMode: serverSource.proxyMode ?? p.proxyMode ?? false,
-            weight: serverSource.weight ?? p.weight ?? 0,
+            ...serverSource,     // 以服务端为基础数据
+            // 但对于正在操作的字段，保留本地乐观更新的值，防止 refreshConfig 返回旧数据导致回跳
+            disabled: isToggling ? p.disabled : serverSource.disabled,
+            proxyMode: isProxyToggling ? p.proxyMode : (serverSource.proxyMode ?? p.proxyMode ?? false),
+            weight: isWeightUpdating ? p.weight : (serverSource.weight ?? p.weight ?? 0),
           };
         });
 
@@ -6044,9 +6053,9 @@ const VideoSourceConfig = ({
         return merged;
       });
       setOrderChanged(false);
-      setSelectedSources(new Set());
+      // 移除 setSelectedSources(new Set())，避免在配置刷新时意外清空用户的批量选择，提升操作连续性
     }
-  }, [config]);
+  }, [config, loadingStates]);
 
   // 通用 API 请求
   const callSourceApi = async (body: Record<string, any>) => {
