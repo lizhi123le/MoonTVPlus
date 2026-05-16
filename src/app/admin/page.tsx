@@ -5728,6 +5728,184 @@ const EmbyConfigComponent = ({
   );
 };
 
+// 可拖拽排序的视频源行组件（定义在 VideoSourceConfig 外部以避免重渲染导致 DOM 重建）
+const SortableSourceRow = memo(
+  ({
+    source,
+    selectedSources,
+    handleSelectSource,
+    handleToggleEnable,
+    handleDelete,
+    handleToggleProxyMode,
+    isLoading,
+    getValidationStatus,
+    buttonStyles,
+  }: {
+    source: DataSource;
+    selectedSources: Set<string>;
+    handleSelectSource: (key: string, checked: boolean) => void;
+    handleToggleEnable: (key: string) => void;
+    handleDelete: (key: string) => void;
+    handleToggleProxyMode: (key: string) => void;
+    isLoading: (key: string) => boolean;
+    getValidationStatus: (
+      sourceKey: string
+    ) => {
+      text: string;
+      className: string;
+      icon: string;
+      message: string;
+    } | null;
+    buttonStyles: Record<string, string>;
+  }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+    } = useSortable({ id: source.key });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+    } as React.CSSProperties;
+
+    return (
+      <tr
+        ref={setNodeRef}
+        style={style}
+        className='hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors'
+      >
+        <td className='w-10 px-1 py-4 text-center'>
+          <div
+            className='inline-flex items-center justify-center cursor-grab text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+            style={{ touchAction: 'none' }}
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical size={16} />
+          </div>
+        </td>
+        <td className='w-12 px-1 py-4 text-center'>
+          <input
+            type='checkbox'
+            checked={selectedSources.has(source.key)}
+            onChange={(e) =>
+              handleSelectSource(source.key, e.target.checked)
+            }
+            className='w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
+          />
+        </td>
+        <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100'>
+          {source.name}
+        </td>
+        <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100'>
+          {source.key}
+        </td>
+        <td
+          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-[12rem] truncate'
+          title={source.api}
+        >
+          {source.api}
+        </td>
+        <td
+          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-[8rem] truncate'
+          title={source.detail || '-'}
+        >
+          {source.detail || '-'}
+        </td>
+        <td className='px-6 py-4 whitespace-nowrap max-w-[1rem]'>
+          <span
+            className={`px-2 py-1 text-xs rounded-full ${
+              !source.disabled
+                ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300'
+                : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300'
+            }`}
+          >
+            {!source.disabled ? '启用中' : '已禁用'}
+          </span>
+        </td>
+        <td className='px-6 py-4 whitespace-nowrap text-center'>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleProxyMode(source.key);
+            }}
+            disabled={isLoading(`toggleProxyMode_${source.key}`)}
+            className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors ${
+              source.proxyMode
+                ? 'bg-blue-600 dark:bg-blue-500'
+                : 'bg-gray-200 dark:bg-gray-700'
+            } ${
+              isLoading(`toggleProxyMode_${source.key}`)
+                ? 'opacity-50 cursor-not-allowed'
+                : 'cursor-pointer'
+            }`}
+            title={source.proxyMode ? '代理模式已启用' : '代理模式已禁用'}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                source.proxyMode ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </td>
+        <td className='px-6 py-4 whitespace-nowrap max-w-[1rem]'>
+          {(() => {
+            const status = getValidationStatus(source.key);
+            if (!status) {
+              return (
+                <span className='px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-900/20 text-gray-600 dark:text-gray-400'>
+                  未检测
+                </span>
+              );
+            }
+            return (
+              <span
+                className={`px-2 py-1 text-xs rounded-full ${status.className}`}
+                title={status.message}
+              >
+                {status.icon} {status.text}
+              </span>
+            );
+          })()}
+        </td>
+        <td className='px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2'>
+          <button
+            onClick={() => handleToggleEnable(source.key)}
+            disabled={isLoading(`toggleSource_${source.key}`)}
+            className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${
+              !source.disabled
+                ? buttonStyles.roundedDanger
+                : buttonStyles.roundedSuccess
+            } transition-colors ${
+              isLoading(`toggleSource_${source.key}`)
+                ? 'opacity-50 cursor-not-allowed'
+                : ''
+            }`}
+          >
+            {!source.disabled ? '禁用' : '启用'}
+          </button>
+          {source.from !== 'config' && (
+            <button
+              onClick={() => handleDelete(source.key)}
+              disabled={isLoading(`deleteSource_${source.key}`)}
+              className={`${buttonStyles.roundedSecondary} ${
+                isLoading(`deleteSource_${source.key}`)
+                  ? 'opacity-50 cursor-not-allowed'
+                  : ''
+              }`}
+            >
+              删除
+            </button>
+          )}
+        </td>
+      </tr>
+    );
+  }
+);
+
 // 视频源配置组件
 const VideoSourceConfig = ({
   config,
@@ -5813,10 +5991,10 @@ const VideoSourceConfig = ({
     });
   }, []);
 
-  // 监听 sources 变化时恢复滚动位置
+  // 监听 sources 或选择状态变化时恢复滚动位置
   useEffect(() => {
     restoreScrollPosition();
-  }, [sources.length, restoreScrollPosition]);
+  }, [sources.length, restoreScrollPosition, selectedSources.size]);
 
   // dnd-kit 传感器
   const sensors = useSensors(
@@ -5833,10 +6011,23 @@ const VideoSourceConfig = ({
     })
   );
 
-  // 初始化
+  // 初始化 - 合并服务端配置与本地状态，防止覆盖乐观更新的字段
   useEffect(() => {
     if (config?.SourceConfig) {
-      setSources(config.SourceConfig);
+      setSources((prev) => {
+        // 如果 prev 为空（首次加载），直接用服务端数据
+        if (prev.length === 0) return config.SourceConfig;
+        // 合并：保留本地 proxyMode 等可能在服务端响应中缺失的字段
+        return config.SourceConfig.map((s) => {
+          const prevSource = prev.find((p) => p.key === s.key);
+          if (!prevSource) return s;
+          return {
+            ...s,
+            proxyMode: s.proxyMode ?? prevSource.proxyMode ?? false,
+            weight: s.weight ?? prevSource.weight ?? 0,
+          };
+        });
+      });
       // 进入时重置 orderChanged
       setOrderChanged(false);
       // 重置选择状态
@@ -5877,9 +6068,21 @@ const VideoSourceConfig = ({
     const target = sources.find((s) => s.key === key);
     if (!target) return;
     const action = target.disabled ? 'enable' : 'disable';
+    // 乐观更新
+    setSources((prev) =>
+      prev.map((s) =>
+        s.key === key ? { ...s, disabled: !s.disabled } : s
+      )
+    );
     withLoading(`toggleSource_${key}`, () =>
       callSourceApi({ action, key })
     ).catch(() => {
+      // 失败时回滚
+      setSources((prev) =>
+        prev.map((s) =>
+          s.key === key ? { ...s, disabled: !s.disabled } : s
+        )
+      );
       console.error('操作失败', action, key);
     });
   };
@@ -6435,124 +6638,37 @@ const VideoSourceConfig = ({
     }
   );
 
-  const SourceRow = memo(({ source }: { source: DataSource }) => {
-    return (
-      <tr className='hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors'>
-        <td className='px-2 py-4 text-center'>
-          <input
-            type='checkbox'
-            checked={selectedSources.has(source.key)}
-            onChange={(e) => handleSelectSource(source.key, e.target.checked)}
-            className='w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
-          />
-        </td>
-        <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100'>
-          {source.name}
-        </td>
-        <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100'>
-          {source.key}
-        </td>
-        <td
-          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-[12rem] truncate'
-          title={source.api}
-        >
-          {source.api}
-        </td>
-        <td
-          className='px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-[8rem] truncate'
-          title={source.detail || '-'}
-        >
-          {source.detail || '-'}
-        </td>
-        <td className='px-6 py-4 whitespace-nowrap max-w-[1rem]'>
-          <span
-            className={`px-2 py-1 text-xs rounded-full ${
-              !source.disabled
-                ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300'
-                : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300'
-            }`}
-          >
-            {!source.disabled ? '启用中' : '已禁用'}
-          </span>
-        </td>
-        <td className='px-6 py-4 whitespace-nowrap text-center'>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleToggleProxyMode(source.key);
-            }}
-            disabled={isLoading(`toggleProxyMode_${source.key}`)}
-            className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors ${
-              source.proxyMode
-                ? 'bg-blue-600 dark:bg-blue-500'
-                : 'bg-gray-200 dark:bg-gray-700'
-            } ${
-              isLoading(`toggleProxyMode_${source.key}`)
-                ? 'opacity-50 cursor-not-allowed'
-                : 'cursor-pointer'
-            }`}
-            title={source.proxyMode ? '代理模式已启用' : '代理模式已禁用'}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                source.proxyMode ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </td>
-        <td className='px-6 py-4 whitespace-nowrap max-w-[1rem]'>
-          {(() => {
-            const status = getValidationStatus(source.key);
-            if (!status) {
-              return (
-                <span className='px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-900/20 text-gray-600 dark:text-gray-400'>
-                  未检测
-                </span>
-              );
-            }
-            return (
-              <span
-                className={`px-2 py-1 text-xs rounded-full ${status.className}`}
-                title={status.message}
-              >
-                {status.icon} {status.text}
-              </span>
-            );
-          })()}
-        </td>
-        <td className='px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2'>
-          <button
-            onClick={() => handleToggleEnable(source.key)}
-            disabled={isLoading(`toggleSource_${source.key}`)}
-            className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${
-              !source.disabled
-                ? buttonStyles.roundedDanger
-                : buttonStyles.roundedSuccess
-            } transition-colors ${
-              isLoading(`toggleSource_${source.key}`)
-                ? 'opacity-50 cursor-not-allowed'
-                : ''
-            }`}
-          >
-            {!source.disabled ? '禁用' : '启用'}
-          </button>
-          {source.from !== 'config' && (
-            <button
-              onClick={() => handleDelete(source.key)}
-              disabled={isLoading(`deleteSource_${source.key}`)}
-              className={`${buttonStyles.roundedSecondary} ${
-                isLoading(`deleteSource_${source.key}`)
-                  ? 'opacity-50 cursor-not-allowed'
-                  : ''
-              }`}
-            >
-              删除
-            </button>
-          )}
-        </td>
-      </tr>
-    );
-  });
+  const handleSourceDragEnd = useCallback(
+    (event: any) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+
+      // 先计算新顺序（使用闭包中的当前 sources，避免在 setSources 回调中产生副作用）
+      const oldIndex = sources.findIndex(
+        (source) => source.key === active.id
+      );
+      const newIndex = sources.findIndex(
+        (source) => source.key === over.id
+      );
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      const newList = arrayMove(sources, oldIndex, newIndex);
+      setSources(newList);
+
+      // 自动保存新顺序到服务器
+      withLoading('saveDragOrder', () =>
+        callSourceApi({
+          action: 'batch_update_weights',
+          weights: newList.map((source) => ({
+            key: source.key,
+            weight: source.weight ?? 0,
+          })),
+          order: newList.map((source) => source.key),
+        })
+      ).catch(() => {});
+    },
+    [callSourceApi, withLoading, sources]
+  );
 
   // 全选/取消全选
   const handleSelectAll = useCallback(
@@ -6886,49 +7002,78 @@ const VideoSourceConfig = ({
         className='border border-gray-200 dark:border-gray-700 rounded-lg max-h-[28rem] overflow-y-auto overflow-x-auto relative'
         data-table='source-list'
       >
-        <table className='min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
-          <thead className='bg-gray-50 dark:bg-gray-900 sticky top-0 z-10'>
-            <tr>
-              <th className='w-12 px-2 py-3 text-center'>
-                <input
-                  type='checkbox'
-                  checked={selectAll}
-                  onChange={(e) => handleSelectAll(e.target.checked)}
-                  className='w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
-                />
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                名称
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                Key
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                API 地址
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                Detail 地址
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                状态
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                代理模式
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                有效性
-              </th>
-              <th className='px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                操作
-              </th>
-            </tr>
-          </thead>
-          <tbody className='divide-y divide-gray-200 dark:divide-gray-700'>
-            {sources.map((source) => (
-              <SourceRow key={source.key} source={source} />
-            ))}
-          </tbody>
-        </table>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleSourceDragEnd}
+          autoScroll={false}
+          modifiers={[restrictToVerticalAxis]}
+        >
+          <table className='min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
+            <thead className='bg-gray-50 dark:bg-gray-900 sticky top-0 z-10'>
+              <tr>
+                <th className='w-10 px-1 py-3 text-center'>
+                  <span className='text-gray-400 dark:text-gray-500'>
+                    <GripVertical size={14} />
+                  </span>
+                </th>
+                <th className='w-12 px-1 py-3 text-center'>
+                  <input
+                    type='checkbox'
+                    checked={selectAll}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className='w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
+                  />
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  名称
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  Key
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  API 地址
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  Detail 地址
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  状态
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  代理模式
+                </th>
+                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  有效性
+                </th>
+                <th className='px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                  操作
+                </th>
+              </tr>
+            </thead>
+            <SortableContext
+              items={sources.map((s) => s.key)}
+              strategy={verticalListSortingStrategy}
+            >
+              <tbody className='divide-y divide-gray-200 dark:divide-gray-700'>
+                {sources.map((source) => (
+                  <SortableSourceRow
+                    key={source.key}
+                    source={source}
+                    selectedSources={selectedSources}
+                    handleSelectSource={handleSelectSource}
+                    handleToggleEnable={handleToggleEnable}
+                    handleDelete={handleDelete}
+                    handleToggleProxyMode={handleToggleProxyMode}
+                    isLoading={isLoading}
+                    getValidationStatus={getValidationStatus}
+                    buttonStyles={buttonStyles}
+                  />
+                ))}
+              </tbody>
+            </SortableContext>
+          </table>
+        </DndContext>
       </div>
 
       {showWeightModal &&
