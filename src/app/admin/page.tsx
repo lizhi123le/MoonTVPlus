@@ -6372,8 +6372,13 @@ const VideoSourceConfig = ({
       setValidationResults([]); // 清空之前的结果
       setShowValidationModal(false); // 立即关闭弹窗
 
-      // 初始化所有视频源为检测中状态
-      const initialResults = sources.map((source) => ({
+      // 根据是否有选中的源来决定测试列表
+      const targetsToValidate = selectedSources.size > 0 
+        ? sources.filter(s => selectedSources.has(s.key))
+        : sources;
+
+      // 初始化目标视频源为检测中状态
+      const initialResults = targetsToValidate.map((source) => ({
         key: source.key,
         name: source.name,
         status: 'validating' as const,
@@ -6383,11 +6388,14 @@ const VideoSourceConfig = ({
       setValidationResults(initialResults);
 
       try {
+        const queryParams = new URLSearchParams({ q: searchKeyword.trim() });
+        if (selectedSources.size > 0) {
+          queryParams.append('keys', Array.from(selectedSources).join(','));
+        }
+
         // 使用EventSource接收流式数据
         const eventSource = new EventSource(
-          `/api/admin/source/validate?q=${encodeURIComponent(
-            searchKeyword.trim()
-          )}`
+          `/api/admin/source/validate?${queryParams.toString()}`
         );
 
         eventSource.onmessage = (event) => {
@@ -6695,19 +6703,29 @@ const VideoSourceConfig = ({
     [callSourceApi, withLoading]
   );
 
-  // 全选/取消全选
-  const handleSelectAll = useCallback(
-    (checked: boolean) => {
-      saveScrollPosition();
-      if (checked) {
+  // 全选/取消全选/反选
+  const handleSelectAll = useCallback(() => {
+    saveScrollPosition();
+    setSelectedSources((prev) => {
+      if (prev.size === 0) {
+        // 第一次全选
         const allKeys = sources.map((s) => s.key);
-        setSelectedSources(new Set(allKeys));
+        return new Set(allKeys);
+      } else if (prev.size === sources.length) {
+        // 第二次反选（全不选）
+        return new Set();
       } else {
-        setSelectedSources(new Set());
+        // 已选择部分源，点击则反选
+        const newSet = new Set<string>();
+        sources.forEach((s) => {
+          if (!prev.has(s.key)) {
+            newSet.add(s.key);
+          }
+        });
+        return newSet;
       }
-    },
-    [sources]
-  );
+    });
+  }, [sources, saveScrollPosition]);
 
   // 单个选择
   const handleSelectSource = useCallback((key: string, checked: boolean) => {
@@ -7054,8 +7072,13 @@ const VideoSourceConfig = ({
                 <th className='w-12 px-1 py-3 text-center'>
                   <input
                     type='checkbox'
+                    ref={(el) => {
+                      if (el) {
+                        el.indeterminate = selectedSources.size > 0 && selectedSources.size < sources.length;
+                      }
+                    }}
                     checked={selectAll}
-                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    onChange={handleSelectAll}
                     className='w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
                   />
                 </th>

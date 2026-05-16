@@ -30,7 +30,13 @@ export async function GET(request: NextRequest) {
   }
 
   const config = await getConfig();
-  const apiSites = config.SourceConfig;
+  let apiSites = config.SourceConfig;
+
+  const keysParam = searchParams.get('keys');
+  if (keysParam) {
+    const keysArray = keysParam.split(',').filter(Boolean);
+    apiSites = apiSites.filter(site => keysArray.includes(site.key));
+  }
 
   // 共享状态
   let streamClosed = false;
