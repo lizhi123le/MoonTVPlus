@@ -69,6 +69,7 @@ export const API_CONFIG = {
 
 // 在模块加载时根据环境决定配置来源
 let cachedConfig: AdminConfig;
+let lastCacheTime = 0;
 let configInitPromise: Promise<AdminConfig> | null = null;
 
 
@@ -348,14 +349,19 @@ async function getInitConfig(configFile: string, subConfig: {
   return adminConfig;
 }
 
-export async function getConfig(): Promise<AdminConfig> {
+export async function getConfig(forceRefresh = false): Promise<AdminConfig> {
+  const now = Date.now();
+  if (forceRefresh) {
+    configInitPromise = null;
+  }
+
   // 直接使用内存缓存
-  if (cachedConfig) {
+  if (cachedConfig && !forceRefresh && (now - lastCacheTime < 5000)) {
     return cachedConfig;
   }
 
   // 如果正在初始化，等待初始化完成
-  if (configInitPromise) {
+  if (configInitPromise && !forceRefresh) {
     return configInitPromise;
   }
 
@@ -368,6 +374,7 @@ export async function getConfig(): Promise<AdminConfig> {
       console.log('localStorage 模式：从环境变量初始化配置');
       const adminConfig = await getInitConfig("");
       cachedConfig = configSelfCheck(adminConfig);
+      lastCacheTime = Date.now();
       configInitPromise = null;
       return cachedConfig;
     }
@@ -440,6 +447,7 @@ export async function getConfig(): Promise<AdminConfig> {
 
     // 清除初始化 Promise
     configInitPromise = null;
+    lastCacheTime = Date.now();
     return cachedConfig;
   })();
 
@@ -935,4 +943,5 @@ export async function setCachedConfig(config: AdminConfig) {
 export async function clearConfigCache() {
   cachedConfig = null as any;
   configInitPromise = null;
+  lastCacheTime = 0;
 }

@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // 检查用户权限
-    let adminConfig = await getConfig();
+    let adminConfig = await getConfig(true);
 
     // 仅站长可以修改配置文件
     if (username !== process.env.USERNAME) {
