@@ -6054,7 +6054,7 @@ const VideoSourceConfig = ({
   // 会触发此 effect 并用服务端数组顺序覆盖拖拽排序的结果。
   // 引入状态保护机制，防止异步操作完成后 KV 同步延迟导致的数据回跳
   const staleProtectionRef = useRef<Record<string, number>>({});
-  const isProtected = (key: string, type: 'disabled' | 'proxy' | 'weight') => {
+  const isProtected = (key: string, type: 'disabled' | 'proxy' | 'weight' | 'sort') => {
     const now = Date.now();
     const lastTime = staleProtectionRef.current[`${type}_${key}`] || 0;
     return now - lastTime < 5000; // 5秒保护期
@@ -6069,31 +6069,46 @@ const VideoSourceConfig = ({
           config.SourceConfig.map((s) => [s.key, s])
         );
 
-        // ① 保留本地顺序（prev），只从服务端合并字段值
-        const merged = prev.map((p) => {
-          const serverSource = serverMap.get(p.key);
-          if (!serverSource) return p; // 源已被服务端删除——保留本地
+        // ① 如果当前处于拖拽排序或置顶的保护期内，使用本地顺序，防止 KV 同步延迟导致闪烁回跳
+        // 否则使用服务端的最新顺序，以使最新的数据库置顶/排序立刻生效并同步给前端，避免后续操作提交旧的排序覆盖数据库
+        const isSortProtected =
+          loadingStates['sortSource'] ||
+          loadingStates['saveDragOrder'] ||
+          loadingStates['batchSource_batch_top'] ||
+          isProtected('global', 'sort');
+
+        const baseList = isSortProtected ? prev : config.SourceConfig;
+
+        const merged = baseList.map((item) => {
+          // 如果以 prev 为主，就去查找服务端的最新数据合并
+          // 如果以 config 为主，就去查找本地的乐观状态（如开关、代理、权重等）合并
+          const serverSource = isSortProtected ? serverMap.get(item.key) : item;
+          const localSource = isSortProtected ? item : prev.find((p) => p.key === item.key);
+
+          if (!serverSource) return item; // 服务端不存在，保留本地
+          const sourceData = localSource || serverSource;
 
           // 检查是否有正在进行的异步操作或刚完成的操作保护
-          const isToggling = loadingStates[`toggleSource_${p.key}`] || isProtected(p.key, 'disabled');
-          const isProxyToggling = loadingStates[`toggleProxyMode_${p.key}`] || isProtected(p.key, 'proxy');
-          const isWeightUpdating = loadingStates[`updateWeight_${p.key}`] || isProtected(p.key, 'weight');
+          const isToggling = loadingStates[`toggleSource_${serverSource.key}`] || isProtected(serverSource.key, 'disabled');
+          const isProxyToggling = loadingStates[`toggleProxyMode_${serverSource.key}`] || isProtected(serverSource.key, 'proxy');
+          const isWeightUpdating = loadingStates[`updateWeight_${serverSource.key}`] || isProtected(serverSource.key, 'weight');
 
           return {
-            ...serverSource,     // 以服务端为基础数据
-            // 保护策略：如果正在操作或处于保护期内，优先保留本地乐观状态
-            disabled: isToggling ? p.disabled : serverSource.disabled,
-            proxyMode: isProxyToggling ? p.proxyMode : (serverSource.proxyMode ?? p.proxyMode ?? false),
-            weight: isWeightUpdating ? p.weight : (serverSource.weight ?? p.weight ?? 0),
+            ...serverSource,
+            disabled: isToggling ? sourceData.disabled : serverSource.disabled,
+            proxyMode: isProxyToggling ? sourceData.proxyMode : (serverSource.proxyMode ?? sourceData.proxyMode ?? false),
+            weight: isWeightUpdating ? sourceData.weight : (serverSource.weight ?? sourceData.weight ?? 0),
           };
         });
 
-        // ② 追加服务端新增的源
-        config.SourceConfig.forEach((s) => {
-          if (!merged.find((m) => m.key === s.key)) {
-            merged.push(s);
-          }
-        });
+        // ② 追加服务端新增的源（如果是以本地为准时才有必要）
+        if (isSortProtected) {
+          config.SourceConfig.forEach((s) => {
+            if (!merged.find((m) => m.key === s.key)) {
+              merged.push(s);
+            }
+          });
+        }
 
         return merged;
       });
@@ -6701,6 +6716,7 @@ const VideoSourceConfig = ({
       newList.forEach(s => {
         staleProtectionRef.current[`weight_${s.key}`] = Date.now();
       });
+      staleProtectionRef.current['sort_global'] = Date.now();
 
       // 异步保存到服务器
       withLoading('saveDragOrder', () =>
@@ -6714,9 +6730,11 @@ const VideoSourceConfig = ({
         })
       ).catch((err) => {
         console.error('保存排序失败:', err);
+        staleProtectionRef.current['sort_global'] = 0;
+        refreshConfig();
       });
     },
-    [callSourceApi, withLoading]
+    [callSourceApi, withLoading, refreshConfig]
   );
 
   // 全选/取消全选/反选
@@ -6829,6 +6847,16 @@ const VideoSourceConfig = ({
             }
           });
 
+          // 批量置顶时乐观更新前端列表排序
+          if (action === 'batch_top') {
+            setSources((prev) => {
+              const toTop = prev.filter((s) => keys.includes(s.key));
+              const remaining = prev.filter((s) => !keys.includes(s.key));
+              return [...toTop, ...remaining];
+            });
+            staleProtectionRef.current['sort_global'] = Date.now();
+          }
+
           const result = await withLoading(`batchSource_${action}`, () =>
             callSourceApi({ action, keys })
           );
@@ -6874,6 +6902,10 @@ const VideoSourceConfig = ({
           // 重置选择状态
           setSelectedSources(new Set());
         } catch (err) {
+          if (action === 'batch_top') {
+            staleProtectionRef.current['sort_global'] = 0;
+            await refreshConfig();
+          }
           showAlert({
             type: 'error',
             title: `${actionName}失败`,
