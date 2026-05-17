@@ -349,14 +349,21 @@ async function getInitConfig(configFile: string, subConfig: {
   return adminConfig;
 }
 
-export async function getConfig(forceRefresh = false): Promise<AdminConfig> {
+export async function getConfig(forceRefresh = false, ttlMs?: number): Promise<AdminConfig> {
   const now = Date.now();
   if (forceRefresh) {
     configInitPromise = null;
   }
 
   // 直接使用内存缓存
-  if (cachedConfig && !forceRefresh && (now - lastCacheTime < 5000)) {
+  // 正常用户访问（不传递 ttlMs）时，无限期使用缓存以避免重复查询数据库或KV
+  // 管理端访问时，可以通过指定 ttlMs（例如 5000ms）在生存期内使用缓存
+  const isCacheValid =
+    cachedConfig &&
+    !forceRefresh &&
+    (ttlMs === undefined || now - lastCacheTime < ttlMs);
+
+  if (isCacheValid) {
     return cachedConfig;
   }
 

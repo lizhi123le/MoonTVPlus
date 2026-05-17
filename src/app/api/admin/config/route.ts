@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   const username = authInfo.username;
 
   try {
-    const config = await getConfig(true);
+    const config = await getConfig(false, 5000);
     const result: AdminConfigResult = {
       Role: 'owner',
       Config: config,
