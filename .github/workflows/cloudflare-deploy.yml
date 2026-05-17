@@ -255,7 +255,7 @@ jobs:
           # Insert owner user (use ON CONFLICT to handle re-runs)
           wrangler d1 execute "$DATABASE_NAME" --remote --command="
             INSERT INTO users (username, password_hash, role, banned, tags, oidc_sub, enabled_apis, created_at, playrecord_migrated, favorite_migrated, skip_migrated)
-            VALUES ('$USERNAME', '$PASSWORD_HASH', 'owner', 0, NULL, NULL, NULL, \$(date +%s), 1, 1, 1)
+            VALUES ('$USERNAME', '$PASSWORD_HASH', 'owner', 0, NULL, NULL, NULL, $(date +%s), 1, 1, 1)
             ON CONFLICT(username) DO UPDATE SET password_hash = '$PASSWORD_HASH', role = 'owner';
           " || echo "⚠️ Owner user creation may have been skipped (already exists)"
           echo "✅ Initial owner user created/updated"
