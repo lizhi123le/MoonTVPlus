@@ -2790,6 +2790,18 @@ export class D1Storage implements IStorage {
     }
   }
 
+  async getAdminConfigUpdatedAt(): Promise<number | null> {
+    try {
+      const result = await this.db
+        .prepare('SELECT updated_at FROM admin_config WHERE id = 1')
+        .first<{ updated_at: number }>();
+      return result?.updated_at ?? null;
+    } catch (err) {
+      console.error('D1Storage.getAdminConfigUpdatedAt error:', err);
+      return null;
+    }
+  }
+
   async setAdminConfig(config: AdminConfig): Promise<void> {
     try {
       await this.db

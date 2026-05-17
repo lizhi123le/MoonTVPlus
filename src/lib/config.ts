@@ -70,6 +70,7 @@ export const API_CONFIG = {
 // 在模块加载时根据环境决定配置来源
 let cachedConfig: AdminConfig;
 let lastCacheTime = 0;
+let cachedUpdatedAt = 0;
 let configInitPromise: Promise<AdminConfig> | null = null;
 
 
@@ -349,22 +350,36 @@ async function getInitConfig(configFile: string, subConfig: {
   return adminConfig;
 }
 
-export async function getConfig(forceRefresh = false, ttlMs = 300000): Promise<AdminConfig> {
+export async function getConfig(forceRefresh = false, ttlMs = 900000): Promise<AdminConfig> {
   const now = Date.now();
   if (forceRefresh) {
     configInitPromise = null;
   }
 
-  // 直接使用内存缓存
-  // 正常访客请求默认 5 分钟 (300000ms) TTL 自动传播，全球各节点定期同步，且极度节省读配额
+  // 直接使用内存缓存（TTL 内直接返回）
+  // 正常访客请求默认 15 分钟 (900000ms) TTL 自动传播，全球各节点定期同步，且极度节省读配额
   // 管理端访问时，可以通过指定特定的 ttlMs（如 5000ms）实现低频后台读取
-  const isCacheValid =
-    cachedConfig &&
-    !forceRefresh &&
-    (now - lastCacheTime < ttlMs);
-
-  if (isCacheValid) {
+  if (cachedConfig && !forceRefresh && (now - lastCacheTime < ttlMs)) {
     return cachedConfig;
+  }
+
+  // TTL 已过期，先做轻量版本检查（仅查询 updated_at 一列，不读整条配置）
+  // 当配置未被修改时延长缓存窗口，避免全局节点重复读取完整配置
+  if (cachedConfig && !forceRefresh) {
+    const storageType = process.env.NEXT_PUBLIC_STORAGE_TYPE || 'localstorage';
+    if (storageType !== 'localstorage') {
+      try {
+        const updatedAt = await db.getAdminConfigUpdatedAt();
+        if (updatedAt !== null && updatedAt <= cachedUpdatedAt) {
+          // 配置未变更，延长缓存有效期
+          lastCacheTime = now;
+          return cachedConfig;
+        }
+      } catch (e) {
+        // 版本检查失败，继续全量读取
+        console.warn('轻量版本检查失败，将执行全量配置读取:', e);
+      }
+    }
   }
 
   // 如果正在初始化，等待初始化完成
@@ -382,6 +397,7 @@ export async function getConfig(forceRefresh = false, ttlMs = 300000): Promise<A
       const adminConfig = await getInitConfig("");
       cachedConfig = configSelfCheck(adminConfig);
       lastCacheTime = Date.now();
+      cachedUpdatedAt = Date.now();
       configInitPromise = null;
       return cachedConfig;
     }
@@ -417,6 +433,7 @@ export async function getConfig(forceRefresh = false, ttlMs = 300000): Promise<A
 
     adminConfig = configSelfCheck(adminConfig);
     cachedConfig = adminConfig;
+    cachedUpdatedAt = Date.now();
 
     // 如果进行了Emby配置迁移，保存到数据库
     if (!dbReadFailed && needsEmbyMigration) {
@@ -455,6 +472,7 @@ export async function getConfig(forceRefresh = false, ttlMs = 300000): Promise<A
     // 清除初始化 Promise
     configInitPromise = null;
     lastCacheTime = Date.now();
+    cachedUpdatedAt = Date.now();
     return cachedConfig;
   })();
 
@@ -945,10 +963,12 @@ export async function getAvailableApiSites(user?: string): Promise<ApiSite[]> {
 
 export async function setCachedConfig(config: AdminConfig) {
   cachedConfig = config;
+  cachedUpdatedAt = Date.now();
 }
 
 export async function clearConfigCache() {
   cachedConfig = null as any;
   configInitPromise = null;
   lastCacheTime = 0;
+  cachedUpdatedAt = 0;
 }

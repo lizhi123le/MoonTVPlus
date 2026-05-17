@@ -1001,6 +1001,13 @@ export class DbManager {
     }
   }
 
+  async getAdminConfigUpdatedAt(): Promise<number | null> {
+    if (typeof (this.storage as any).getAdminConfigUpdatedAt === 'function') {
+      return (this.storage as any).getAdminConfigUpdatedAt();
+    }
+    return null;
+  }
+
   // ---------- 跳过片头片尾配置 ----------
   async getSkipConfig(
     userName: string,

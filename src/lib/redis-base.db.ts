@@ -1673,10 +1673,29 @@ export abstract class BaseRedisStorage implements IStorage {
     return val ? (JSON.parse(val) as AdminConfig) : null;
   }
 
+  async getAdminConfigUpdatedAt(): Promise<number | null> {
+    try {
+      const val = await this.withRetry(() => this.adapter.get(this.adminConfigMetaUpdatedAtKey()));
+      return val ? Number(val) : null;
+    } catch (err) {
+      console.error('RedisStorage.getAdminConfigUpdatedAt error:', err);
+      return null;
+    }
+  }
+
   async setAdminConfig(config: AdminConfig): Promise<void> {
+    const now = Date.now();
     await this.withRetry(() =>
       this.adapter.set(this.adminConfigKey(), JSON.stringify(config))
     );
+    // 同时在单独的 key 中记录 updated_at，用于轻量版本检查
+    await this.withRetry(() =>
+      this.adapter.set(this.adminConfigMetaUpdatedAtKey(), String(now))
+    );
+  }
+
+  private adminConfigMetaUpdatedAtKey() {
+    return 'admin:config:updated_at';
   }
 
   // ---------- 跳过片头片尾配置 ----------
