@@ -99,6 +99,7 @@ class NoOpStorage implements IStorage {
 
   async getAdminConfig(): Promise<AdminConfig | null> { return this.throwError('getAdminConfig'); }
   async setAdminConfig(config: AdminConfig): Promise<void> { return this.throwError('setAdminConfig'); }
+  async getAdminConfigUpdatedAt(): Promise<number | null> { return this.throwError('getAdminConfigUpdatedAt'); }
 
   async getSkipConfig(userName: string, source: string, id: string): Promise<SkipConfig | null> { return this.throwError('getSkipConfig'); }
   async setSkipConfig(userName: string, source: string, id: string, config: SkipConfig): Promise<void> { return this.throwError('setSkipConfig'); }
