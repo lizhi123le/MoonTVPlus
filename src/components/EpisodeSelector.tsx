@@ -734,8 +734,13 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
             <button
               className='flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-gray-700 hover:text-green-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-green-400 dark:hover:bg-white/20 transition-colors transform translate-y-[-4px]'
               onClick={() => {
-                // 切换集数排序（正序/倒序）
-                setDescending((prev) => !prev);
+                if (descending) {
+                  setDescending(false);
+                  setCurrentPage(0);
+                } else {
+                  setDescending(true);
+                  setCurrentPage(pageCount - 1);
+                }
               }}
             >
               <svg
