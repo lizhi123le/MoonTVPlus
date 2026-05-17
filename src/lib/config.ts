@@ -349,19 +349,19 @@ async function getInitConfig(configFile: string, subConfig: {
   return adminConfig;
 }
 
-export async function getConfig(forceRefresh = false, ttlMs?: number): Promise<AdminConfig> {
+export async function getConfig(forceRefresh = false, ttlMs = 300000): Promise<AdminConfig> {
   const now = Date.now();
   if (forceRefresh) {
     configInitPromise = null;
   }
 
   // 直接使用内存缓存
-  // 正常用户访问（不传递 ttlMs）时，无限期使用缓存以避免重复查询数据库或KV
-  // 管理端访问时，可以通过指定 ttlMs（例如 5000ms）在生存期内使用缓存
+  // 正常访客请求默认 5 分钟 (300000ms) TTL 自动传播，全球各节点定期同步，且极度节省读配额
+  // 管理端访问时，可以通过指定特定的 ttlMs（如 5000ms）实现低频后台读取
   const isCacheValid =
     cachedConfig &&
     !forceRefresh &&
-    (ttlMs === undefined || now - lastCacheTime < ttlMs);
+    (now - lastCacheTime < ttlMs);
 
   if (isCacheValid) {
     return cachedConfig;
