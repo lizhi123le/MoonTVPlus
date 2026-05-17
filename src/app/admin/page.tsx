@@ -5793,7 +5793,7 @@ const SortableSourceRow = memo(
         style={style}
         className={`transition-colors duration-200 cursor-pointer ${
           selectedSources.has(source.key)
-            ? 'bg-blue-50 dark:bg-blue-900/30'
+            ? 'bg-blue-50 dark:bg-blue-500/20'
             : 'hover:bg-gray-50 dark:hover:bg-gray-800'
         }`}
         onClick={(e) => {
