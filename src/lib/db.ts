@@ -735,7 +735,8 @@ export class DbManager {
   async getUserListV2(
     offset = 0,
     limit = 20,
-    ownerUsername?: string
+    ownerUsername?: string,
+    search?: string
   ): Promise<{
     users: Array<{
       username: string;
@@ -749,7 +750,7 @@ export class DbManager {
     total: number;
   }> {
     if (typeof (this.storage as any).getUserListV2 === 'function') {
-      return (this.storage as any).getUserListV2(offset, limit, ownerUsername);
+      return (this.storage as any).getUserListV2(offset, limit, ownerUsername, search);
     }
     return { users: [], total: 0 };
   }
