@@ -12797,7 +12797,7 @@ const OPDSConfigComponent = ({
   const importLegadoSubscription = async () => {
     await withLoading('importLegadoSubscription', async () => {
       try {
-        const response = await fetch('/api/admin/legado-subscriptions/import', {
+        const response = await fetchApi('/api/admin/legado-subscriptions/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: legadoSubscriptionName, url: legadoSubscriptionUrl }),
@@ -12818,7 +12818,7 @@ const OPDSConfigComponent = ({
   const refreshLegadoSubscription = async (id: string) => {
     await withLoading(`refreshLegadoSubscription-${id}`, async () => {
       try {
-        const response = await fetch(`/api/admin/legado-subscriptions/${encodeURIComponent(id)}/refresh`, { method: 'POST' });
+        const response = await fetchApi(`/api/admin/legado-subscriptions/${encodeURIComponent(id)}/refresh`, { method: 'POST' });
         const data = await response.json();
         if (!response.ok || !data.success) throw new Error(data.error || '刷新 Legado 订阅失败');
         showSuccess(`已同步 ${data.subscription?.sourceCount || 0} 个 Legado 书源`, showAlert);
@@ -12833,7 +12833,7 @@ const OPDSConfigComponent = ({
   const deleteLegadoSubscription = async (id: string) => {
     await withLoading(`deleteLegadoSubscription-${id}`, async () => {
       try {
-        const response = await fetch(`/api/admin/legado-subscriptions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        const response = await fetchApi(`/api/admin/legado-subscriptions/${encodeURIComponent(id)}`, { method: 'DELETE' });
         const data = await response.json();
         if (!response.ok || !data.success) throw new Error(data.error || '删除 Legado 订阅失败');
         showSuccess('Legado 订阅已删除', showAlert);
