@@ -1,10 +1,63 @@
 /** @type {import('next').NextConfig} */
 /* eslint-disable @typescript-eslint/no-var-requires */
 
+const { PHASE_DEVELOPMENT_SERVER } = require('next/constants');
+const webpack = require('webpack');
+
 // 检测是否为 Cloudflare Pages 构建
 const isCloudflare = process.env.CF_PAGES === '1' || process.env.BUILD_TARGET === 'cloudflare';
 
-const nextConfig = {
+const optimizedPackageImports = [
+  '@dnd-kit/core',
+  '@dnd-kit/modifiers',
+  '@dnd-kit/sortable',
+  '@dnd-kit/utilities',
+  '@heroicons/react',
+  'lucide-react',
+  'react-icons',
+];
+
+const serverExternalPackages = [
+  '@upstash/redis',
+  // @upstash/redis depends on uncrypto, whose package exports include a
+  // workerd condition. OpenNext needs it traced as a full external package,
+  // otherwise .open-next may contain package.json without dist/crypto.web.mjs.
+  'uncrypto',
+  '@vercel/postgres',
+  'better-sqlite3',
+  'cheerio',
+  'nodemailer',
+  'pg',
+  'redis',
+  'socket.io',
+  'xml2js',
+  'xpath',
+];
+
+// 仅在开发环境或 Cloudflare 环境下排除 6b85c446 和 706b2fe 引入的 external 包；
+// 其它未来加入的 server external 包不受影响。
+const buildExcludedServerExternalPackages = [
+  '@upstash/redis',
+  'uncrypto',
+  '@vercel/postgres',
+  'better-sqlite3',
+  'cheerio',
+  'nodemailer',
+  'pg',
+  'redis',
+  'socket.io',
+  'xml2js',
+  'xpath',
+];
+
+const createNextConfig = (phase) => {
+  const isDevelopment = phase === PHASE_DEVELOPMENT_SERVER || process.env.NODE_ENV === 'development';
+  const effectiveServerExternalPackages =
+    isDevelopment || isCloudflare
+      ? serverExternalPackages.filter((pkg) => !buildExcludedServerExternalPackages.includes(pkg))
+      : serverExternalPackages;
+
+  const nextConfig = {
   // Cloudflare Pages 不支持 standalone，使用默认输出
   output: isCloudflare ? undefined : 'standalone',
   eslint: {
@@ -23,6 +76,11 @@ const nextConfig = {
 
   experimental: {
     instrumentationHook: process.env.NODE_ENV === 'production' && !isCloudflare,
+    optimizePackageImports: optimizedPackageImports,
+    ...(effectiveServerExternalPackages.length
+      ? { serverComponentsExternalPackages: effectiveServerExternalPackages }
+      : {}),
+    webpackBuildWorker: !isCloudflare,
   },
 
   // Uncoment to add domain whitelist
@@ -76,6 +134,26 @@ const nextConfig = {
       crypto: false,
     };
 
+    // Cloudflare 使用 D1，不需要把 better-sqlite3 原生模块带入 Worker 产物。
+    if (isCloudflare) {
+      config.plugins.push(
+        new webpack.IgnorePlugin({
+          resourceRegExp: /^better-sqlite3$/,
+        })
+      );
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'better-sqlite3': false,
+      };
+      config.externals = (config.externals || []).filter((external) => {
+        return !(
+          external &&
+          typeof external === 'object' &&
+          Object.prototype.hasOwnProperty.call(external, 'better-sqlite3')
+        );
+      });
+    }
+
     // Exclude better-sqlite3, D1, and Postgres modules from client-side bundle
     if (!isServer) {
       config.externals = config.externals || [];
@@ -99,39 +177,49 @@ const nextConfig = {
   },
 };
 
-const withPWA = require('next-pwa')({
-  dest: 'public',
-  disable: process.env.NODE_ENV === 'development',
-  register: true,
-  skipWaiting: true,
-  // PWA compilation settings
-  maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB limit
-  runtimeCaching: [
-    {
-      // Cache images
-      urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/,
-      handler: 'CacheFirst',
-      options: {
-        cacheName: 'images',
-        expiration: {
-          maxEntries: 100,
-          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-        },
-      },
-    },
-    {
-      // Cache fonts
-      urlPattern: /\.(?:woff|woff2|ttf|eot)$/,
-      handler: 'CacheFirst',
-      options: {
-        cacheName: 'fonts',
-        expiration: {
-          maxEntries: 50,
-          maxAgeSeconds: 365 * 24 * 60 * 60, // 1 year
-        },
-      },
-    },
-  ],
-});
+  // next-pwa runs an additional webpack pass that is not needed for the
+  // Cloudflare/OpenNext worker bundle and can make Cloudflare builds fail with
+  // a generic "Build failed because of webpack errors" message.
+  if (isDevelopment || isCloudflare) {
+    return nextConfig;
+  }
 
-module.exports = withPWA(nextConfig);
+  const withPWA = require('next-pwa')({
+    dest: 'public',
+    disable: process.env.NODE_ENV === 'development',
+    register: true,
+    skipWaiting: true,
+    // PWA compilation settings
+    maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB limit
+    runtimeCaching: [
+      {
+        // Cache images
+        urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/,
+        handler: 'CacheFirst',
+        options: {
+          cacheName: 'images',
+          expiration: {
+            maxEntries: 100,
+            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+          },
+        },
+      },
+      {
+        // Cache fonts
+        urlPattern: /\.(?:woff|woff2|ttf|eot)$/,
+        handler: 'CacheFirst',
+        options: {
+          cacheName: 'fonts',
+          expiration: {
+            maxEntries: 50,
+            maxAgeSeconds: 365 * 24 * 60 * 60, // 1 year
+          },
+        },
+      },
+    ],
+  });
+
+  return withPWA(nextConfig);
+};
+
+module.exports = createNextConfig;
