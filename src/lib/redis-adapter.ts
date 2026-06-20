@@ -67,6 +67,7 @@ export class StandardRedisAdapter implements RedisAdapter {
   }
 
   async hDel(key: string, ...fields: string[]): Promise<number> {
+    if (fields.length === 0) return 0;
     return this.client.hDel(key, fields);
   }
 
@@ -86,6 +87,7 @@ export class StandardRedisAdapter implements RedisAdapter {
   }
 
   async exists(...keys: string[]): Promise<number> {
+    if (keys.length === 0) return 0;
     return this.client.exists(keys);
   }
 
@@ -99,6 +101,7 @@ export class StandardRedisAdapter implements RedisAdapter {
 
   // List 操作
   async lPush(key: string, ...values: string[]): Promise<number> {
+    if (values.length === 0) return 0;
     return this.client.lPush(key, values);
   }
 
@@ -116,6 +119,7 @@ export class StandardRedisAdapter implements RedisAdapter {
 
   // Set 操作
   async sAdd(key: string, ...members: string[]): Promise<number> {
+    if (members.length === 0) return 0;
     return this.client.sAdd(key, members);
   }
 
@@ -124,6 +128,7 @@ export class StandardRedisAdapter implements RedisAdapter {
   }
 
   async sRem(key: string, ...members: string[]): Promise<number> {
+    if (members.length === 0) return 0;
     return this.client.sRem(key, members);
   }
 
@@ -141,6 +146,7 @@ export class StandardRedisAdapter implements RedisAdapter {
   }
 
   async zRem(key: string, ...members: string[]): Promise<number> {
+    if (members.length === 0) return 0;
     return this.client.zRem(key, members);
   }
 }
@@ -256,7 +262,7 @@ export class UpstashRedisAdapter implements RedisAdapter {
   // Set 操作
   async sAdd(key: string, ...members: string[]): Promise<number> {
     if (members.length === 0) return 0;
-    return this.client.sadd(key, members[0], ...members.slice(1));
+    return this.client.sadd(key, members);
   }
 
   async sMembers(key: string): Promise<string[]> {
