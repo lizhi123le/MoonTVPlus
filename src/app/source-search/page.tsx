@@ -5,6 +5,7 @@ import { Globe2, Loader2, Search, SearchX, Sparkles } from 'lucide-react';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiSite } from '@/lib/config';
+import { appendSpecialSourceParam } from '@/lib/special-source.client';
 import { SearchResult } from '@/lib/types';
 
 import CapsuleSwitch from '@/components/CapsuleSwitch';
@@ -108,7 +109,7 @@ function SourceSearchPageClient() {
     const fetchApiSites = async () => {
       setIsLoadingSources(true);
       try {
-        const response = await fetch('/api/source-search/sources');
+        const response = await fetch(appendSpecialSourceParam('/api/source-search/sources'));
         const data = await response.json();
         if (data.sources && Array.isArray(data.sources)) {
           setApiSites(data.sources);
@@ -151,7 +152,7 @@ function SourceSearchPageClient() {
       
       try {
         const response = await fetch(
-          `/api/source-search/categories?source=${encodeURIComponent(selectedSource)}`
+          appendSpecialSourceParam(`/api/source-search/categories?source=${encodeURIComponent(selectedSource)}`)
         );
         const data = await response.json();
         if (data.categories && Array.isArray(data.categories)) {
@@ -195,7 +196,7 @@ function SourceSearchPageClient() {
       setIsLoadingVideos(true);
       try {
         const response = await fetch(
-          `/api/source-search/videos?source=${encodeURIComponent(selectedSource)}&categoryId=${encodeURIComponent(selectedCategory)}&page=${currentPage}`
+          appendSpecialSourceParam(`/api/source-search/videos?source=${encodeURIComponent(selectedSource)}&categoryId=${encodeURIComponent(selectedCategory)}&page=${currentPage}`)
         );
         const data = await response.json();
         if (data.results && Array.isArray(data.results)) {
@@ -222,7 +223,7 @@ function SourceSearchPageClient() {
     setIsLoadingVideos(true);
     try {
       const response = await fetch(
-        `/api/source-search/search?source=${encodeURIComponent(selectedSource)}&keyword=${encodeURIComponent(searchKeyword)}&page=${currentPage}`
+        appendSpecialSourceParam(`/api/source-search/search?source=${encodeURIComponent(selectedSource)}&keyword=${encodeURIComponent(searchKeyword)}&page=${currentPage}`)
       );
       const data = await response.json();
       if (data.results && Array.isArray(data.results)) {
@@ -243,6 +244,7 @@ function SourceSearchPageClient() {
   // 当搜索关键词或页码变化时，执行搜索（搜索模式）
   useEffect(() => {
     if (viewMode !== 'search' || !selectedSource || !searchKeyword) return;
+
     searchVideos();
   }, [viewMode, selectedSource, searchKeyword, searchVideos]);
 

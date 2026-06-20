@@ -20,6 +20,8 @@ type Action =
   | 'batch_delete'
   | 'batch_top'
   | 'toggle_proxy_mode'
+  | 'toggle_special_source'
+  | 'set_special_sources'
   | 'update_weight'
   | 'batch_update_weights';
 
@@ -60,6 +62,8 @@ export async function POST(request: NextRequest) {
       'batch_delete',
       'batch_top',
       'toggle_proxy_mode',
+      'toggle_special_source',
+      'set_special_sources',
       'update_weight',
       'batch_update_weights',
     ];
@@ -148,6 +152,9 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: '该源不可删除' }, { status: 400 });
         }
         adminConfig.SourceConfig.splice(idx, 1);
+        adminConfig.SpecialSourceApis = (adminConfig.SpecialSourceApis || []).filter(
+          (api) => api !== key
+        );
 
         // 检查并清理用户组和用户的权限数组
         // 清理用户组权限
@@ -228,6 +235,10 @@ export async function POST(request: NextRequest) {
           }
         });
 
+        adminConfig.SpecialSourceApis = (adminConfig.SpecialSourceApis || []).filter(
+          (api) => !keysToDelete.includes(api)
+        );
+
         // 检查并清理用户组和用户的权限数组
         if (keysToDelete.length > 0) {
           // 清理用户组权限
@@ -288,6 +299,39 @@ export async function POST(request: NextRequest) {
         if (!entry)
           return NextResponse.json({ error: '源不存在' }, { status: 404 });
         entry.proxyMode = !entry.proxyMode;
+        break;
+      }
+
+      case 'toggle_special_source': {
+        const { key } = body as { key?: string };
+        if (!key)
+          return NextResponse.json({ error: '缺少 key 参数' }, { status: 400 });
+        const entry = adminConfig.SourceConfig.find((s) => s.key === key);
+        if (!entry)
+          return NextResponse.json({ error: '源不存在' }, { status: 404 });
+
+        const specialApis = new Set(adminConfig.SpecialSourceApis || []);
+        if (specialApis.has(key)) {
+          specialApis.delete(key);
+        } else {
+          specialApis.add(key);
+        }
+        adminConfig.SpecialSourceApis = Array.from(specialApis).filter((api) =>
+          adminConfig.SourceConfig.some((source) => source.key === api)
+        );
+        break;
+      }
+
+      case 'set_special_sources': {
+        const { keys } = body as { keys?: string[] };
+        if (!Array.isArray(keys)) {
+          return NextResponse.json({ error: 'keys 参数格式错误' }, { status: 400 });
+        }
+
+        const sourceKeySet = new Set(adminConfig.SourceConfig.map((source) => source.key));
+        adminConfig.SpecialSourceApis = Array.from(new Set(keys)).filter((key) =>
+          sourceKeySet.has(key)
+        );
         break;
       }
       case 'batch_update_weights': {
