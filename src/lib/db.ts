@@ -1284,6 +1284,58 @@ export class DbManager {
     }
   }
 
+  // ---------- Telegram Bot绑定相关 ----------
+  async getTelegramBinding(userName: string) {
+    if (typeof (this.storage as any).getTelegramBinding === 'function') {
+      return (this.storage as any).getTelegramBinding(userName);
+    }
+    return null;
+  }
+
+  async getTelegramBindingByTelegramUserId(telegramUserId: string) {
+    if (typeof (this.storage as any).getTelegramBindingByTelegramUserId === 'function') {
+      return (this.storage as any).getTelegramBindingByTelegramUserId(telegramUserId);
+    }
+    return null;
+  }
+
+  async upsertTelegramBinding(binding: import('./types').TelegramBindingRecord): Promise<void> {
+    if (typeof (this.storage as any).upsertTelegramBinding === 'function') {
+      await (this.storage as any).upsertTelegramBinding(binding);
+    }
+  }
+
+  async deleteTelegramBindingByUsername(userName: string): Promise<void> {
+    if (typeof (this.storage as any).deleteTelegramBindingByUsername === 'function') {
+      await (this.storage as any).deleteTelegramBindingByUsername(userName);
+    }
+  }
+
+  async deleteTelegramBindingByTelegramUserId(telegramUserId: string): Promise<void> {
+    if (typeof (this.storage as any).deleteTelegramBindingByTelegramUserId === 'function') {
+      await (this.storage as any).deleteTelegramBindingByTelegramUserId(telegramUserId);
+    }
+  }
+
+  async getTelegramBindSession(code: string) {
+    if (typeof (this.storage as any).getTelegramBindSession === 'function') {
+      return (this.storage as any).getTelegramBindSession(code);
+    }
+    return null;
+  }
+
+  async upsertTelegramBindSession(session: import('./types').TelegramBindSessionRecord): Promise<void> {
+    if (typeof (this.storage as any).upsertTelegramBindSession === 'function') {
+      await (this.storage as any).upsertTelegramBindSession(session);
+    }
+  }
+
+  async markTelegramBindSessionUsed(code: string): Promise<void> {
+    if (typeof (this.storage as any).markTelegramBindSessionUsed === 'function') {
+      await (this.storage as any).markTelegramBindSessionUsed(code);
+    }
+  }
+
   // ---------- 播放器设置（支持匿名用户） ----------
   async getPlayerSettings(userId: string): Promise<string | null> {
     if (typeof (this.storage as any).getPlayerSettings === 'function') {
