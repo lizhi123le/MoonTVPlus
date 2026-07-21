@@ -45,6 +45,12 @@ const createNextConfig = (phase) => {
     webpackBuildWorker: !isEdgeBuild,
   },
 
+  serverExternalPackages: [
+    '@libsql/isomorphic-ws',
+    '@libsql/hrana-client',
+    '@libsql/isomorphic-fetch',
+  ],
+
   // Uncoment to add domain whitelist
   images: {
     unoptimized: true,
