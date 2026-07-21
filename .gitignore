@@ -75,3 +75,7 @@ scripts/test
 
 .agents/
 skills-lock.json
+
+# Android build artifacts
+apps/android-tv/.gradle/
+apps/android-tv/build/
