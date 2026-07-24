@@ -23,9 +23,13 @@ interface PlayRecordsPanelProps {
   onClose: () => void;
 }
 
-const parseKey = (key: string) => {
-  const [source, id] = key.split('+');
-  return { source, id };
+const parseKey = (key: string, record?: PlayRecord) => {
+  if (record?.source && record?.id) {
+    return { source: record.source, id: record.id };
+  }
+  const index = key.indexOf('+');
+  if (index === -1) return { source: key, id: '' };
+  return { source: key.slice(0, index), id: key.slice(index + 1) };
 };
 
 const getProgress = (record: PlayRecord) => {
@@ -251,7 +255,7 @@ export default function PlayRecordsPanel({
           ) : (
             <div className='grid grid-cols-3 gap-x-2 gap-y-14 sm:gap-y-20 px-0 sm:px-2 sm:grid-cols-[repeat(auto-fill,_minmax(11rem,_1fr))] sm:gap-x-8'>
               {playRecords.map((record) => {
-                const { source, id } = parseKey(record.key);
+                const { source, id } = parseKey(record.key, record);
                 const checked = selectedKeys.has(record.key);
 
                 return (
