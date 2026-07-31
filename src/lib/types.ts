@@ -19,6 +19,8 @@ export interface PlayRecord {
   new_episodes?: number; // 新增的剧集数量（用于显示更新提示）
   douban_id?: number;
   origin?: 'vod' | 'live';
+  /** 是否动漫（写入时根据 CMS type_name/class 判断） */
+  is_anime?: boolean;
 }
 
 // 收藏数据结构

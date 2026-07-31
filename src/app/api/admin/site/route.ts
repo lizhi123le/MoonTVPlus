@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthInfoFromCookie } from '@/lib/auth';
 import { getConfig } from '@/lib/config';
 import { db } from '@/lib/db';
+import { normalizeApiBaseUrl } from '@/lib/url';
 
 export const runtime = 'nodejs';
 
@@ -267,6 +268,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 更新缓存中的站点设置
+    // API Base URL 统一去尾斜杠，避免运行时拼接路径出现 //
     adminConfig.SiteConfig = {
       SiteName,
       Announcement,
@@ -274,33 +276,33 @@ export async function POST(request: NextRequest) {
       SearchDownstreamMaxPage,
       SiteInterfaceCacheTime,
       DoubanProxyType,
-      DoubanProxy,
+      DoubanProxy: normalizeApiBaseUrl(DoubanProxy),
       DoubanImageProxyType,
-      DoubanImageProxy,
+      DoubanImageProxy: normalizeApiBaseUrl(DoubanImageProxy),
       DisableYellowFilter,
       FluidSearch,
       DanmakuSourceType,
-      DanmakuApiBase,
+      DanmakuApiBase: normalizeApiBaseUrl(DanmakuApiBase),
       DanmakuApiToken,
       DanmakuAutoLoadDefault,
       TMDBApiKey,
-      TMDBProxy,
-      TMDBReverseProxy,
+      TMDBProxy: normalizeApiBaseUrl(TMDBProxy),
+      TMDBReverseProxy: normalizeApiBaseUrl(TMDBReverseProxy),
       BangumiDataSource,
-      BangumiApiBaseUrl,
-      BangumiImageBaseUrl,
-      BangumiProxy,
+      BangumiApiBaseUrl: normalizeApiBaseUrl(BangumiApiBaseUrl),
+      BangumiImageBaseUrl: normalizeApiBaseUrl(BangumiImageBaseUrl),
+      BangumiProxy: normalizeApiBaseUrl(BangumiProxy),
       BannerDataSource,
       RecommendationDataSource,
-      PansouApiUrl,
+      PansouApiUrl: normalizeApiBaseUrl(PansouApiUrl),
       PansouUsername,
       PansouPassword,
       PansouKeywordBlocklist,
-      MagnetProxy,
-      MagnetMikanReverseProxy,
-      MagnetDmhyReverseProxy,
-      MagnetAcgripReverseProxy,
-      MagnetNyaaReverseProxy,
+      MagnetProxy: normalizeApiBaseUrl(MagnetProxy),
+      MagnetMikanReverseProxy: normalizeApiBaseUrl(MagnetMikanReverseProxy),
+      MagnetDmhyReverseProxy: normalizeApiBaseUrl(MagnetDmhyReverseProxy),
+      MagnetAcgripReverseProxy: normalizeApiBaseUrl(MagnetAcgripReverseProxy),
+      MagnetNyaaReverseProxy: normalizeApiBaseUrl(MagnetNyaaReverseProxy),
       EnableComments,
       CustomAdFilterCode,
       CustomAdFilterVersion,
@@ -314,7 +316,7 @@ export async function POST(request: NextRequest) {
       DefaultUserTags,
       EnableOIDCLogin,
       EnableOIDCRegistration,
-      OIDCIssuer,
+      OIDCIssuer: normalizeApiBaseUrl(OIDCIssuer),
       OIDCAuthorizationEndpoint,
       OIDCTokenEndpoint,
       OIDCUserInfoEndpoint,
