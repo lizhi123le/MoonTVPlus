@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any,no-console */
 
-import { HttpsProxyAgent } from 'https-proxy-agent';
-import nodeFetch from 'node-fetch';
+import { safeFetch } from './safe-http';
+
+import { getTmdbImageBaseUrl } from './tmdb-image-base';
 
 // TMDB API 默认 Base URL（不包含 /3/，由程序拼接）
 const DEFAULT_TMDB_BASE_URL = 'https://api.themoviedb.org';
@@ -22,40 +23,17 @@ function isCloudflareEnvironment(): boolean {
 async function universalFetch(url: string, proxy?: string): Promise<Response> {
   const isCloudflare = isCloudflareEnvironment();
 
-  // 使用 AbortController 实现超时
-  const controller = new AbortController();
-  const timeoutMs = isCloudflare ? 15000 : (proxy ? 30000 : 15000);
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  if (isCloudflare) {
+    // Cloudflare 环境：使用原生 fetch，忽略 proxy 参数
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(15000),
+    });
+    return response as unknown as Response;
+  } else {
+    // Node.js 环境：使用 node-fetch（safeFetch），支持 proxy
+    const signal = proxy ? AbortSignal.timeout(30000) : AbortSignal.timeout(15000);
 
-  try {
-    if (isCloudflare) {
-      // Cloudflare 环境：使用原生 fetch，忽略 proxy 参数
-      const response = await fetch(url, {
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      return response as unknown as Response;
-    } else {
-      // Node.js 环境：使用 node-fetch，支持 proxy
-      const fetchOptions: any = proxy
-        ? {
-            agent: new HttpsProxyAgent(proxy, {
-              timeout: 30000,
-              keepAlive: false,
-            }),
-            signal: controller.signal,
-          }
-        : {
-            signal: controller.signal,
-          };
-
-      const response = await nodeFetch(url, fetchOptions) as unknown as Response;
-      clearTimeout(timeoutId);
-      return response;
-    }
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
+    return safeFetch(url, { signal }, proxy) as unknown as Response;
   }
 }
 
@@ -495,9 +473,13 @@ export function getTMDBImageUrl(
   size = 'w500'
 ): string {
   if (!path) return '';
-  const baseUrl = typeof window !== 'undefined'
-    ? localStorage.getItem('tmdbImageBaseUrl') || 'https://image.tmdb.org'
-    : 'https://image.tmdb.org';
+
+  // 如果已经是完整的 URL (http:// 或 https://),直接返回
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+
+  const baseUrl = getTmdbImageBaseUrl();
   return `${baseUrl}/t/p/${size}${path}`;
 }
 
