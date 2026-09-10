@@ -59,7 +59,7 @@ import {
   MusicV2PlaylistRecord,
 } from './music-v2';
 import { RedisStorage } from './redis.db';
-import { DanmakuFilterConfig, Favorite, IStorage, Notification, PlayRecord, SkipConfig, MovieRequest } from './types';
+import { DanmakuFilterConfig, Favorite, IStorage, LocalSettingsSyncRecord, Notification, PlayRecord, SetLocalSettingsSyncOptions, SetLocalSettingsSyncResult, SkipConfig, MovieRequest } from './types';
 import { UpstashRedisStorage } from './upstash.db';
 
 // No-Op 存储实现（用于 localstorage 模式 - 客户端使用）
@@ -1219,6 +1219,28 @@ export class DbManager {
       return (this.storage as any).getAdminConfigUpdatedAt();
     }
     return null;
+  }
+
+  // ---------- 本地设置云同步 ----------
+  async getUserLocalSettings(
+    userName: string
+  ): Promise<LocalSettingsSyncRecord | null> {
+    if (typeof (this.storage as any).getUserLocalSettings === 'function') {
+      return (this.storage as any).getUserLocalSettings(userName);
+    }
+    return null;
+  }
+
+  async setUserLocalSettings(
+    userName: string,
+    payload: string,
+    opts: SetLocalSettingsSyncOptions
+  ): Promise<SetLocalSettingsSyncResult> {
+    if (typeof (this.storage as any).setUserLocalSettings === 'function') {
+      return (this.storage as any).setUserLocalSettings(userName, payload, opts);
+    }
+    // 存储后端不支持时静默忽略（等价于从未开启）
+    return { ok: true, version: 0, updatedAt: Date.now() };
   }
 
   // ---------- 跳过片头片尾配置 ----------

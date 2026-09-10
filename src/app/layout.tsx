@@ -143,6 +143,7 @@ export default async function RootLayout({
   let musicProxyEnabled = true;
   let advancedRecommendationEnabled = false;
   let proxyDomains = [] as string[];
+  let localSettingsSyncMode: 'off' | 'manual' | 'auto' = 'off';
   let customCategories = [] as {
     name: string;
     type: 'movie' | 'tv';
@@ -256,6 +257,11 @@ export default async function RootLayout({
     xiaoyaEnabled = !!(
       config.XiaoyaConfig?.Enabled && config.XiaoyaConfig?.ServerURL
     );
+    localSettingsSyncMode =
+      config.SiteConfig?.LocalSettingsSyncMode === 'manual' ||
+      config.SiteConfig?.LocalSettingsSyncMode === 'auto'
+        ? config.SiteConfig.LocalSettingsSyncMode
+        : 'off';
   }
 
   // 将运行时配置注入到全局 window 对象，供客户端在运行时读取
@@ -271,6 +277,7 @@ export default async function RootLayout({
   const runtimeConfig = {
     STORAGE_TYPE: runtimeStorageType,
     DISPLAY_STORAGE_TYPE: displayStorageType,
+    LOCAL_SETTINGS_SYNC_MODE: localSettingsSyncMode,
     DOUBAN_PROXY_TYPE: doubanProxyType,
     DOUBAN_PROXY: doubanProxy,
     DOUBAN_IMAGE_PROXY_TYPE: doubanImageProxyType,
