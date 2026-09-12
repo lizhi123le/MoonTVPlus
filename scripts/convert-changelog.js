@@ -5,6 +5,51 @@
 const fs = require('fs');
 const path = require('path');
 
+// 章节标题 → 数据字段的映射（大小写不敏感，支持中英文别名）。
+// 说明：早先只识别 Added/Changed/Fixed，导致 "### Security Fixed"、"### Breaking Changes"
+// 这类标题下的条目被并入上一个章节（通常是 changed），在 App 里显示成"功能改进"。
+const SECTION_ALIASES = {
+  added: ['added', '新增', '新增功能'],
+  changed: ['changed', '变更', '功能改进'],
+  fixed: ['fixed', '修复', '问题修复'],
+  security: ['security fixed', 'security', '安全修复', '安全'],
+  breaking: ['breaking changes', 'breaking', '破坏性变更'],
+};
+
+const SECTION_KEYS = Object.keys(SECTION_ALIASES);
+
+// 解析 "### xxx" 标题对应的字段；返回 null 表示未知标题
+function resolveSection(heading) {
+  const text = heading
+    .replace(/^#+\s*/, '')
+    .trim()
+    .toLowerCase();
+  for (const key of SECTION_KEYS) {
+    if (SECTION_ALIASES[key].includes(text)) {
+      return key;
+    }
+  }
+  return null;
+}
+
+// 转义为合法的 TS 双引号字符串字面量：
+// 直双引号、反斜杠、换行都不会再破坏生成结果（此前条目里出现直引号会产出非法 TS）
+function escapeTsString(value) {
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\r/g, '')
+    .replace(/\n/g, '\\n');
+}
+
+function createEmptySections() {
+  const sections = {};
+  for (const key of SECTION_KEYS) {
+    sections[key] = [];
+  }
+  return sections;
+}
+
 function parseChangelog(content) {
   const lines = content.split('\n');
   const versions = [];
@@ -27,9 +72,7 @@ function parseChangelog(content) {
       currentVersion = {
         version: versionMatch[1],
         date: versionMatch[2],
-        added: [],
-        changed: [],
-        fixed: [],
+        ...createEmptySections(),
         content: [], // 用于存储原始内容，当没有分类时使用
       };
       currentSection = null;
@@ -39,15 +82,10 @@ function parseChangelog(content) {
 
     // 如果遇到下一个版本或到达文件末尾，停止处理当前版本
     if (inVersionContent && currentVersion) {
-      // 匹配章节标题
-      if (trimmedLine === '### Added') {
-        currentSection = 'added';
-        continue;
-      } else if (trimmedLine === '### Changed') {
-        currentSection = 'changed';
-        continue;
-      } else if (trimmedLine === '### Fixed') {
-        currentSection = 'fixed';
+      // 匹配章节标题（### 开头）
+      if (trimmedLine.startsWith('###')) {
+        // 未知标题归入 changed，避免条目被错误地并入上一个章节
+        currentSection = resolveSection(trimmedLine) || 'changed';
         continue;
       }
 
@@ -55,11 +93,7 @@ function parseChangelog(content) {
       if (trimmedLine.startsWith('- ') && currentSection) {
         const entry = trimmedLine.substring(2);
         currentVersion[currentSection].push(entry);
-      } else if (
-        trimmedLine &&
-        !trimmedLine.startsWith('#') &&
-        !trimmedLine.startsWith('###')
-      ) {
+      } else if (trimmedLine && !trimmedLine.startsWith('#')) {
         currentVersion.content.push(trimmedLine);
       }
     }
@@ -72,10 +106,9 @@ function parseChangelog(content) {
 
   // 后处理：如果某个版本没有分类内容，但有 content，则将 content 放到 changed 中
   versions.forEach((version) => {
-    const hasCategories =
-      version.added.length > 0 ||
-      version.changed.length > 0 ||
-      version.fixed.length > 0;
+    const hasCategories = SECTION_KEYS.some(
+      (key) => version[key].length > 0
+    );
     if (!hasCategories && version.content.length > 0) {
       version.changed = version.content;
     }
@@ -87,29 +120,35 @@ function parseChangelog(content) {
 }
 
 function generateTypeScript(changelogData) {
+  const renderItems = (items, emptyHint) =>
+    items.map((entry) => `    "${escapeTsString(entry)}"`).join(',\n') ||
+    `      // ${emptyHint}`;
+
   const entries = changelogData.versions
     .map((version) => {
-      const addedEntries = version.added
-        .map((entry) => `    "${entry}"`)
-        .join(',\n');
-      const changedEntries = version.changed
-        .map((entry) => `    "${entry}"`)
-        .join(',\n');
-      const fixedEntries = version.fixed
-        .map((entry) => `    "${entry}"`)
-        .join(',\n');
+      const addedEntries = renderItems(version.added, '无新增内容');
+      const changedEntries = renderItems(version.changed, '无变更内容');
+      const fixedEntries = renderItems(version.fixed, '无修复内容');
+      const securityEntries = renderItems(version.security, '无安全修复内容');
+      const breakingEntries = renderItems(version.breaking, '无破坏性变更');
 
       return `  {
-    version: "${version.version}",
-    date: "${version.date}",
+    version: "${escapeTsString(version.version)}",
+    date: "${escapeTsString(version.date)}",
     added: [
-${addedEntries || '      // 无新增内容'}
+${addedEntries}
     ],
     changed: [
-${changedEntries || '      // 无变更内容'}
+${changedEntries}
     ],
     fixed: [
-${fixedEntries || '      // 无修复内容'}
+${fixedEntries}
+    ],
+    security: [
+${securityEntries}
+    ],
+    breaking: [
+${breakingEntries}
     ]
   }`;
     })
@@ -124,6 +163,8 @@ export interface ChangelogEntry {
   added: string[];
   changed: string[];
   fixed: string[];
+  security: string[];
+  breaking: string[];
 }
 
 export const changelog: ChangelogEntry[] = [
@@ -235,7 +276,7 @@ function main() {
     console.log(`📊 版本统计:`);
     changelogData.versions.forEach((version) => {
       console.log(
-        `   ${version.version} (${version.date}): +${version.added.length} ~${version.changed.length} !${version.fixed.length}`
+        `   ${version.version} (${version.date}): +${version.added.length} ~${version.changed.length} !${version.fixed.length} 安全${version.security.length} 破坏性${version.breaking.length}`
       );
     });
 

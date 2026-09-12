@@ -7,6 +7,8 @@ export interface ChangelogEntry {
   added: string[];
   changed: string[];
   fixed: string[];
+  security: string[];
+  breaking: string[];
 }
 
 export const changelog: ChangelogEntry[] = [
@@ -24,6 +26,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复初次播放仍弹出弹幕源选择框的问题（自动选源逻辑此前未生效）"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -45,6 +53,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复缩略图更换集数后不变更"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -58,6 +72,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复动漫图片源探测重复多次请求"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -81,6 +101,12 @@ export const changelog: ChangelogEntry[] = [
     "修复videocard标题popup层级比来源数量角标低",
     "修复网盘源PC右键无法显示原名",
     "修复首页综艺查看更多跳转错误"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -100,6 +126,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复移动端点击videocard失效问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -113,6 +145,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复tv模式登录失效跳转/login页面而非/tv/login页面"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -131,6 +169,12 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
     "修复VideoCard来源数量浮层左上角被裁切，并阻止长按同时弹出操作菜单",
     "修复OpenList多根路径扫描进度未汇总"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -153,6 +197,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -169,6 +219,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -191,6 +247,12 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
     "修复AI总开关关闭后AI评论仍然显示",
     "修复搜索页带类型参数时仍后台搜索影视类型"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -205,6 +267,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -240,6 +308,12 @@ export const changelog: ChangelogEntry[] = [
     "修复即将上映需多次点击才显示",
     "修复未配置opds源不显示电子书馆入口",
     "修复电视直播表头错位"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -270,6 +344,12 @@ export const changelog: ChangelogEntry[] = [
     "修复detailpanel切换tmdb时，没有更新季度信息",
     "修复阅读页面legado书源方式缺少听书控件",
     "修复首页单模块失败影响整页数据加载"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -285,6 +365,12 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
     "修复音质切换没有立即生效",
     "修复音乐界面添加重复歌单报错"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -316,6 +402,12 @@ export const changelog: ChangelogEntry[] = [
     "修复无网盘权限仍可直链播放网盘链接的权限漏洞",
     "修复播放记录面板不显示当前集数",
     "修复音乐分页问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -348,6 +440,12 @@ export const changelog: ChangelogEntry[] = [
     "修复生产环境使用网盘有效性检测报错无法找到模块",
     "修复电子书馆标题不根据站点名显示",
     "修复关系型数据库保存音乐记录错误"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -370,6 +468,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复漫画展馆无法重新搜索"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -395,6 +499,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复videocard右键菜单缩略图不使用备用源"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -415,6 +525,12 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
     "修复弹幕选集分组无法鼠标滑轮滚动",
     "修复高级推荐报错无限刷新"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -440,6 +556,12 @@ export const changelog: ChangelogEntry[] = [
     "修复手动选择弹幕因缓存问题无法变更弹幕集数",
     "修复当前集拉回开头显示恢复进度按钮",
     "修复视频源权重的一些问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -467,6 +589,12 @@ export const changelog: ChangelogEntry[] = [
     "修复弹幕搜索框挤压",
     "修复搜索页面加载条显示顺序错误",
     "修复继续观看渐进式加载的一些问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -485,6 +613,12 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
     "修复filesystem模式取消下载不删除文件",
     "修复未配置TVBOX_SUBSCRIBE_TOKEN不代理emby图片"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -514,6 +648,12 @@ export const changelog: ChangelogEntry[] = [
     "修复 PlayRecord 类型缺少 source/id 字段问题",
     "修复数据库层 TypeScript 类型错误",
     "合并上游 MoonTVPlus 更新"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -537,6 +677,12 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
     "修复通知已读不更新菜单状态",
     "修正生态应用selene下载链接"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -556,6 +702,12 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
     "修复弹幕集数匹配问题，支持标题中任意位置的集数格式（如“风过留痕第2集”）",
     "修复播放第2集时无法匹配弹幕的问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -575,6 +727,12 @@ export const changelog: ChangelogEntry[] = [
     "修复音乐模块openlist缓存未启用时仍走代理",
     "修复postgrep数据方式导入导出无法使用",
     "修复openlist扫描目录包含文件时报错"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -605,6 +763,12 @@ export const changelog: ChangelogEntry[] = [
     "视频预告片添加 ETag 和 Last-Modified 缓存验证头",
     "视频预告片使用 immutable 缓存指令避免持续请求",
     "修复视频预告片导致 Cloudflare Workers CPU 超时问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -619,6 +783,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -635,20 +805,24 @@ export const changelog: ChangelogEntry[] = [
     "继续观看使用渐进式加载模式",
     "openlist根路径主动移除bom防止获取根目录失效",
     "webgpu缓冲区大小调整",
-    "设备管理可识别OrionTv",
-    "修复 eval() 代码执行漏洞（音乐 transform 功能）",
-    "修复默认密码安全问题（数据库初始化）",
-    "修复 Cron API 密码暴露问题（改用请求头传递）",
-    "修复 dangerouslySetInnerHTML XSS 风险（HTML 过滤）",
-    "**Cron 任务调用方式变更**：密码不再通过 URL 路径传递，改为使用请求头 `Authorization: Bearer <password>` 或 `X-Cron-Password: <password>`",
-    "**CRON_PASSWORD 环境变量必填**：不再有默认值，必须设置才能使用 Cron 功能",
-    "**数据库初始化必填环境变量**：USERNAME 和 PASSWORD 环境变量必须设置，不再有默认值"
+    "设备管理可识别OrionTv"
     ],
     fixed: [
     "修复与upstash合并数据源时丢失的用户缓存信息",
     "修复登录页面不处理error参数",
     "修复safari视频切换集数无法清理旧视频",
     "修复部分tmdb接口在cloudflare下无法使用"
+    ],
+    security: [
+    "修复 eval() 代码执行漏洞（音乐 transform 功能）",
+    "修复默认密码安全问题（数据库初始化）",
+    "修复 Cron API 密码暴露问题（改用请求头传递）",
+    "修复 dangerouslySetInnerHTML XSS 风险（HTML 过滤）"
+    ],
+    breaking: [
+    "**Cron 任务调用方式变更**：密码不再通过 URL 路径传递，改为使用请求头 `Authorization: Bearer <password>` 或 `X-Cron-Password: <password>`",
+    "**CRON_PASSWORD 环境变量必填**：不再有默认值，必须设置才能使用 Cron 功能",
+    "**数据库初始化必填环境变量**：USERNAME 和 PASSWORD 环境变量必须设置，不再有默认值"
     ]
   },
   {
@@ -667,6 +841,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -683,6 +863,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复tmdbkey错误和未登录时获取外部观影室密钥无限重定向"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -696,6 +882,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复跳转登录不登出"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -709,6 +901,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复刷新token失效无限重定向"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -722,6 +920,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复token过期重定向无法续期的问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -737,6 +941,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -758,6 +968,12 @@ export const changelog: ChangelogEntry[] = [
     "修复缓存弹幕限制后不显示原始数量",
     "修复测速缓存导致的错误测速数据",
     "修复videocard，2000年只显示0年"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -774,6 +990,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复订阅去广告开关不正确修改链接问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -798,6 +1020,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复详情不应用豆瓣图片策略"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -822,6 +1050,12 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
     "修复redis方式数据导入报错",
     "修复小雅不过滤空url"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -843,6 +1077,12 @@ export const changelog: ChangelogEntry[] = [
     "修复upstash方式数据导入报错",
     "修复新加载弹幕不显示弹幕数量",
     "修复生产环境emby分类返回空数组"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -860,6 +1100,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复emby分类切换时加载旧数据"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -873,6 +1119,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修正豆瓣图片源"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -893,6 +1145,12 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
     "修复私人影库报错导致搜索无结果",
     "修复无法保存更多推荐数据源"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -908,6 +1166,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复live页面500报错"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -928,6 +1192,12 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
     "修正视频源代理模式外部播放器链接",
     "修复删除配置文件源提示成功的问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -950,6 +1220,12 @@ export const changelog: ChangelogEntry[] = [
     "修复私人影库分页问题",
     "修复同一视频频繁弹窗弹幕选择",
     "彻底移除旧版用户导入导出并修复导入密码二次hash的问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -963,6 +1239,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1004,6 +1286,12 @@ export const changelog: ChangelogEntry[] = [
     "修复定时任务的openlist扫描",
     "修复导入用户丢失问题",
     "修复暂停保存两次播放记录"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1025,6 +1313,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1039,6 +1333,12 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
     "修复IOS端换集报错播放器初始化失败",
     "修复超分切换时重复渲染"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1055,6 +1355,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1072,6 +1378,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1091,6 +1403,12 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
     "修复压缩节目单无法加载",
     "修复Docker环境下离线下载无法开启"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1108,6 +1426,12 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
     "修复webrtc连接容易断开的问题",
     "修复语音聊天中转模式回声"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1121,6 +1445,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复因弹幕缓存导致弹幕过滤功能失效的bug"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1136,6 +1466,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修正tvbox订阅请求时机错误"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1150,6 +1486,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1163,6 +1505,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复首页/api/favorites接口重复请求"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1180,6 +1528,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "弹幕自动加载失败现在有提示了"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1194,6 +1548,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复播放页500错误"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1210,6 +1570,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复首页卡顿"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1225,6 +1591,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1239,6 +1611,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1252,6 +1630,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复直播源加载失败或离开页面后依然无限加载的问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1267,6 +1651,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "/api/proxy/m3u8 仅对 m3u8 内容反序列化，降低内存和 CPU 消耗"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1280,6 +1670,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复 epg 数据清洗中去重叠逻辑未考虑日期导致的问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1293,6 +1689,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1307,6 +1709,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1321,6 +1729,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1337,6 +1751,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复了搜索栏 enter 键自动选中第一个建议项的问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1350,6 +1770,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复移动端卡片无法点击的问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1363,6 +1789,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复了视频卡片 hover 的非播放按钮点击后进入播放页的问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1382,6 +1814,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复 bangumi 返回的整数评分无小数导致 UI 不对齐的问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1395,6 +1833,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复 redis url 不支持 rediss 协议的问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1408,6 +1852,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复授权初始化错误"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1422,6 +1872,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "过滤掉集数为 0 的搜索结果"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1435,6 +1891,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复 iOS 下版本面板可穿透滚动背景的问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1448,6 +1910,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复设置面板和修改密码面板背景可被拖动的问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1466,6 +1934,12 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
     "数据导出时导出站长密码，保证迁移到新账户时原站长用户可正常登录",
     "聚合卡片优化移动端源信息展示"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1479,6 +1953,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "对导入和 db 读取的配置文件做自检，防止 USERNAME 修改导致用户状态异常"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1493,6 +1973,12 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
     "修复搜索结果排序不稳定的问题",
     "导入数据时同时更新内存缓存的管理员配置"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1507,6 +1993,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1520,6 +2012,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复了筛选 panel 打开时滚动页面 panel 不跟随的问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1535,6 +2033,12 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
     "修复 /api/search/resources 返回空的问题",
     "修复 upstash 实例无法编辑自定义分类的问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1549,6 +2053,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1562,6 +2072,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "微调管理面板样式"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1577,6 +2093,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "限制设置面板的最大长度，防止超出视口"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1591,6 +2113,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "[运维] docker workflow release 日期使用东八区日期"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1604,6 +2132,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复远程 CHANGELOG 无法提取变更内容的问题"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1617,6 +2151,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1630,6 +2170,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1643,6 +2189,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1657,6 +2209,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1670,6 +2228,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复版本检查功能，只要与最新版本号不一致即认为有更新"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   },
   {
@@ -1684,6 +2248,12 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
       // 无修复内容
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
     ]
   }
 ];

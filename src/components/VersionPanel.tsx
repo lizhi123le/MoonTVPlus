@@ -3,6 +3,7 @@
 'use client';
 
 import {
+  AlertTriangle,
   Bug,
   CheckCircle,
   ChevronDown,
@@ -10,6 +11,7 @@ import {
   Download,
   Plus,
   RefreshCw,
+  ShieldCheck,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -30,6 +32,8 @@ interface RemoteChangelogEntry {
   added: string[];
   changed: string[];
   fixed: string[];
+  security: string[];
+  breaking: string[];
 }
 
 export const VersionPanel: React.FC<VersionPanelProps> = ({
@@ -110,10 +114,32 @@ export const VersionPanel: React.FC<VersionPanelProps> = ({
 
   // 解析变更日志格式
   const parseChangelog = (content: string): RemoteChangelogEntry[] => {
+    // 章节标题 → 字段映射（与 scripts/convert-changelog.js 中的 SECTION_ALIASES 保持一致）
+    // 未识别标题归入 changed，避免条目被错误地并入上一个章节
+    type SectionKey = 'added' | 'changed' | 'fixed' | 'security' | 'breaking';
+    const sectionAliases: Record<string, SectionKey> = {
+      added: 'added',
+      新增: 'added',
+      新增功能: 'added',
+      changed: 'changed',
+      变更: 'changed',
+      功能改进: 'changed',
+      fixed: 'fixed',
+      修复: 'fixed',
+      问题修复: 'fixed',
+      'security fixed': 'security',
+      security: 'security',
+      安全: 'security',
+      安全修复: 'security',
+      'breaking changes': 'breaking',
+      breaking: 'breaking',
+      破坏性变更: 'breaking',
+    };
+
     const lines = content.split('\n');
     const versions: RemoteChangelogEntry[] = [];
     let currentVersion: RemoteChangelogEntry | null = null;
-    let currentSection: string | null = null;
+    let currentSection: SectionKey | null = null;
     let inVersionContent = false;
 
     for (const line of lines) {
@@ -134,6 +160,8 @@ export const VersionPanel: React.FC<VersionPanelProps> = ({
           added: [],
           changed: [],
           fixed: [],
+          security: [],
+          breaking: [],
         };
         currentSection = null;
         inVersionContent = true;
@@ -142,28 +170,19 @@ export const VersionPanel: React.FC<VersionPanelProps> = ({
 
       // 如果遇到下一个版本或到达文件末尾，停止处理当前版本
       if (inVersionContent && currentVersion) {
-        // 匹配章节标题
-        if (trimmedLine === '### Added') {
-          currentSection = 'added';
-          continue;
-        } else if (trimmedLine === '### Changed') {
-          currentSection = 'changed';
-          continue;
-        } else if (trimmedLine === '### Fixed') {
-          currentSection = 'fixed';
+        // 匹配章节标题（### 开头），支持 Security Fixed / Breaking Changes 等额外标题
+        if (trimmedLine.startsWith('###')) {
+          const heading = trimmedLine
+            .replace(/^#+\s*/, '')
+            .trim()
+            .toLowerCase();
+          currentSection = sectionAliases[heading] || 'changed';
           continue;
         }
 
         // 匹配条目: - 内容
         if (trimmedLine.startsWith('- ') && currentSection) {
-          const entry = trimmedLine.substring(2);
-          if (currentSection === 'added') {
-            currentVersion.added.push(entry);
-          } else if (currentSection === 'changed') {
-            currentVersion.changed.push(entry);
-          } else if (currentSection === 'fixed') {
-            currentVersion.fixed.push(entry);
-          }
+          currentVersion[currentSection].push(trimmedLine.substring(2));
         }
       }
     }
@@ -259,6 +278,26 @@ export const VersionPanel: React.FC<VersionPanelProps> = ({
             </div>
           )}
 
+          {entry.breaking.length > 0 && (
+            <div>
+              <h5 className='text-sm font-medium text-red-700 dark:text-red-400 mb-2 flex items-center gap-1'>
+                <AlertTriangle className='w-4 h-4' />
+                破坏性变更
+              </h5>
+              <ul className='space-y-1'>
+                {entry.breaking.map((item, index) => (
+                  <li
+                    key={index}
+                    className='text-sm text-gray-700 dark:text-gray-300 flex items-start gap-2'
+                  >
+                    <span className='w-1.5 h-1.5 bg-red-500 rounded-full mt-2 flex-shrink-0'></span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {entry.fixed.length > 0 && (
             <div>
               <h5 className='text-sm font-medium text-purple-700 dark:text-purple-400 mb-2 flex items-center gap-1'>
@@ -272,6 +311,26 @@ export const VersionPanel: React.FC<VersionPanelProps> = ({
                     className='text-sm text-gray-700 dark:text-gray-300 flex items-start gap-2'
                   >
                     <span className='w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0'></span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {entry.security.length > 0 && (
+            <div>
+              <h5 className='text-sm font-medium text-orange-700 dark:text-orange-400 mb-2 flex items-center gap-1'>
+                <ShieldCheck className='w-4 h-4' />
+                安全修复
+              </h5>
+              <ul className='space-y-1'>
+                {entry.security.map((item, index) => (
+                  <li
+                    key={index}
+                    className='text-sm text-gray-700 dark:text-gray-300 flex items-start gap-2'
+                  >
+                    <span className='w-1.5 h-1.5 bg-orange-500 rounded-full mt-2 flex-shrink-0'></span>
                     {item}
                   </li>
                 ))}
