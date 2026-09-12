@@ -578,21 +578,7 @@ export const changelog: ChangelogEntry[] = [
     ]
   },
   {
-    version: "212.1.0",
-    date: "2026-02-08",
-    added: [
-    "新增 Vercel Postgres 数据库支持"
-    ],
-    changed: [
-    "自动创建站长账号，避免外键约束导致无法操作关联表",
-    "即将上映恢复长按菜单，上映天数改为点击显示"
-    ],
-    fixed: [
-      // 无修复内容
-    ]
-  },
-  {
-    version: "212.2.0",
+    version: "212.1.1",
     date: "2026-02-09",
     added: [
     "新增播放器设置本地缓存，记住用户偏好（音量、播放速率、弹幕开关等）",
