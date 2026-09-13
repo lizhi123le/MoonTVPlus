@@ -1021,6 +1021,10 @@ function PlayPageClient() {
     if (danmakuPluginRef.current) {
       danmakuPluginRef.current.reset();
       setDanmakuCount(0);
+      // 通知热力图等监听方：换集后旧弹幕已失效，先清空上一集的曲线
+      if (artPlayerRef.current) {
+        artPlayerRef.current.emit('danmaku:cleared');
+      }
     }
     // 换集后先清掉上一集的"未匹配到弹幕"提示
     setDanmakuNoMatch(false);
@@ -5842,6 +5846,11 @@ function PlayPageClient() {
       danmakuPluginRef.current.load();
       setDanmakuCount(0);
 
+      // 通知热力图等监听方：旧弹幕已清空，避免在新弹幕到达前继续显示上一集的曲线
+      if (artPlayerRef.current) {
+        artPlayerRef.current.emit('danmaku:cleared');
+      }
+
       // 获取弹幕数据（使用 title + episodeIndex 缓存）
       const title = videoTitleRef.current;
       const episodeIndex = currentEpisodeIndex;
@@ -9028,6 +9037,15 @@ function PlayPageClient() {
                 return heatData.map((count: number) => count / maxCount);
               };
 
+              // 清空热力图画面（换集/清空弹幕时立即抹掉旧曲线）
+              const clearHeatmap = () => {
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                  return;
+                }
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+              };
+
               // 绘制热力图
               const drawHeatmap = () => {
                 // 检查热力图是否启用（与初始状态逻辑保持一致）
@@ -9261,6 +9279,13 @@ function PlayPageClient() {
                   return;
                 }
 
+                // 当前没有弹幕（换集刚清空、或该集确实无弹幕）：必须丢弃旧数据并抹掉旧曲线，
+                // 否则挂在 video:timeupdate 上的 drawHeatmap 会一直把上一集的热力图画在新进度条上
+                if (danmakuList.length === 0 && heatmapData.length > 0) {
+                  heatmapData = [];
+                  clearHeatmap();
+                }
+
                 // 首次播放时，弹幕加载早于热力图控件挂载（config 补丁与事件都来不及生效），
                 // 且唯一的一次性轮询可能看到空数组/时长为 0 就退出；此处若直接返回，
                 // 在用户换集或全屏触发重算之前热力图会一直空白。故此处做有界重试。
@@ -9277,6 +9302,20 @@ function PlayPageClient() {
 
               // 监听弹幕加载完成事件
               artPlayerRef.current.on('danmaku:loaded', () => {
+                updateHeatmapData();
+              });
+
+              // 监听弹幕清空事件：换集时旧弹幕失效，必须同时丢弃热力图的旧数据，
+              // 否则在新弹幕到达前会一直显示上一集的曲线（历史上只有全屏触发重算才恢复）
+              artPlayerRef.current.on('danmaku:cleared', () => {
+                heatmapData = [];
+                heatmapRetryCount = 0;
+                if (heatmapRetryTimer) {
+                  clearTimeout(heatmapRetryTimer);
+                  heatmapRetryTimer = null;
+                }
+                clearHeatmap();
+                // 新一集的弹幕通常随后就到，这里启动一次重算/有界重试
                 updateHeatmapData();
               });
 
