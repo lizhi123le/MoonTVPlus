@@ -8895,29 +8895,30 @@ function PlayPageClient() {
               };
 
               // 动态获取进度条的实际位置并调整热力图
-              const adjustHeatmapPosition = () => {
+              // 返回是否已对齐成功（进度条与父元素就绪、且进度条有实际宽度）
+              const adjustHeatmapPosition = (): boolean => {
                 const progressBar = document.querySelector('.art-control-progress') as HTMLElement;
 
-                if (!progressBar) {
-                  return;
+                if (!progressBar || !$el.parentElement) {
+                  return false;
                 }
 
-                if (!$el.parentElement) {
-                  return;
+                const rect = progressBar.getBoundingClientRect();
+                const parentRect = $el.parentElement.getBoundingClientRect();
+
+                // 进度条尚未完成布局时宽度为 0，此时对齐会把画布压成 0 尺寸
+                if (rect.width <= 0) {
+                  return false;
                 }
 
-                if (progressBar && $el.parentElement) {
-                  const rect = progressBar.getBoundingClientRect();
-                  const parentRect = $el.parentElement.getBoundingClientRect();
+                // 调整热力图位置以完全匹配进度条
+                $el.style.left = `${rect.left - parentRect.left}px`;
+                $el.style.bottom = `${parentRect.bottom - rect.bottom + 5}px`;
+                $el.style.width = `${rect.width}px`;
 
-                  // 调整热力图位置以完全匹配进度条
-                  $el.style.left = `${rect.left - parentRect.left}px`;
-                  $el.style.bottom = `${parentRect.bottom - rect.bottom + 5}px`;
-                  $el.style.width = `${rect.width}px`;
-
-                  // 更新 canvas 分辨率
-                  updateCanvasSize();
-                }
+                // 更新 canvas 分辨率
+                updateCanvasSize();
+                return true;
               };
 
               // 初始调整
@@ -9026,9 +9027,20 @@ function PlayPageClient() {
                   return;
                 }
 
+                // 首次播放时热力图容器可能还没对齐进度条（画布为 0 尺寸），
+                // 此时绘制等于画在看不见的画布上；这里做一次自愈式对齐后重试。
+                if (canvas.width === 0 || canvas.height === 0) {
+                  if (!adjustHeatmapPosition()) {
+                    return; // 进度条尚未就绪，等待下一次 timeupdate/事件
+                  }
+                }
+
                 const dpr = window.devicePixelRatio || 1;
                 const width = canvas.width / dpr;
                 const height = canvas.height / dpr;
+                if (width <= 0 || height <= 0) {
+                  return;
+                }
                 const duration = artPlayerRef.current.duration || 0;
                 const currentTime = artPlayerRef.current.currentTime || 0;
 
@@ -9195,6 +9207,11 @@ function PlayPageClient() {
               // 监听时间更新
               artPlayerRef.current.on('video:timeupdate', drawHeatmap);
 
+              // 输入（弹幕数据 / 视频时长）未就绪时的短轮询控制
+              let heatmapRetryTimer: ReturnType<typeof setTimeout> | null = null;
+              let heatmapRetryCount = 0;
+              const HEATMAP_MAX_RETRIES = 20; // 最多重试 20 次（约 10 秒）
+
               // 监听弹幕数据更新
               const updateHeatmapData = () => {
                 if (!artPlayerRef.current) {
@@ -9211,11 +9228,24 @@ function PlayPageClient() {
                 const danmakuList = danmakuPluginRef.current.option?.danmuku || [];
 
                 if (danmakuList.length > 0 && duration > 0) {
+                  heatmapRetryCount = 0;
                   heatmapData = calculateHeatmapData(danmakuList, duration);
                   // 立即绘制热力图
                   drawHeatmap();
                   // 强制再次绘制，确保显示
                   setTimeout(drawHeatmap, 100);
+                  return;
+                }
+
+                // 首次播放时，弹幕加载早于热力图控件挂载（config 补丁与事件都来不及生效），
+                // 且唯一的一次性轮询可能看到空数组/时长为 0 就退出；此处若直接返回，
+                // 在用户换集或全屏触发重算之前热力图会一直空白。故此处做有界重试。
+                if (heatmapRetryCount < HEATMAP_MAX_RETRIES) {
+                  heatmapRetryCount++;
+                  if (heatmapRetryTimer) {
+                    clearTimeout(heatmapRetryTimer);
+                  }
+                  heatmapRetryTimer = setTimeout(updateHeatmapData, 500);
                 }
               };
 
@@ -9261,6 +9291,9 @@ function PlayPageClient() {
               // 清理
               return () => {
                 clearInterval(visibilityInterval);
+                if (heatmapRetryTimer) {
+                  clearTimeout(heatmapRetryTimer);
+                }
                 window.removeEventListener('resize', resizeHandler);
                 if (progressResizeObserver) {
                   progressResizeObserver.disconnect();
