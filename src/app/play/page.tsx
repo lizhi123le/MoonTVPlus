@@ -1125,6 +1125,11 @@ function PlayPageClient() {
           setDanmakuCount(danmakuData.length);
           console.log(`[弹幕] 缓存加载成功，共 ${danmakuData.length} 条`);
 
+          // 通知热力图等监听方：弹幕数据已写入插件
+          if (artPlayerRef.current) {
+            artPlayerRef.current.emit('danmaku:loaded');
+          }
+
           // 更新当前选择状态（使用实时计算的数量）
           if (cachedData.metadata) {
             setCurrentDanmakuSelection({
@@ -5935,6 +5940,11 @@ function PlayPageClient() {
       setDanmakuCount(danmakuData.length);
       setDanmakuNoMatch(false);
       console.log(`弹幕加载成功，共 ${danmakuData.length} 条`);
+
+      // 通知热力图等监听方：弹幕数据已写入插件（所有加载路径统一从这里广播）
+      if (artPlayerRef.current) {
+        artPlayerRef.current.emit('danmaku:loaded');
+      }
 
       // 更新当前选择状态，包含弹幕数量
       if (metadata) {
