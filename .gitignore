@@ -4,6 +4,8 @@
 /node_modules
 /.pnp
 .pnp.js
+# 本地 pnpm store（pnpm 会把 store 建在项目根目录）
+/.pnpm-store/
 
 # testing
 /coverage
