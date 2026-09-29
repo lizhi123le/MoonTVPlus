@@ -20,6 +20,10 @@ import {
 
 import { isAnimeCategoryText } from '@/lib/anime-keyword-expr';
 import { ApiSite } from '@/lib/config';
+import {
+  applyLocalSourceOrder,
+  subscribeLocalSourceOrder,
+} from '@/lib/source-order-local';
 import { appendSpecialSourceParam } from '@/lib/special-source.client';
 import { SearchResult } from '@/lib/types';
 
@@ -272,11 +276,13 @@ function SourceSearchPageClient() {
         const response = await fetch(appendSpecialSourceParam('/api/source-search/sources'));
         const data = await response.json();
         if (data.sources && Array.isArray(data.sources)) {
-          setApiSites(data.sources);
-          
+          // 本地顺序优先：后台刚改完排序时服务端可能尚未同步，这里立即按本地顺序显示
+          const ordered = applyLocalSourceOrder(data.sources as ApiSite[]);
+          setApiSites(ordered);
+
           const saved = restoreSourceCategoryFromStorage();
           const hasSource = (key: string) =>
-            !!key && data.sources.some((s: ApiSite) => s.key === key);
+            !!key && ordered.some((s: ApiSite) => s.key === key);
 
           // 观影返回的快照源优先，其次是上次记住的源，最后回退到第一个源
           let effectiveSource = '';
@@ -284,14 +290,14 @@ function SourceSearchPageClient() {
             effectiveSource = selectedSource;
           } else if (hasSource(saved.source)) {
             effectiveSource = saved.source;
-          } else if (data.sources.length > 0) {
-            effectiveSource = data.sources[0].key;
+          } else if (ordered.length > 0) {
+            effectiveSource = ordered[0].key;
           }
 
           if (effectiveSource) {
             setSelectedSource(effectiveSource);
             setShowCategoryDropdown(true);
-            const sourceItem = data.sources.find(
+            const sourceItem = ordered.find(
               (s: ApiSite) => s.key === effectiveSource
             );
             if (sourceItem) {
@@ -308,6 +314,26 @@ function SourceSearchPageClient() {
 
     fetchApiSites();
   }, [restoreChecked]);
+
+  // 后台在另一个标签页改完排序后，本地顺序会写入 localStorage。
+  // 这里监听变化并立即重排当前列表，避免必须刷新页面才看到新顺序。
+  useEffect(() => {
+    const reapply = () => {
+      // 输入是内存中可能已重排过的列表，禁止触发收敛清除
+      setApiSites((prev) => applyLocalSourceOrder(prev, { converge: false }));
+    };
+
+    const unsubscribe = subscribeLocalSourceOrder(reapply);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') reapply();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      unsubscribe();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, []);
 
   // 当选择的源变化时，加载分类列表
   useEffect(() => {

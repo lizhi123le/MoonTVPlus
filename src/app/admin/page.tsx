@@ -76,6 +76,7 @@ import {
   ALL_FEATURE_PERMISSION_KEYS,
   FEATURE_PERMISSION_OPTIONS,
 } from '@/lib/feature-permissions';
+import { saveLocalSourceOrder } from '@/lib/source-order-local';
 
 import AnimeSubscriptionComponent from '@/components/AnimeSubscriptionComponent';
 import CorrectDialog from '@/components/CorrectDialog';
@@ -7408,6 +7409,8 @@ const VideoSourceConfig = ({
 
   const handleSaveWeightConfig = useCallback(() => {
     withLoading('saveWeightConfig', async () => {
+      // 权重弹窗保存同样会提交整体顺序，先写入本地顺序保证寻片页即时生效
+      saveLocalSourceOrder(weightDraftSources.map((source) => source.key));
       await callSourceApi({
         action: 'batch_update_weights',
         weights: weightDraftSources.map((source) => ({
@@ -7749,6 +7752,10 @@ const VideoSourceConfig = ({
       // 立即更新本地状态提供流畅的 UI 体验
       setSources(newList);
 
+      // 同步写入浏览器本地顺序，供源站寻片页即时按新顺序显示
+      // （服务端 D1/KV 存在缓存与边缘同步延迟，不能只依赖刷新）
+      saveLocalSourceOrder(newList.map((source) => source.key));
+
       // 标记整体排序和权重受保护，防止回跳
       newList.forEach(s => {
         staleProtectionRef.current[`weight_${s.key}`] = Date.now();
@@ -7886,11 +7893,13 @@ const VideoSourceConfig = ({
 
           // 批量置顶时乐观更新前端列表排序
           if (action === 'batch_top') {
-            setSources((prev) => {
-              const toTop = prev.filter((s) => keys.includes(s.key));
-              const remaining = prev.filter((s) => !keys.includes(s.key));
-              return [...toTop, ...remaining];
-            });
+            const current = sourcesRef.current;
+            const toTop = current.filter((s) => keys.includes(s.key));
+            const remaining = current.filter((s) => !keys.includes(s.key));
+            const nextOrder = [...toTop, ...remaining];
+            setSources(nextOrder);
+            // 置顶同样改变了顺序，写入本地顺序供寻片页即时显示
+            saveLocalSourceOrder(nextOrder.map((s) => s.key));
             staleProtectionRef.current['sort_global'] = Date.now();
           }
 
