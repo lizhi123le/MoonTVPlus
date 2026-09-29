@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "226.0.1",
+    date: "2026-09-28",
+    added: [
+      // 无新增内容
+    ],
+    changed: [
+    "源测速区分超时与无法访问"
+    ],
+    fixed: [
+    "修复非关系型站长无法云备份"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
+    ]
+  },
+  {
     version: "226.0.0",
     date: "2026-09-25",
     added: [
