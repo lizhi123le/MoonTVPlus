@@ -74,6 +74,21 @@ export function getDanmakuSourceIndex(title: string): number | null {
 }
 
 /**
+ * 清除自动搜索记住的弹幕源下标。
+ * 该记忆在源被删除/改名/搜索结果顺序变化后会指向错误的源，失败时应清掉，避免下次继续被错误记忆带偏。
+ * @param title 视频标题
+ */
+export function clearDanmakuSourceIndex(title: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(`${STORAGE_KEY_PREFIX}index_${title}`);
+    console.log(`[弹幕记忆] 清除弹幕源下标记忆: ${title}`);
+  } catch (error) {
+    console.error(`[弹幕记忆] 清除弹幕源下标记忆失败 (${title}):`, error);
+  }
+}
+
+/**
  * 保存用户手动选择的弹幕剧集 ID
  * @param title 视频标题
  * @param episodeIndex 视频集数下标
@@ -111,6 +126,27 @@ export function getManualDanmakuSelection(
 }
 
 /**
+ * 清除指定视频指定集数的手动选择记忆。
+ * 手动选择对应的弹幕被删除后，该 episodeId 会返回 0 条，此时应清掉，避免后续集数继续走这条死记忆。
+ * @param title 视频标题
+ * @param episodeIndex 视频集数下标
+ */
+export function clearManualDanmakuSelection(
+  title: string,
+  episodeIndex: number
+): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(
+      `${STORAGE_KEY_PREFIX}manual_${title}_${episodeIndex}`
+    );
+    console.log(`[弹幕记忆] 清除手动选择记忆: ${title} 第${episodeIndex}集`);
+  } catch (error) {
+    console.error(`[弹幕记忆] 清除手动选择记忆失败 (${title}):`, error);
+  }
+}
+
+/**
  * 清除指定视频的所有弹幕选择记忆
  * @param title 视频标题
  */
@@ -121,6 +157,10 @@ export function clearDanmakuSelectionMemory(title: string): void {
     // 清除弹幕源下标记忆
     const indexKey = `${STORAGE_KEY_PREFIX}index_${title}`;
     localStorage.removeItem(indexKey);
+    // 清除记住的动漫 ID / 搜索关键词 / 候选源（换源后这些记忆都可能已失效）
+    localStorage.removeItem(`${STORAGE_KEY_PREFIX}anime_${title}`);
+    localStorage.removeItem(`${STORAGE_KEY_PREFIX}keyword_${title}`);
+    localStorage.removeItem(`${STORAGE_KEY_PREFIX}candidates_${title}`);
 
     // 清除所有手动选择记忆（遍历所有 localStorage 键）
     const keysToRemove: string[] = [];
@@ -191,6 +231,21 @@ export function getDanmakuSearchKeyword(title: string): string | null {
 }
 
 /**
+ * 清除该视频记住的搜索关键词。
+ * 保存的关键词搜索不到任何结果时应清掉，回退到视频标题重新搜索。
+ * @param title 视频标题
+ */
+export function clearDanmakuSearchKeyword(title: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(`${STORAGE_KEY_PREFIX}keyword_${title}`);
+    console.log(`[弹幕记忆] 清除搜索关键词记忆: ${title}`);
+  } catch (error) {
+    console.error(`[弹幕记忆] 清除搜索关键词记忆失败 (${title}):`, error);
+  }
+}
+
+/**
  * 保存用户手动选择的弹幕动漫ID（用于换集时自动匹配）
  * @param title 视频标题
  * @param animeId 弹幕动漫ID
@@ -216,6 +271,21 @@ export function getDanmakuAnimeId(title: string): number | null {
   }
 
   return null;
+}
+
+/**
+ * 清除该视频记住的弹幕动漫 ID。
+ * 记住的源被删除或该源确实没有对应集数的弹幕时，应清掉，避免每次都优先走一条死记忆。
+ * @param title 视频标题
+ */
+export function clearDanmakuAnimeId(title: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(`${STORAGE_KEY_PREFIX}anime_${title}`);
+    console.log(`[弹幕记忆] 清除动漫ID记忆: ${title}`);
+  } catch (error) {
+    console.error(`[弹幕记忆] 清除动漫ID记忆失败 (${title}):`, error);
+  }
 }
 
 /**

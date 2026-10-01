@@ -30,6 +30,10 @@ import {
   searchAnime,
 } from '@/lib/danmaku/api';
 import {
+  clearDanmakuAnimeId,
+  clearDanmakuSearchKeyword,
+  clearDanmakuSourceIndex,
+  clearManualDanmakuSelection,
   getDanmakuAnimeId,
   getDanmakuSearchKeyword,
   getDanmakuSourceIndex,
@@ -39,7 +43,15 @@ import {
   saveDanmakuSourceIndex,
   saveManualDanmakuSelection,
 } from '@/lib/danmaku/selection-memory';
-import { cleanEpisodeDisplayName } from '@/lib/danmaku/format';
+import {
+  buildDanmakuSearchKeywordCandidates,
+  cleanEpisodeDisplayName,
+} from '@/lib/danmaku/format';
+import {
+  buildDanmakuEpisodeCandidates,
+  filterDanmakuSources,
+  matchDanmakuEpisode,
+} from '@/lib/danmaku/match';
 import {
   getCachedDanmakuEpisodes,
   setCachedDanmakuEpisodes,
@@ -1349,8 +1361,10 @@ function PlayPageClient() {
             console.log('[弹幕记忆] 使用手动选择的弹幕成功');
             return 'done'; // 使用手动选择成功，直接返回
           }
-          // 手动选择的源也没有这一集的弹幕，继续走自动级联
-          console.log('[弹幕记忆] 手动选择的弹幕为空，降级到自动匹配');
+          // 手动选择的弹幕已被删除/失效：清掉这条死记忆，再走自动级联，
+          // 否则每次播这一集都会先白白请求一次空弹幕
+          console.log('[弹幕记忆] 手动选择的弹幕为空，清除该记忆并降级到自动匹配');
+          clearManualDanmakuSelection(title, episodeIndex);
         } catch (error) {
           console.error('[弹幕记忆] 使用手动选择的弹幕失败:', error);
           // 继续执行自动搜索
@@ -1370,70 +1384,119 @@ function PlayPageClient() {
           const episodesResult = await getEpisodes(savedAnimeId);
 
           if (episodesResult.success && episodesResult.bangumi.episodes.length > 0) {
-            // 根据当前集数选择对应的弹幕
+            // 根据当前集数生成候选集：集号精确命中优先，其次索引±窗口兜底
             const videoEpTitle = detailRef.current?.episodes_titles?.[episodeIndex];
-            const episode = matchDanmakuEpisode(episodeIndex, episodesResult.bangumi.episodes, videoEpTitle);
+            const episodeCandidates = buildDanmakuEpisodeCandidates(
+              episodeIndex,
+              episodesResult.bangumi.episodes,
+              videoEpTitle
+            );
 
-            if (episode) {
-              console.log(`[弹幕记忆] 使用保存的动漫ID匹配成功: ${episode.episodeTitle}`);
-
-              const selection: DanmakuSelection = {
-                animeId: savedAnimeId,
-                episodeId: episode.episodeId,
-                animeTitle: episodesResult.bangumi.animeTitle,
-                episodeTitle: episode.episodeTitle,
-              };
-
+            if (episodeCandidates.length > 0) {
               applyDanmakuEpisodes(episodesResult.bangumi.episodes);
 
-              // 通过统一的 handleDanmakuSelect 处理弹幕加载
-              const savedAnimeLoadedCount = await handleDanmakuSelect(selection);
-              if (savedAnimeLoadedCount > 0) {
-                return 'done'; // 匹配成功，直接返回
+              // 依次尝试候选集，避免因下标偏移导致记住的源被误判为"没有弹幕"
+              for (const episode of episodeCandidates) {
+                console.log(
+                  `[弹幕记忆] 使用保存的动漫ID匹配候选: ${episode.episodeTitle}`
+                );
+                const savedAnimeLoadedCount = await handleDanmakuSelect({
+                  animeId: savedAnimeId,
+                  episodeId: episode.episodeId,
+                  animeTitle: episodesResult.bangumi.animeTitle,
+                  episodeTitle: episode.episodeTitle,
+                });
+                if (savedAnimeLoadedCount > 0) {
+                  return 'done'; // 匹配成功，直接返回
+                }
               }
-              // 记住的源没有这一集的弹幕，降级到关键词搜索 + 自动级联
-              console.log('[弹幕记忆] 保存的动漫ID该集无弹幕，降级到关键词搜索');
+              // 记住的源在候选集里都没有弹幕，降级到关键词搜索 + 自动级联
+              console.log('[弹幕记忆] 保存的动漫ID候选集都无弹幕，降级到关键词搜索');
             } else {
               console.log('[弹幕记忆] 使用保存的动漫ID匹配失败，降级到关键词搜索');
             }
+
+            // 已确认该源没有这一集的弹幕：清掉这条死记忆，避免每次都被它拖慢
+            clearDanmakuAnimeId(title);
+          } else if (episodesResult.success) {
+            // 源存在但查不到剧集信息，多半已失效，同样清掉
+            console.log('[弹幕记忆] 保存的动漫ID没有剧集信息，清除该记忆');
+            clearDanmakuAnimeId(title);
           }
         } catch (error) {
+          // 网络/接口异常时不清除记忆，避免把可用的源误删
           console.error('[弹幕记忆] 使用保存的动漫ID失败:', error);
         }
       }
 
-      // 执行自动搜索弹幕（优先使用保存的关键词）
+      // 执行自动搜索弹幕
       console.log(`[弹幕] 开始自动搜索`);
       setDanmakuLoading(true);
 
-      // 优先使用保存的搜索关键词，否则使用视频标题
+      // 搜索关键词候选（按优先级）：
+      //   1. 用户上次手动搜索并记住的关键词（最准）
+      //   2. 搜索页带来的关键词 stitle（常比 CMS 详情标题干净）
+      //   3. 视频标题本体
+      // 每个标题还会附带一个"清洗后"的退化版本（去掉【】、括号、第N季、年份等），
+      // 避免因为标题多了个"第二季"就整部搜不到。逐个尝试，前一个搜不到/匹配不到再用下一个。
       const savedKeyword = getDanmakuSearchKeyword(title);
-      const searchKeyword = savedKeyword || title;
-      console.log(`[弹幕] 搜索关键词: ${searchKeyword}${savedKeyword ? ' (使用保存的关键词)' : ' (使用视频标题)'}`);
+      const keywordCandidates = buildDanmakuSearchKeywordCandidates([
+        savedKeyword,
+        searchTitle,
+        title,
+      ]).slice(0, 4);
+      console.log(
+        `[弹幕] 搜索关键词候选: ${keywordCandidates.join(' / ')}${savedKeyword ? '（含已保存关键词）' : ''}`
+      );
 
       try {
-        const searchResult = await searchAnime(searchKeyword);
+        const videoYear = detailRef.current?.year;
+        let anySearchSucceeded = false;
+        let anyDanmakuLoaded = false;
 
-        if (searchResult.success && searchResult.animes.length > 0) {
-          // 应用智能过滤：优先匹配年份和标题
-          const videoYear = detailRef.current?.year;
-          const filteredAnimes = filterDanmakuSources(
+        for (const keyword of keywordCandidates) {
+          const searchResult = await searchAnime(keyword);
+
+          if (!searchResult.success || searchResult.animes.length === 0) {
+            console.log(`[弹幕] 关键词「${keyword}」没有搜索到弹幕源，尝试下一个关键词`);
+            continue;
+          }
+
+          anySearchSucceeded = true;
+
+          // 按可信度排序（只重排、不裁剪），确保所有搜索到的源都会进入级联
+          const orderedAnimes = filterDanmakuSources(
             searchResult.animes,
             title,
             videoYear
           );
 
-          // 依次自动尝试候选弹幕源（不再弹出选择框）
-          const danmakuLoaded = await tryLoadDanmakuFromCandidates(
-            filteredAnimes,
-            searchKeyword
-          );
-
-          if (danmakuLoaded) {
-            return 'done';
+          if (await tryLoadDanmakuFromCandidates(orderedAnimes, keyword)) {
+            anyDanmakuLoaded = true;
+            break;
           }
 
-          // 所有源都没有当前集数的弹幕
+          // 兜底：若排序/过滤环节意外缩减了候选，用原始全量结果再试一遍，确保不会漏源
+          if (orderedAnimes.length !== searchResult.animes.length) {
+            console.warn('[弹幕] 候选源被裁剪，回退到未过滤的全量搜索结果重试');
+            if (await tryLoadDanmakuFromCandidates(searchResult.animes, keyword)) {
+              anyDanmakuLoaded = true;
+              break;
+            }
+          }
+        }
+
+        if (anyDanmakuLoaded) {
+          return 'done';
+        }
+
+        // 已保存的关键词这次没能匹配到弹幕：清掉它，避免下次继续优先走这条死记忆
+        if (savedKeyword) {
+          clearDanmakuSearchKeyword(title);
+        }
+
+        if (anySearchSucceeded) {
+          // 能搜到源，但没有一个源有当前集的弹幕
           setDanmakuNoMatch(true);
           if (artPlayerRef.current) {
             artPlayerRef.current.notice.show = '未匹配到弹幕';
@@ -1460,7 +1523,7 @@ function PlayPageClient() {
     danmakuEpisodeLoaderRef.current = loadDanmakuForCurrentEpisode;
 
     loadDanmakuForEpisode(currentEpisodeIndex);
-  }, [currentEpisodeIndex, videoTitle, loading, isDirectPlay]);
+  }, [currentEpisodeIndex, videoTitle, searchTitle, loading, isDirectPlay]);
 
   // 获取豆瓣评分数据
   useEffect(() => {
@@ -6330,127 +6393,7 @@ function PlayPageClient() {
   // 弹幕处理函数
   // ---------------------------------------------------------------------------
 
-  /**
-   * 智能过滤弹幕源：优先匹配年份和标题完全相同的源
-   * @param animes 所有搜索到的弹幕源
-   * @param videoTitle 视频标题
-   * @param videoYear 视频年份（如 "2024"）
-   * @returns 过滤后的弹幕源列表
-   */
-  const filterDanmakuSources = (
-    animes: DanmakuAnime[],
-    videoTitle: string,
-    videoYear?: string
-  ): DanmakuAnime[] => {
-    if (animes.length <= 1) return animes;
-
-    // 标准化标题：移除空格、全角转半角
-    const normalizeTitle = (title: string): string => {
-      return title
-        .replace(/\s+/g, '')
-        .replace(/[\uff01-\uff5e]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
-        .toLowerCase();
-    };
-
-    // 从日期字符串中提取年份（如 "2024-01" -> "2024"）
-    const extractYear = (dateStr?: string): string | null => {
-      if (!dateStr) return null;
-      const match = dateStr.match(/^(\d{4})/);
-      return match ? match[1] : null;
-    };
-
-    const normalizedVideoTitle = normalizeTitle(videoTitle);
-
-    // 第一步：尝试同时匹配年份和标题
-    if (videoYear) {
-      const exactMatches = animes.filter((anime) => {
-        const animeYear = extractYear(anime.startDate);
-        const normalizedAnimeTitle = normalizeTitle(anime.animeTitle);
-        return animeYear === videoYear && normalizedAnimeTitle === normalizedVideoTitle;
-      });
-
-      if (exactMatches.length > 0) {
-        console.log(`[弹幕匹配] 找到 ${exactMatches.length} 个年份和标题完全匹配的源`);
-        return exactMatches;
-      }
-    }
-
-    // 第二步：如果没有完全匹配，尝试只匹配标题
-    const titleMatches = animes.filter((anime) => {
-      const normalizedAnimeTitle = normalizeTitle(anime.animeTitle);
-      return normalizedAnimeTitle === normalizedVideoTitle;
-    });
-
-    if (titleMatches.length > 0) {
-      console.log(`[弹幕匹配] 找到 ${titleMatches.length} 个标题完全匹配的源`);
-      return titleMatches;
-    }
-
-    // 第三步：如果只匹配年份
-    if (videoYear) {
-      const yearMatches = animes.filter((anime) => {
-        const animeYear = extractYear(anime.startDate);
-        return animeYear === videoYear;
-      });
-
-      if (yearMatches.length > 0) {
-        console.log(`[弹幕匹配] 找到 ${yearMatches.length} 个年份匹配的源`);
-        return yearMatches;
-      }
-    }
-
-    // 如果都没有匹配，返回所有源
-    console.log('[弹幕匹配] 未找到精确匹配，返回所有源');
-    return animes;
-  };
-
-  // 匹配弹幕集数：优先根据集数标题中的数字匹配，降级到索引匹配
-  // options.strict = true 时不做索引兜底，用于判断"该源是否真的有这一集"
-  const matchDanmakuEpisode = (
-    currentEpisodeIndex: number,
-    danmakuEpisodes: Array<{ episodeId: number; episodeTitle: string }>,
-    videoEpisodeTitle?: string,
-    options?: { strict?: boolean }
-  ) => {
-    if (!danmakuEpisodes.length) return null;
-
-    const extractEpisodeNumber = (title: string): number | null => {
-      if (!title) return null;
-
-      // 优先匹配 Emby 格式：S01E01, S02E09 等
-      const embyMatch = title.match(/[Ss]\d+[Ee](\d+)/);
-      if (embyMatch) {
-        return parseInt(embyMatch[1], 10);
-      }
-
-      // 降级到原本的策略：纯数字或"第X集/话"格式
-      const match = title.match(/^(\d+)$|第?\s*(\d+)\s*[集话話]?/);
-      return match ? parseInt(match[1] || match[2], 10) : null;
-    };
-
-    if (videoEpisodeTitle) {
-      const episodeNum = extractEpisodeNumber(videoEpisodeTitle);
-      if (episodeNum !== null) {
-        for (const ep of danmakuEpisodes) {
-          const danmakuNum = extractEpisodeNumber(ep.episodeTitle);
-          if (danmakuNum === episodeNum) {
-            console.log(`[弹幕匹配] 根据集数标题匹配: ${videoEpisodeTitle} -> ${ep.episodeTitle}`);
-            return ep;
-          }
-        }
-      }
-    }
-
-    // 严格模式：必须按集数标题匹配；源缺少该集时返回 null，由调用方换源
-    if (options?.strict) {
-      console.log('[弹幕匹配] 严格模式下未找到对应集数');
-      return null;
-    }
-
-    const index = Math.min(currentEpisodeIndex, danmakuEpisodes.length - 1);
-    console.log(`[弹幕匹配] 降级到索引匹配: 索引 ${currentEpisodeIndex} -> ${danmakuEpisodes[index].episodeTitle}`);
-    return danmakuEpisodes[index];
-  };
+  // 弹幕源排序 / 集数匹配均为共享纯函数（见 @/lib/danmaku/match），网页与 TV 播放页共用
 
   // 加载弹幕到播放器
   // 返回值：实际加载到播放器的弹幕条数（0 表示这个剧集没有弹幕/加载失败）
@@ -6691,18 +6634,31 @@ function PlayPageClient() {
         }
       }
 
-      // 5. 执行自动搜索弹幕
+      // 5. 执行自动搜索弹幕（关键词优先级与主流程一致：记住的关键词 > 搜索页关键词 > 视频标题）
       const savedKeyword = getDanmakuSearchKeyword(title);
-      const searchKeyword = savedKeyword || title;
+      const preloadKeywordCandidates = buildDanmakuSearchKeywordCandidates([
+        savedKeyword,
+        searchTitle,
+        title,
+      ]).slice(0, 4);
 
-      const searchResult = await searchAnime(searchKeyword);
-      if (!searchResult.success || searchResult.animes.length === 0) {
+      let resolvedAnimes: DanmakuAnime[] | null = null;
+      let searchKeyword = title;
+      for (const keyword of preloadKeywordCandidates) {
+        const result = await searchAnime(keyword);
+        if (result.success && result.animes.length > 0) {
+          resolvedAnimes = result.animes;
+          searchKeyword = keyword;
+          break;
+        }
+      }
+      if (!resolvedAnimes) {
         return;
       }
 
-      // 应用智能过滤
+      // 按可信度排序（只重排、不裁剪，确保兜底也不会漏源）
       const videoYear = detailRef.current?.year;
-      const filteredAnimes = filterDanmakuSources(searchResult.animes, title, videoYear);
+      const filteredAnimes = filterDanmakuSources(resolvedAnimes, title, videoYear);
 
       if (filteredAnimes.length === 0) {
         return;
@@ -6717,14 +6673,18 @@ function PlayPageClient() {
         }
       }
 
-      // 获取剧集列表并匹配
+      // 获取剧集列表并匹配（候选集逐个尝试，避免下标偏移命中空弹幕的集）
       const episodesResult = await getEpisodes(selectedAnime.animeId);
       if (episodesResult.success && episodesResult.bangumi.episodes.length > 0) {
         const nextVideoEpTitle = detailRef.current?.episodes_titles?.[nextEpisodeIndex];
-        const episode = matchDanmakuEpisode(nextEpisodeIndex, episodesResult.bangumi.episodes, nextVideoEpTitle);
+        const episodeCandidates = buildDanmakuEpisodeCandidates(
+          nextEpisodeIndex,
+          episodesResult.bangumi.episodes,
+          nextVideoEpTitle
+        );
 
-        if (episode) {
-          await getDanmakuById(
+        for (const episode of episodeCandidates) {
+          const comments = await getDanmakuById(
             episode.episodeId,
             title,
             nextEpisodeIndex,
@@ -6736,6 +6696,9 @@ function PlayPageClient() {
               searchKeyword: searchKeyword,
             }
           );
+          if (comments.length > 0) {
+            break;
+          }
         }
       }
     } catch (error) {
@@ -6877,8 +6840,8 @@ function PlayPageClient() {
   };
 
   // 依次尝试候选弹幕源，直到某个源能返回当前集数的弹幕
-  // 顺序：上次成功使用的源优先，其余按搜索结果顺序兜底
-  // 先尝试"集数严格匹配"的源，都不可用时再退回"索引匹配"（保持原有兜底行为）
+  // 顺序：上次成功使用的源优先，其余按传入顺序兜底
+  // 先尝试"集数严格匹配"的源，都不可用时再退回"索引匹配窗口"兜底
   // 返回值：是否成功加载到弹幕
   const tryLoadDanmakuFromCandidates = async (
     candidates: DanmakuAnime[],
@@ -6895,9 +6858,10 @@ function PlayPageClient() {
       return false;
     }
 
-    // 上次成功使用的源排在最前，其余按顺序凑成尝试队列
+    // 上次成功使用的源排在最前，其余按顺序凑成尝试队列（按 animeId 去重，避免兜底列表叠加后重复请求）
     const rememberedIndex = getDanmakuSourceIndex(title);
     const orderedCandidates: Array<{ anime: DanmakuAnime; index: number }> = [];
+    const queuedAnimeIds = new Set<number>();
     if (
       rememberedIndex !== null &&
       rememberedIndex >= 0 &&
@@ -6907,22 +6871,55 @@ function PlayPageClient() {
         anime: candidates[rememberedIndex],
         index: rememberedIndex,
       });
+      queuedAnimeIds.add(candidates[rememberedIndex].animeId);
     }
     candidates.forEach((anime, index) => {
-      if (index !== rememberedIndex) {
-        orderedCandidates.push({ anime, index });
-      }
+      if (index === rememberedIndex) return;
+      if (queuedAnimeIds.has(anime.animeId)) return;
+      queuedAnimeIds.add(anime.animeId);
+      orderedCandidates.push({ anime, index });
     });
 
     const currentEp = currentEpisodeIndexRef.current;
     const videoEpTitle = detailRef.current?.episodes_titles?.[currentEp];
 
-    // 只有索引匹配（源缺少该集）的候选先记下来，等严格匹配都失败后再兜底
+    // 逐个尝试候选集，返回第一个真正取到弹幕的集（都取不到则返回 null）
+    // 索引窗口会让单个源最多试 5 个集，这里用一个全局预算兜住最坏情况，
+    // 避免错误源很多时对弹幕接口发起海量请求
+    let episodeLoadAttempts = 0;
+    const MAX_EPISODE_LOAD_ATTEMPTS = 30;
+    const loadFirstAvailableEpisode = async (
+      anime: DanmakuAnime,
+      episodeList: Array<{ episodeId: number; episodeTitle: string }>
+    ): Promise<{ episodeId: number; episodeTitle: string } | null> => {
+      for (const episode of episodeList) {
+        if (episodeLoadAttempts >= MAX_EPISODE_LOAD_ATTEMPTS) {
+          console.warn(
+            `[弹幕] 单次自动匹配的弹幕请求次数已达上限（${MAX_EPISODE_LOAD_ATTEMPTS}），停止继续尝试`
+          );
+          return null;
+        }
+        episodeLoadAttempts++;
+        const loadedCount = await handleDanmakuSelect({
+          animeId: anime.animeId,
+          episodeId: episode.episodeId,
+          animeTitle: anime.animeTitle,
+          episodeTitle: episode.episodeTitle,
+          searchKeyword,
+        });
+        if (loadedCount > 0) {
+          return episode;
+        }
+      }
+      return null;
+    };
+
+    // 只有索引兜底（源缺少该集标题）的候选先记下来，等严格匹配都失败后再兜底
     const weakCandidates: Array<{
       anime: DanmakuAnime;
       index: number;
       episodes: Array<{ episodeId: number; episodeTitle: string }>;
-      fallbackEpisode: { episodeId: number; episodeTitle: string };
+      fallbackEpisodes: Array<{ episodeId: number; episodeTitle: string }>;
     }> = [];
 
     for (const { anime, index } of orderedCandidates) {
@@ -6938,26 +6935,27 @@ function PlayPageClient() {
         }
 
         const episodes = episodesResult.bangumi.episodes;
-        const strictEpisode = matchDanmakuEpisode(
+        // 严格候选：集号精确命中；兜底候选：包含索引窗口，用于该源没有精确集号时继续救
+        const strictCandidates = buildDanmakuEpisodeCandidates(
           currentEp,
           episodes,
           videoEpTitle,
           { strict: true }
         );
+        const fallbackEpisodes = buildDanmakuEpisodeCandidates(
+          currentEp,
+          episodes,
+          videoEpTitle
+        );
 
-        if (!strictEpisode) {
+        if (strictCandidates.length === 0) {
           // 该源没有当前集数：先跳过，优先尝试后面能精确匹配集数的源
-          const fallbackEpisode = matchDanmakuEpisode(
-            currentEp,
-            episodes,
-            videoEpTitle
-          );
-          if (fallbackEpisode) {
+          if (fallbackEpisodes.length > 0) {
             weakCandidates.push({
               anime,
               index,
               episodes,
-              fallbackEpisode,
+              fallbackEpisodes,
             });
           }
           console.log(
@@ -6968,49 +6966,44 @@ function PlayPageClient() {
 
         setDanmakuEpisodesList(episodes);
 
-        const loadedCount = await handleDanmakuSelect({
-          animeId: anime.animeId,
-          episodeId: strictEpisode.episodeId,
-          animeTitle: anime.animeTitle,
-          episodeTitle: strictEpisode.episodeTitle,
-          searchKeyword,
-        });
+        const strictHit = await loadFirstAvailableEpisode(anime, strictCandidates);
 
-        if (loadedCount > 0) {
+        if (strictHit) {
           // 记住本次成功的源：后续集数优先复用它，失败时会自动继续向下尝试
           // （不写 saveDanmakuAnimeId，那是"用户手动选择"的记忆，自动流程不覆盖）
           saveDanmakuSourceIndex(title, index);
           console.log(
-            `[弹幕] 自动匹配成功: ${anime.animeTitle} / ${strictEpisode.episodeTitle}（${loadedCount} 条）`
+            `[弹幕] 自动匹配成功: ${anime.animeTitle} / ${strictHit.episodeTitle}`
           );
           return true;
         }
 
+        // 严格命中的集都没有弹幕：把索引兜底候选也排队，全部源试完后回来救
+        if (fallbackEpisodes.length > 0) {
+          weakCandidates.push({ anime, index, episodes, fallbackEpisodes });
+        }
         console.log(
-          `[弹幕] 源「${anime.animeTitle}」第 ${strictEpisode.episodeTitle} 没有弹幕，尝试下一个源`
+          `[弹幕] 源「${anime.animeTitle}」严格匹配的集没有弹幕，尝试下一个源`
         );
       } catch (error) {
         console.error(`[弹幕] 源「${anime.animeTitle}」尝试失败，继续下一个源:`, error);
       }
     }
 
-    // 严格匹配的源都拿不到弹幕，退回索引匹配（与旧行为一致）
+    // 严格匹配的源都拿不到弹幕，退回索引兜底（含索引±窗口，逐个试到有弹幕为止）
     for (const weak of weakCandidates) {
       try {
         setDanmakuEpisodesList(weak.episodes);
 
-        const loadedCount = await handleDanmakuSelect({
-          animeId: weak.anime.animeId,
-          episodeId: weak.fallbackEpisode.episodeId,
-          animeTitle: weak.anime.animeTitle,
-          episodeTitle: weak.fallbackEpisode.episodeTitle,
-          searchKeyword,
-        });
+        const fallbackHit = await loadFirstAvailableEpisode(
+          weak.anime,
+          weak.fallbackEpisodes
+        );
 
-        if (loadedCount > 0) {
+        if (fallbackHit) {
           saveDanmakuSourceIndex(title, weak.index);
           console.log(
-            `[弹幕] 按索引兜底匹配成功: ${weak.anime.animeTitle} / ${weak.fallbackEpisode.episodeTitle}（${loadedCount} 条）`
+            `[弹幕] 按索引兜底匹配成功: ${weak.anime.animeTitle} / ${fallbackHit.episodeTitle}`
           );
           return true;
         }
@@ -7019,6 +7012,8 @@ function PlayPageClient() {
       }
     }
 
+    // 全部失败：清掉记住的源下标，避免下次继续优先尝试这条已经失效的路径
+    clearDanmakuSourceIndex(title);
     console.warn(
       `[弹幕] ${candidates.length} 个弹幕源都没有匹配到第 ${currentEp + 1} 集的弹幕`
     );

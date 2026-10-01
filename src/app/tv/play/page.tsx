@@ -43,6 +43,12 @@ import {
   saveDanmakuDisplayState,
   searchAnime,
 } from '@/lib/danmaku/api';
+import { buildDanmakuSearchKeywordCandidates } from '@/lib/danmaku/format';
+import {
+  buildDanmakuEpisodeCandidates,
+  filterDanmakuSources,
+} from '@/lib/danmaku/match';
+import type { DanmakuAnime } from '@/lib/danmaku/types';
 import { isAnimeCategoryText } from '@/lib/anime-keyword-expr';
 import {
   deleteFavorite,
@@ -640,38 +646,80 @@ function TVPlayClient() {
       lastDanmakuTimeRef.current = timeRef.current.current;
       if (!danmakuEnabled || !detail?.title) return;
       try {
-        const search = await searchAnime(title || detail.title);
-        const anime = search.animes?.[0];
-        if (!alive || !anime?.animeId) return;
-        const eps = await getEpisodes(anime.animeId);
-        const ep =
-          eps.bangumi?.episodes?.[
-            Math.min(
-              episodeIndex,
-              Math.max(0, (eps.bangumi?.episodes?.length || 1) - 1)
-            )
-          ];
-        if (!alive || !ep?.episodeId) return;
-        const comments = await getDanmakuById(
-          ep.episodeId,
+        // 1. 搜索关键词候选：URL 标题 > 详情标题，各自附带清洗后的退化版本，
+        //    前一个搜不到源就用下一个（避免因标题带"第二季/年份"等修饰整部搜不到）
+        const keywordCandidates = buildDanmakuSearchKeywordCandidates([
+          title,
           detail.title,
-          episodeIndex,
-          undefined,
-          {
-            animeId: anime.animeId,
-            animeTitle: anime.animeTitle,
-            episodeTitle: ep.episodeTitle,
-            searchKeyword: title || detail.title,
+        ]).slice(0, 4);
+
+        let resolvedAnimes: DanmakuAnime[] | null = null;
+        let searchKeyword = detail.title;
+        for (const keyword of keywordCandidates) {
+          const search = await searchAnime(keyword);
+          if (!alive) return;
+          if (search.success && search.animes?.length) {
+            resolvedAnimes = search.animes;
+            searchKeyword = keyword;
+            break;
           }
+        }
+        if (!alive || !resolvedAnimes) return;
+
+        // 2. 按可信度排序（只重排、不裁剪）：不再只认第一个搜索结果
+        const rankedAnimes = filterDanmakuSources(
+          resolvedAnimes,
+          detail.title,
+          detail.year
         );
-        if (!alive) return;
-        lastDanmakuTimeRef.current = Math.max(
-          0,
-          timeRef.current.current - TV_DANMAKU_SEEK_WINDOW - 1
-        );
-        setDanmakuItems(
-          convertDanmakuFormat(comments).slice(0, TV_DANMAKU_MAX_ITEMS)
-        );
+
+        // 3. 逐个源、逐个候选集尝试，直到取到弹幕为止
+        //    （旧实现只取第一个源 + 纯索引定位，源不对或下标偏移就直接没有弹幕）
+        let episodeLoadAttempts = 0;
+        const MAX_EPISODE_LOAD_ATTEMPTS = 20;
+
+        for (const anime of rankedAnimes) {
+          const eps = await getEpisodes(anime.animeId);
+          if (!alive) return;
+          if (!eps.success || !eps.bangumi?.episodes?.length) continue;
+
+          const episodeCandidates = buildDanmakuEpisodeCandidates(
+            episodeIndex,
+            eps.bangumi.episodes,
+            detail.episodes_titles?.[episodeIndex]
+          );
+
+          for (const ep of episodeCandidates) {
+            if (episodeLoadAttempts >= MAX_EPISODE_LOAD_ATTEMPTS) break;
+            episodeLoadAttempts++;
+
+            const comments = await getDanmakuById(
+              ep.episodeId,
+              detail.title,
+              episodeIndex,
+              undefined,
+              {
+                animeId: anime.animeId,
+                animeTitle: anime.animeTitle,
+                episodeTitle: ep.episodeTitle,
+                searchKeyword,
+              }
+            );
+            if (!alive) return;
+            if (comments.length > 0) {
+              lastDanmakuTimeRef.current = Math.max(
+                0,
+                timeRef.current.current - TV_DANMAKU_SEEK_WINDOW - 1
+              );
+              setDanmakuItems(
+                convertDanmakuFormat(comments).slice(0, TV_DANMAKU_MAX_ITEMS)
+              );
+              return;
+            }
+          }
+
+          if (episodeLoadAttempts >= MAX_EPISODE_LOAD_ATTEMPTS) break;
+        }
       } catch {
         if (alive) setDanmakuItems([]);
       }
