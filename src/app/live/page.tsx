@@ -2140,7 +2140,7 @@ function LivePageClient() {
         // 代理失败时降级到原始地址
         const originalUrl = videoUrl;
         const isProxyUrl = targetUrl !== originalUrl; // 所有类型都使用代理
-        let hasTriedFallback = false;
+        const hasTriedFallback = false;
 
         // 代理超时警告（不切换URL，避免暂停）
         let proxyTimeout: NodeJS.Timeout | null = null;

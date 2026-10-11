@@ -8,6 +8,7 @@ function getRandomBytes(length: number): Uint8Array {
   } else if (typeof require !== 'undefined') {
     // Node.js
     try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires -- 兼容 Node：需要同步加载内置 crypto
       const nodeCrypto = require('crypto');
       return nodeCrypto.randomBytes(length);
     } catch {
@@ -29,7 +30,7 @@ function getRandomBytes(length: number): Uint8Array {
 }
 
 // 生成随机密码
-function generateRandomPassword(length: number = 32): string {
+function generateRandomPassword(length = 32): string {
   const bytes = getRandomBytes(length);
   let result = '';
   for (let i = 0; i < bytes.length; i++) {
@@ -195,25 +196,31 @@ const STORAGE_TYPE =
 // 创建存储实例
 function createStorage(): IStorage {
   switch (STORAGE_TYPE) {
-    case 'redis':
+    case 'redis': {
       if (IS_CLOUDFLARE_BUILD) {
         throw new Error(
           'Node Redis storage is not supported in Cloudflare builds. Use D1 or Upstash instead.'
         );
       }
+      // eslint-disable-next-line @typescript-eslint/no-var-requires -- 延迟到运行时按 STORAGE_TYPE 加载，避免把 Node 存储打进客户端包
       const { RedisStorage } = require('./redis.db');
       return new RedisStorage();
-    case 'upstash':
+    }
+    case 'upstash': {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires -- 同上：按需延迟加载
       const { UpstashRedisStorage } = require('./upstash.db');
       return new UpstashRedisStorage();
-    case 'kvrocks':
+    }
+    case 'kvrocks': {
       if (IS_CLOUDFLARE_BUILD) {
         throw new Error(
           'Kvrocks storage is not supported in Cloudflare builds. Use D1 or Upstash instead.'
         );
       }
+      // eslint-disable-next-line @typescript-eslint/no-var-requires -- 同上：按需延迟加载
       const { KvrocksStorage } = require('./kvrocks.db');
       return new KvrocksStorage();
+    }
     case 'd1': {
       // D1Storage 只能在服务端使用，客户端会报错
       if (typeof window !== 'undefined') {
@@ -221,6 +228,7 @@ function createStorage(): IStorage {
       }
       const d1Adapter = getD1Adapter();
       // 动态导入 D1Storage 以避免客户端打包
+      // eslint-disable-next-line @typescript-eslint/no-var-requires -- 动态加载以避免客户端打包
       const { D1Storage } = require('./d1.db');
       return new D1Storage(d1Adapter);
     }
@@ -231,18 +239,21 @@ function createStorage(): IStorage {
       }
       const postgresAdapter = getPostgresAdapter();
       // 动态导入 PostgresStorage 以避免客户端打包
+      // eslint-disable-next-line @typescript-eslint/no-var-requires -- 动态加载以避免客户端打包
       const { PostgresStorage } = require('./postgres.db');
       return new PostgresStorage(postgresAdapter);
     }
-    case 'turso':
+    case 'turso': {
       // TursoStorage 只能在服务端使用，客户端会报错
       if (typeof window !== 'undefined') {
         throw new Error('TursoStorage can only be used on the server side');
       }
       const tursoAdapter = getTursoAdapter();
       // 复用 D1Storage（Turso 基于 libSQL/SQLite，SQL 语法完全兼容）
+      // eslint-disable-next-line @typescript-eslint/no-var-requires -- 动态加载以避免客户端打包
       const { D1Storage: TursoD1Storage } = require('./d1.db');
       return new TursoD1Storage(tursoAdapter);
+    }
     case 'localstorage':
     default:
       return new NoOpStorage();
@@ -255,6 +266,7 @@ function createStorage(): IStorage {
  */
 function getPostgresAdapter(): any {
   // 动态导入适配器以避免客户端打包
+  // eslint-disable-next-line @typescript-eslint/no-var-requires -- 动态加载以避免客户端打包
   const { PostgresAdapter } = require('./postgres-adapter');
 
   console.log('Using Vercel Postgres database');
@@ -269,6 +281,7 @@ function getPostgresAdapter(): any {
  */
 function getTursoAdapter(): any {
   // 动态导入适配器以避免客户端打包
+  // eslint-disable-next-line @typescript-eslint/no-var-requires -- 动态加载以避免客户端打包
   const { TursoAdapter } = require('./turso-adapter');
 
   const tursoUrl = process.env.TURSO_URL;
@@ -292,6 +305,7 @@ function getTursoAdapter(): any {
  */
 function getD1Adapter(): any {
   // 动态导入适配器以避免客户端打包
+  // eslint-disable-next-line @typescript-eslint/no-var-requires -- 动态加载以避免客户端打包
   const { CloudflareD1Adapter, SQLiteAdapter } = require('./d1-adapter');
 
   // 检查是否为 Cloudflare 构建（使用更安全的方式检测）
@@ -309,9 +323,9 @@ function getD1Adapter(): any {
           // 懒加载：第一次访问时才获取真实的 D1 适配器
           if (!cachedAdapter) {
             try {
-              const {
-                getCloudflareContext,
-              } = require('@opennextjs/cloudflare');
+              const { getCloudflareContext } =
+                // eslint-disable-next-line @typescript-eslint/no-var-requires -- 仅 Cloudflare 运行时才会走到，动态加载以免影响其他构建目标
+                require('@opennextjs/cloudflare');
               const { env } = getCloudflareContext();
 
               if (!env.DB) {

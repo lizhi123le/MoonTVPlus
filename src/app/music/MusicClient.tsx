@@ -471,8 +471,12 @@ export default function MusicClient({ children: _children }: { children?: React.
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
-    onCancel: () => {},
+    onConfirm: () => {
+      // 占位：真实回调由调用方覆盖
+    },
+    onCancel: () => {
+      // 占位：真实回调由调用方覆盖
+    },
   });
 
   // PiP 相关状态
@@ -503,7 +507,9 @@ export default function MusicClient({ children: _children }: { children?: React.
       setSurroundEnabled(localStorage.getItem('musicSurroundEnabled') === '1');
       setSurroundSpeed(Math.max(5, Math.min(60, Number(localStorage.getItem('musicSurroundSpeed')) || 25)));
       setSurroundDistance(Math.max(1, Math.min(10, Number(localStorage.getItem('musicSurroundDistance')) || 5)));
-    } catch {}
+    } catch {
+      // localStorage 不可用时忽略
+    }
   }, []);
 
   useEffect(() => {
@@ -1570,8 +1576,12 @@ export default function MusicClient({ children: _children }: { children?: React.
             isOpen: false,
             title: '',
             message: '',
-            onConfirm: () => {},
-            onCancel: () => {},
+            onConfirm: () => {
+              // 占位：真实回调由调用方覆盖
+            },
+            onCancel: () => {
+              // 占位：真实回调由调用方覆盖
+            },
           });
         }
       },
@@ -1580,8 +1590,12 @@ export default function MusicClient({ children: _children }: { children?: React.
           isOpen: false,
           title: '',
           message: '',
-          onConfirm: () => {},
-          onCancel: () => {},
+          onConfirm: () => {
+            // 占位：真实回调由调用方覆盖
+          },
+          onCancel: () => {
+            // 占位：真实回调由调用方覆盖
+          },
         });
       },
     });

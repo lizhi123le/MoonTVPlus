@@ -54,7 +54,7 @@ export function cleanDanmakuSearchKeyword(
   t = t.replace(/第\s*\d+\s*[集话話]/g, ' ');
   t = t.replace(/\bHD\b/gi, ' ');
   t = t.replace(/(?:高清|蓝光|国语|粤语|日语|中字|中文字幕|双语)版?/g, ' ');
-  t = t.replace(/[【】\[\]「」『』《》<>]/g, ' ');
+  t = t.replace(/[【】[\]「」『』《》<>]/g, ' ');
   // 只清理真正的分隔符，保留 "Re:Zero"、"K-ON!" 这类标题自身的标点
   t = t.replace(/[_·・,，.。!！?？/\\|~～+]+/g, ' ');
   t = t.replace(/\s+/g, ' ').trim();

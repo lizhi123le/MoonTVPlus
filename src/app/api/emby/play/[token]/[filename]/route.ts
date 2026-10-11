@@ -187,6 +187,7 @@ export async function GET(
     (async () => {
       const writer = writable.getWriter();
       try {
+        // eslint-disable-next-line no-constant-condition -- 流式转发：仅在 done 时 break
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;

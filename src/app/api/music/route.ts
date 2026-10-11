@@ -11,13 +11,13 @@ function safeEval(expression: string, context: Record<string, any>): string {
 
   // 检查是否只是简单的变量引用
   if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(sanitized)) {
-    if (context.hasOwnProperty(sanitized)) {
+    if (Object.prototype.hasOwnProperty.call(context, sanitized)) {
       return String(context[sanitized]);
     }
   }
 
   // 检查是否是简单的算术表达式（只允许数字和基本运算符）
-  const safeArithmeticRegex = /^[0-9+\-*/\(\)\s]+$/;
+  const safeArithmeticRegex = /^[0-9+\-*/()\s]+$/;
   if (safeArithmeticRegex.test(sanitized)) {
     try {
       // 替换变量为其值
@@ -335,7 +335,7 @@ async function executeMethod(
             const expr = expression.trim();
 
             // 检查是否是单个变量（没有运算符）
-            if (evalContext.hasOwnProperty(expr)) {
+            if (Object.prototype.hasOwnProperty.call(evalContext, expr)) {
               // 直接返回变量值
               return String(evalContext[expr]);
             }

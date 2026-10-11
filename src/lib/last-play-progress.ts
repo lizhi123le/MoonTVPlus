@@ -45,7 +45,7 @@ export function saveLastPlayProgress(
   title: string,
   episodeIndex: number,
   playTime: number,
-  totalTime: number = 0
+  totalTime = 0
 ): void {
   if (typeof window === 'undefined') return;
 

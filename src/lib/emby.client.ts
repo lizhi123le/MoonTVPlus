@@ -146,7 +146,7 @@ export class EmbyClient {
     }
   }
 
-  private getHeaders(includeContentType: boolean = false): Record<string, string> {
+  private getHeaders(includeContentType = false): Record<string, string> {
     const headers: Record<string, string> = {
       'User-Agent': this.customUserAgent,
     };

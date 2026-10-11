@@ -141,7 +141,9 @@ export function applyLocalSourceOrder<T extends { key: string }>(
  * 改完顺序后立即重排当前列表。
  */
 export function subscribeLocalSourceOrder(listener: () => void): () => void {
-  if (typeof window === 'undefined') return () => {};
+  if (typeof window === 'undefined') return () => {
+    // 服务端无订阅，返回空清理函数
+  };
 
   const onStorage = (event: StorageEvent) => {
     // event.key 为 null 表示 localStorage.clear()

@@ -184,7 +184,9 @@ async function detectOpenListMediaType(
     return 'unknown';
   } finally {
     clearTimeout(timer);
-    response?.body?.cancel().catch(() => {});
+    response?.body?.cancel().catch(() => {
+      // 客户端已断开，取消失败无需处理
+    });
   }
 }
 

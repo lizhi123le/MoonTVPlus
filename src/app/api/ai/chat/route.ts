@@ -91,6 +91,7 @@ function transformToSSE(
       let inThinkingBlock = false; // 是否在thinking块内
 
       try {
+// eslint-disable-next-line no-constant-condition -- 流式读取：仅在 done 时 break
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;

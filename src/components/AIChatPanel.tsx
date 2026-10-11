@@ -650,6 +650,7 @@ export default function AIChatPanel({
         let streamError = '';
         let buffer = ''; // 缓冲区，用于保存不完整的行
 
+        // eslint-disable-next-line no-constant-condition -- 流式读取：仅在 done 时 break
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;

@@ -64,7 +64,9 @@ export default function TVRemoteReceiver() {
             detail: { url },
           }));
         }
-      } catch {}
+      } catch {
+        // 消息不是合法 JSON：忽略
+      }
     };
 
     const onLocalRemoteKey = (event: Event) => {

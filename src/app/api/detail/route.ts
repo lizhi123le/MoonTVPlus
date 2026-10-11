@@ -138,6 +138,7 @@ export async function GET(request: NextRequest) {
       const pageSize = 100;
       let total = 0;
 
+      // eslint-disable-next-line no-constant-condition -- 逐页拉取直到取满
       while (true) {
         const listResponse = await client.listDirectory(folderPath, currentPage, pageSize);
 

@@ -97,9 +97,10 @@ export function EmailSettingsPanel({
   statusMessage,
   statusType,
 }: EmailSettingsPanelProps) {
-  if (!isOpen || !mounted) return null;
-
   const [notificationTab, setNotificationTab] = useState<NotificationTab>('email');
+
+  // 关闭或未挂载时不渲染（放在 Hook 之后，避免条件调用 Hook）
+  if (!isOpen || !mounted) return null;
 
   const pushDisabled =
     emailSettingsSaving ||

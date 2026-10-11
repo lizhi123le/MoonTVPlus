@@ -28,10 +28,6 @@ const MobileBottomNav = ({ activePath }: MobileBottomNavProps) => {
   };
   const currentActive = activePath ?? getCurrentFullPath();
 
-  if (pathname === '/watch-room/screen') {
-    return null;
-  }
-
   const [navItems, setNavItems] = useState([
     { icon: Home, label: '首页', href: '/' },
     {
@@ -146,6 +142,11 @@ const MobileBottomNav = ({ activePath }: MobileBottomNavProps) => {
 
     setNavItems(items);
   }, [watchRoomContext?.isEnabled]);
+
+  // 观影室大屏页不需要底部导航（放在所有 Hook 之后，避免改变 Hook 调用顺序）
+  if (pathname === '/watch-room/screen') {
+    return null;
+  }
 
   const isActive = (href: string) => {
     const typeMatch = href.match(/type=([^&]+)/)?.[1];

@@ -181,6 +181,7 @@ async function listRootFolders(
   let currentPage = 1;
   const pageSize = 100;
 
+  // eslint-disable-next-line no-constant-condition -- 逐页拉取直到取满
   while (true) {
     const listResponse = await client.listDirectory(
       rootPath,

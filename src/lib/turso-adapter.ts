@@ -23,6 +23,7 @@ import { DatabaseAdapter, D1PreparedStatement, D1Result } from './d1-adapter';
  * 模块和 isomorphic-ws/isomorphic-fetch 等不兼容边缘环境的依赖
  */
 function getLibsqlClient(): any {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires -- 见上：必须用 require 规避 webpack 对 edge-light 条件导出的错误解析
   const mod = require('@libsql/client/http');
   return mod.createClient || mod.default?.createClient;
 }

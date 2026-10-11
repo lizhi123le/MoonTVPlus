@@ -3800,7 +3800,7 @@ function PlayPageClient() {
   const refreshXiaoyaUrl = async (
     preferredHls?: any,
     preferredVideo?: HTMLVideoElement,
-    isScheduled: boolean = false
+    isScheduled = false
   ) => {
     // 防抖：距离上次刷新不足3秒则不刷新
     const now = Date.now();
@@ -10429,7 +10429,9 @@ function PlayPageClient() {
               try {
                 const playPromise = fallbackVideo.play();
                 if (playPromise && typeof playPromise.catch === 'function') {
-                  playPromise.catch(() => {});
+                  playPromise.catch(() => {
+                    // 自动播放被浏览器策略拦截，忽略即可
+                  });
                 }
               } catch {
                 // ignore

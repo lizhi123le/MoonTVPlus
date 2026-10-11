@@ -31,7 +31,9 @@ class EmbyManager {
   private static instance: EmbyManager;
   private clients: Map<string, EmbyClient> = new Map();
 
-  private constructor() {}
+  private constructor() {
+    // 单例：只允许通过 getInstance() 创建
+  }
 
   static getInstance(): EmbyManager {
     if (!EmbyManager.instance) {

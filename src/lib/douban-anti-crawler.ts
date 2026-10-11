@@ -51,6 +51,7 @@ function proofOfWork(data: string, difficulty = 4): number {
   let nonce = 0;
   const targetSubStr = '0'.repeat(difficulty);
 
+  // eslint-disable-next-line no-constant-condition -- PoW：找到满足难度的 nonce 才 return
   while (true) {
     nonce += 1;
     const hash = sha512(data + nonce);

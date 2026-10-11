@@ -81,4 +81,17 @@ module.exports = {
     React: true,
     JSX: true,
   },
+  overrides: [
+    {
+      // 原样收录的第三方实现（灵虎网盘检测器）：保留上游写法，
+      // 文件头的 @ts-nocheck 与空 catch 块是有意为之，避免 lint 噪声掩盖真实问题。
+      files: ['src/lib/pancheck/vendor/**/*.{ts,js}'],
+      rules: {
+        '@typescript-eslint/ban-ts-comment': 'off',
+        'no-empty': 'off',
+        // vendor/http.js 是原样收录的 CommonJS 实现
+        '@typescript-eslint/no-var-requires': 'off',
+      },
+    },
+  ],
 };
