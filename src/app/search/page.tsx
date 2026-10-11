@@ -33,7 +33,7 @@ import {
   subscribeToDataUpdates,
 } from '@/lib/db.client';
 import { SearchResult } from '@/lib/types';
-import { appendSpecialSourceParam, isSpecialSourcesEnabledOnDevice } from '@/lib/special-source.client';
+import { appendSpecialSourceParam, isSpecialSourceContext } from '@/lib/special-source.client';
 import { processImageUrl } from '@/lib/utils';
 
 import AcgSearch from '@/components/AcgSearch';
@@ -140,7 +140,7 @@ function SearchPageClient() {
   // 生成缓存键
   const getCacheKey = (query: string) => {
     const suffixParts = [
-      isSpecialSourcesEnabledOnDevice() ? 'special' : '',
+      isSpecialSourceContext() ? 'special' : '',
       privateLibraryOnly ? 'private' : '',
     ].filter(Boolean);
     const suffix = suffixParts.length > 0 ? `_${suffixParts.join('_')}` : '';
@@ -2558,6 +2558,8 @@ function SearchPageClient() {
   );
 }
 
+// App Router 只允许 page.tsx 导出默认页面组件，所以把 SearchPageClient
+// 抽到 components/，由 /search 与 /under 共同复用。
 export default function SearchPage() {
   return (
     <Suspense>

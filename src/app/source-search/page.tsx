@@ -9,6 +9,7 @@ import {
   SearchX,
   Sparkles,
 } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import {
   Suspense,
   useCallback,
@@ -119,6 +120,9 @@ function VideoSkeleton() {
 }
 
 function SourceSearchPageClient() {
+  // special=1 表示这是从 /under 进入的特殊源版本：源列表只有特殊源
+  const searchParams = useSearchParams();
+  const isSpecialVersion = searchParams.get('special') === '1';
   const [apiSites, setApiSites] = useState<ApiSite[]>([]);
   const [selectedSource, setSelectedSource] = useState<string>('');
   const [selectedSourceName, setSelectedSourceName] = useState<string>('');
@@ -584,11 +588,18 @@ function SourceSearchPageClient() {
       <div className='px-4 sm:px-10 py-6 sm:py-10 overflow-visible mb-10 relative'>
         {/* 页面标题 - 移到左上角 */}
         <div className='mb-6'>
-          <h1 className='text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-1'>
+<h1 className='flex items-center gap-2 text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-1'>
             源站寻片
+            {isSpecialVersion && (
+              <span className='rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'>
+                特殊源
+              </span>
+            )}
           </h1>
-          <p className='text-sm text-gray-500 dark:text-gray-400'>
-            根据可用视频源浏览分类内容，畅享海量视频
+<p className='text-sm text-gray-500 dark:text-gray-400'>
+            {isSpecialVersion
+              ? '仅浏览与搜索特殊源的内容'
+              : '根据可用视频源浏览分类内容，畅享海量视频'}
           </p>
         </div>
 

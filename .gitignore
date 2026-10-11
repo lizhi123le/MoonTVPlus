@@ -82,3 +82,7 @@ skills-lock.json
 # Android build artifacts
 apps/android-tv/.gradle/
 apps/android-tv/build/
+
+# EvoX workspace marker
+.evox-workspace-root
+MoonTVPlus/
