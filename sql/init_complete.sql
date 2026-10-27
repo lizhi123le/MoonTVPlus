@@ -61,6 +61,8 @@ CREATE TABLE IF NOT EXISTS play_records (
   new_episodes INTEGER, -- 新增的剧集数量（用于显示更新提示）
   source TEXT, -- 来源标识（用于播放跳转）
   id TEXT, -- 影片ID（用于播放跳转）
+  is_anime INTEGER DEFAULT 0, -- 是否动漫
+  is_duanju INTEGER DEFAULT 0, -- 是否短剧
   PRIMARY KEY (username, key),
   FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
 );
