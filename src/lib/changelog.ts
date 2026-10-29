@@ -23,7 +23,9 @@ export const changelog: ChangelogEntry[] = [
     ],
     fixed: [
     "修复电视直播源无法使用http协议"
-    ]
+    ],
+    security: [],
+    breaking: []
   },
   {
     version: "227.0.0",
