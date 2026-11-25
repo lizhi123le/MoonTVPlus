@@ -705,7 +705,7 @@ function SourceSearchPageClient() {
         )}
 
         {/* 源选择和分类选择 */}
-        <div className='max-w-4xl mx-auto mb-8 space-y-6'>
+        <div className='w-full mb-6 space-y-3'>
           {error && (
             <p role='alert' className='text-sm text-red-600 dark:text-red-400'>
               {error}
@@ -713,37 +713,32 @@ function SourceSearchPageClient() {
           )}
           {/* 源选择 CapsuleSwitch */}
           <div className='relative'>
-            <div className='flex items-center justify-between gap-3 mb-3'>
-              <div className='flex shrink-0 items-center gap-2'>
-                <label className='block whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300'>
-                  选择视频源
-                </label>
-                <div
-                  className='flex items-center gap-1'
-                  role='group'
-                  aria-label='视频源类型'
-                >
-                  {[
-                    { label: '普通源', value: 'normal', icon: Globe },
-                    { label: 'TVBox 源', value: 'tvbox', icon: Tv },
-                  ].map(({ label, value, icon: Icon }) => (
-                    <button
-                      key={value}
-                      type='button'
-                      aria-label={label}
-                      title={label}
-                      aria-pressed={sourceType === value}
-                      onClick={() => handleSourceTypeChange(value)}
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-                        sourceType === value
-                          ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400'
-                          : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'
-                      }`}
-                    >
-                      <Icon size={18} aria-hidden='true' />
-                    </button>
-                  ))}
-                </div>
+            <div className='flex items-center justify-start gap-3 mb-2'>
+              <div
+                className='flex items-center gap-1'
+                role='group'
+                aria-label='视频源类型'
+              >
+                {[
+                  { label: '普通源', value: 'normal', icon: Globe },
+                  { label: 'TVBox 源', value: 'tvbox', icon: Tv },
+                ].map(({ label, value, icon: Icon }) => (
+                  <button
+                    key={value}
+                    type='button'
+                    aria-label={label}
+                    title={label}
+                    aria-pressed={sourceType === value}
+                    onClick={() => handleSourceTypeChange(value)}
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                      sourceType === value
+                        ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400'
+                        : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    <Icon size={18} aria-hidden='true' />
+                  </button>
+                ))}
               </div>
               {/* 过滤视频源：伸缩搜索框 */}
               <div
@@ -817,7 +812,7 @@ function SourceSearchPageClient() {
 
           {/* 分类选择：两级源为「类型 → 分类」联动，平铺源仅显示分类 */}
           {selectedSource && viewMode === 'browse' && (
-            <div className='relative space-y-6'>
+            <div className='relative space-y-3'>
               {isLoadingCategories && categories.length === 0 ? (
                 <div className='flex items-center justify-center h-12 bg-gray-50/80 rounded-lg border border-gray-200/50 dark:bg-gray-800 dark:border-gray-700'>
                   <Loader2 className='h-5 w-5 animate-spin text-gray-400' />
@@ -834,9 +829,6 @@ function SourceSearchPageClient() {
               ) : isHierarchical ? (
                 <>
                   <div>
-                    <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3'>
-                      选择类型
-                    </label>
                     <div className='flex'>
                       <CapsuleSwitch
                         options={parentCategories.map((category) => ({
@@ -850,9 +842,6 @@ function SourceSearchPageClient() {
                   </div>
                   {subCategories.length > 0 && (
                     <div>
-                      <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3'>
-                        选择分类
-                      </label>
                       <div className='flex'>
                         <CapsuleSwitch
                           options={subCategories.map((category) => ({
@@ -868,9 +857,6 @@ function SourceSearchPageClient() {
                 </>
               ) : (
                 <div>
-                  <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3'>
-                    选择分类
-                  </label>
                   <div className='flex'>
                     <CapsuleSwitch
                       options={categories.map((category) => ({
@@ -891,16 +877,18 @@ function SourceSearchPageClient() {
         {selectedSource &&
           (viewMode === 'search' ? searchKeyword : selectedCategory) && (
             <div className='max-w-[95%] mx-auto mt-8'>
-              <div className='mb-4'>
-                {/* 标题区域：两侧渐隐分隔线 */}
-                <div className='flex items-center gap-3 mb-6'>
-                  <div className='h-px flex-1 bg-gradient-to-r from-transparent via-indigo-300/50 to-transparent dark:via-indigo-700/50' />
-                  <h2 className='text-xl font-bold text-gray-800 dark:text-gray-200 px-4'>
-                    {viewMode === 'search' ? '搜索结果' : '视频列表'}
-                  </h2>
-                  <div className='h-px flex-1 bg-gradient-to-r from-transparent via-indigo-300/50 to-transparent dark:via-indigo-700/50' />
+              {viewMode === 'search' && (
+                <div className='mb-4'>
+                  {/* 标题区域：两侧渐隐分隔线 */}
+                  <div className='flex items-center gap-3 mb-6'>
+                    <div className='h-px flex-1 bg-gradient-to-r from-transparent via-indigo-300/50 to-transparent dark:via-indigo-700/50' />
+                    <h2 className='text-xl font-bold text-gray-800 dark:text-gray-200 px-4'>
+                      搜索结果
+                    </h2>
+                    <div className='h-px flex-1 bg-gradient-to-r from-transparent via-indigo-300/50 to-transparent dark:via-indigo-700/50' />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {isLoadingVideos && currentPage === 1 ? (
                 <VideoSkeleton />
