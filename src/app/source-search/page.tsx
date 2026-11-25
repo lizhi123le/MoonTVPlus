@@ -1,14 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 'use client';
 
-import {
-  ChevronUp,
-  Globe2,
-  Loader2,
-  Search,
-  SearchX,
-  Sparkles,
-} from 'lucide-react';
+import { ChevronUp, Globe, Loader2, Search, SearchX, Tv } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import {
   Suspense,
@@ -20,32 +13,41 @@ import {
 } from 'react';
 
 import { isAnimeCategoryText } from '@/lib/anime-keyword-expr';
+import {
+  CategoryNode,
+  getChildCategories,
+  getParentCategories,
+  isHierarchicalCategories,
+  pickDefaultSelection,
+} from '@/lib/category-tree';
 import { ApiSite } from '@/lib/config';
+import { appendSpecialSourceParam } from '@/lib/special-source.client';
 import {
   applyLocalSourceOrder,
   subscribeLocalSourceOrder,
 } from '@/lib/source-order-local';
-import { appendSpecialSourceParam } from '@/lib/special-source.client';
+import { isTVBoxBridgeSource } from '@/lib/tvbox-bridge.shared';
 import { SearchResult } from '@/lib/types';
 
 import CapsuleSwitch from '@/components/CapsuleSwitch';
 import PageLayout from '@/components/PageLayout';
 import VideoCard from '@/components/VideoCard';
 
-interface Category {
-  id: string;
-  name: string;
-}
+type Category = CategoryNode;
 
 type ViewMode = 'browse' | 'search';
+type SourceType = 'normal' | 'tvbox';
 
 // 观影前保存的浏览快照，返回后恢复到上一步操作位置
 const SOURCE_SEARCH_STATE_KEY = 'source_search_state';
 
 interface SourceSearchSnapshot {
+  sourceType?: SourceType;
+  specialOnly?: boolean;
   apiSites: ApiSite[];
   selectedSource: string;
   categories: Category[];
+  selectedParentCategory: string;
   selectedCategory: string;
   videos: SearchResult[];
   currentPage: number;
@@ -70,14 +72,18 @@ const useIsomorphicLayoutEffect =
   typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 // 读取并消费快照：只在观影返回后恢复一次
-const consumeSnapshot = (): SourceSearchSnapshot | null => {
+const consumeSnapshot = (
+  key: string,
+  specialOnly: boolean
+): SourceSearchSnapshot | null => {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = sessionStorage.getItem(SOURCE_SEARCH_STATE_KEY);
-    sessionStorage.removeItem(SOURCE_SEARCH_STATE_KEY);
+    const raw = sessionStorage.getItem(key);
+    sessionStorage.removeItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as SourceSearchSnapshot;
     if (
+      (parsed.specialOnly ?? false) !== specialOnly ||
       !parsed?.selectedSource ||
       !Array.isArray(parsed.apiSites) ||
       !Array.isArray(parsed.categories) ||
@@ -92,27 +98,15 @@ const consumeSnapshot = (): SourceSearchSnapshot | null => {
   }
 };
 
-// Loading skeleton for categories dropdown
-function CategoryDropdownSkeleton() {
-  return (
-    <div className="flex items-center justify-center h-10 bg-gray-100/80 dark:bg-gray-700/80 backdrop-blur-sm rounded-lg">
-      <div className="flex items-center gap-2">
-        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-        <span className="text-sm text-gray-500 dark:text-gray-400">加载分类中...</span>
-      </div>
-    </div>
-  );
-}
-
 // Loading skeleton for video cards
 function VideoSkeleton() {
   return (
-    <div className="grid grid-cols-3 gap-x-2 gap-y-14 sm:gap-y-20 px-0 sm:px-2 sm:grid-cols-[repeat(auto-fill,_minmax(11rem,_1fr))] sm:gap-x-8">
+    <div className='grid grid-cols-3 gap-x-2 gap-y-14 sm:gap-y-20 px-0 sm:px-2 sm:grid-cols-[repeat(auto-fill,_minmax(11rem,_1fr))] sm:gap-x-8'>
       {Array.from({ length: 6 }).map((_, i) => (
-        <div key={`skeleton-${i}`} className="w-full animate-pulse">
-          <div className="aspect-[2/3] bg-gray-200 dark:bg-gray-700 rounded-xl mb-3" />
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2 w-3/4" />
-          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+        <div key={`skeleton-${i}`} className='w-full animate-pulse'>
+          <div className='aspect-[2/3] bg-gray-200 dark:bg-gray-700 rounded-xl mb-3' />
+          <div className='h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2 w-3/4' />
+          <div className='h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2' />
         </div>
       ))}
     </div>
@@ -123,11 +117,19 @@ function SourceSearchPageClient() {
   // special=1 表示这是从 /under 进入的特殊源版本：源列表只有特殊源
   const searchParams = useSearchParams();
   const isSpecialVersion = searchParams.get('special') === '1';
+  const snapshotStorageKey = `${SOURCE_SEARCH_STATE_KEY}${
+    isSpecialVersion ? '_special' : ''
+  }`;
+  const [sourceType, setSourceType] = useState<SourceType>('normal');
+  const [error, setError] = useState<string | null>(null);
   const [apiSites, setApiSites] = useState<ApiSite[]>([]);
   const [selectedSource, setSelectedSource] = useState<string>('');
-  const [selectedSourceName, setSelectedSourceName] = useState<string>('');
   const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedParentCategory, setSelectedParentCategory] =
+    useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  // 本地分类记忆是否可写：切源/快照恢复期间禁止写入，避免把旧分类记到新源上
+  const [isInitialized, setIsInitialized] = useState(false);
   const [videos, setVideos] = useState<SearchResult[]>([]);
   const [isLoadingSources, setIsLoadingSources] = useState(true);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
@@ -137,10 +139,6 @@ function SourceSearchPageClient() {
   const [viewMode, setViewMode] = useState<ViewMode>('browse');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [searchInputValue, setSearchInputValue] = useState<string>('');
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);  // 标记是否已初始化
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-  const isFirstRender = useRef(true);  // 标记是否是首次渲染
   const [showBackToTop, setShowBackToTop] = useState(false);
   // 视频源过滤：伸缩搜索框的展开状态与关键字
   const [sourceFilter, setSourceFilter] = useState('');
@@ -148,22 +146,79 @@ function SourceSearchPageClient() {
   const sourceFilterInputRef = useRef<HTMLInputElement>(null);
   // 快照读取完成前不发请求，避免覆盖恢复的数据
   const [restoreChecked, setRestoreChecked] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const snapshotRef = useRef<SourceSearchSnapshot | null>(null);
   const pendingScrollTopRef = useRef<number | null>(null);
   // 恢复时需要跳过一次「拉取分类」和「拉取列表」
   const skipCategoryFetchRef = useRef(false);
   const skipVideoFetchRef = useRef(false);
 
+  // 保存源和分类到 localStorage
+  const saveSourceCategoryToStorage = (source: string, category: string) => {
+    if (!isInitialized || !source || !category) {
+      return;
+    }
+    try {
+      localStorage.setItem('sourceSearch_lastSource', source);
+
+      // 使用 Map 存储每个源对应的分类
+      const savedCategoriesJson =
+        localStorage.getItem('sourceSearch_sourceCategories') || '{}';
+      const savedCategories = JSON.parse(savedCategoriesJson);
+      savedCategories[source] = category;
+      localStorage.setItem(
+        'sourceSearch_sourceCategories',
+        JSON.stringify(savedCategories)
+      );
+    } catch (e) {
+      console.error('[源站寻片] 保存源和分类失败:', e);
+    }
+  };
+
+  // 从 localStorage 恢复源和分类
+  const restoreSourceCategoryFromStorage = (
+    source?: string
+  ): { source: string; category: string } => {
+    try {
+      if (typeof window === 'undefined') return { source: '', category: '' };
+
+      const lastSource = localStorage.getItem('sourceSearch_lastSource') || '';
+      const targetSource = source || lastSource;
+
+      const savedCategoriesJson =
+        localStorage.getItem('sourceSearch_sourceCategories') || '{}';
+      const savedCategories = JSON.parse(savedCategoriesJson);
+      const category = savedCategories[targetSource] || '';
+
+      return { source: lastSource, category };
+    } catch (e) {
+      console.error('[源站寻片] 读取源和分类失败:', e);
+      return { source: '', category: '' };
+    }
+  };
+
   // 读取观影前保存的快照，恢复到上一步操作位置
   useIsomorphicLayoutEffect(() => {
-    const snapshot = consumeSnapshot();
+    const snapshot = consumeSnapshot(snapshotStorageKey, isSpecialVersion);
     if (snapshot) {
       skipCategoryFetchRef.current = true;
       skipVideoFetchRef.current = true;
       pendingScrollTopRef.current = snapshot.scrollTop;
+      setSourceType(
+        snapshot.sourceType ||
+          (isTVBoxBridgeSource(snapshot.selectedSource) ? 'tvbox' : 'normal')
+      );
       setApiSites(snapshot.apiSites);
       setSelectedSource(snapshot.selectedSource);
       setCategories(snapshot.categories);
+      // 旧快照没有一级分类时，从已选分类反推
+      setSelectedParentCategory(
+        snapshot.selectedParentCategory ||
+          snapshot.categories.find(
+            (item) => item.id === snapshot.selectedCategory
+          )?.pid ||
+          ''
+      );
       setSelectedCategory(snapshot.selectedCategory);
       setVideos(snapshot.videos);
       setCurrentPage(snapshot.currentPage);
@@ -188,54 +243,20 @@ function SourceSearchPageClient() {
     return () => cancelAnimationFrame(rafId);
   }, [videos]);
 
-  // 保存源和分类到 localStorage
-  const saveSourceCategoryToStorage = (source: string, category: string) => {
-    if (!isInitialized || !source || !category) {
-      return;
-    }
-    try {
-      console.log('[源站寻片] 保存到 localStorage:', { source, category });
-      localStorage.setItem('sourceSearch_lastSource', source);
-      
-      // 使用 Map 存储每个源对应的分类
-      const savedCategoriesJson = localStorage.getItem('sourceSearch_sourceCategories') || '{}';
-      const savedCategories = JSON.parse(savedCategoriesJson);
-      savedCategories[source] = category;
-      localStorage.setItem('sourceSearch_sourceCategories', JSON.stringify(savedCategories));
-    } catch (e) {
-      console.error('[源站寻片] 保存源和分类失败:', e);
-    }
-  };
-
-  // 从 localStorage 恢复源和分类
-  const restoreSourceCategoryFromStorage = (source?: string): { source: string; category: string } => {
-    try {
-      if (typeof window === 'undefined') return { source: '', category: '' };
-      
-      const lastSource = localStorage.getItem('sourceSearch_lastSource') || '';
-      const targetSource = source || lastSource;
-      
-      const savedCategoriesJson = localStorage.getItem('sourceSearch_sourceCategories') || '{}';
-      const savedCategories = JSON.parse(savedCategoriesJson);
-      const category = savedCategories[targetSource] || '';
-      
-      return { source: lastSource, category };
-    } catch (e) {
-      console.error('[源站寻片] 读取源和分类失败:', e);
-      return { source: '', category: '' };
-    }
-  };
-
   // 镜像最新状态，供跳转播放页前保存快照
   useEffect(() => {
     snapshotRef.current = {
+      sourceType,
+      specialOnly: isSpecialVersion,
       apiSites,
       selectedSource,
       categories,
+      selectedParentCategory,
       selectedCategory,
       videos,
       // 当前页还在请求中，回退一页以便返回后重新拉取，避免缺页
-      currentPage: isLoadingVideos && currentPage > 1 ? currentPage - 1 : currentPage,
+      currentPage:
+        isLoadingVideos && currentPage > 1 ? currentPage - 1 : currentPage,
       hasMore,
       viewMode,
       searchKeyword,
@@ -243,9 +264,12 @@ function SourceSearchPageClient() {
       scrollTop: 0,
     };
   }, [
+    sourceType,
+    isSpecialVersion,
     apiSites,
     selectedSource,
     categories,
+    selectedParentCategory,
     selectedCategory,
     videos,
     currentPage,
@@ -262,62 +286,57 @@ function SourceSearchPageClient() {
     if (!snapshot || snapshot.videos.length === 0) return;
     try {
       sessionStorage.setItem(
-        SOURCE_SEARCH_STATE_KEY,
+        snapshotStorageKey,
         JSON.stringify({ ...snapshot, scrollTop: getPageScrollTop() })
       );
     } catch {
       // 忽略 sessionStorage 写入失败（如超出配额）
     }
-  }, []);
+  }, [snapshotStorageKey]);
 
-  // 加载用户可用的视频源
+  // 类型切换及离开页面时取消旧请求，防止旧列表覆盖当前选择。
   useEffect(() => {
     if (!restoreChecked) return;
-
+    const controller = new AbortController();
     const fetchApiSites = async () => {
       setIsLoadingSources(true);
+      setError(null);
       try {
-        const response = await fetch(appendSpecialSourceParam('/api/source-search/sources'));
+        const response = await fetch(
+          appendSpecialSourceParam(
+            `/api/source-search/sources?type=${sourceType}`
+          ),
+          { signal: controller.signal }
+        );
         const data = await response.json();
-        if (data.sources && Array.isArray(data.sources)) {
-          // 本地顺序优先：后台刚改完排序时服务端可能尚未同步，这里立即按本地顺序显示
-          const ordered = applyLocalSourceOrder(data.sources as ApiSite[]);
-          setApiSites(ordered);
-
-          const saved = restoreSourceCategoryFromStorage();
-          const hasSource = (key: string) =>
-            !!key && ordered.some((s: ApiSite) => s.key === key);
-
-          // 观影返回的快照源优先，其次是上次记住的源，最后回退到第一个源
-          let effectiveSource = '';
-          if (hasSource(selectedSource)) {
-            effectiveSource = selectedSource;
-          } else if (hasSource(saved.source)) {
-            effectiveSource = saved.source;
-          } else if (ordered.length > 0) {
-            effectiveSource = ordered[0].key;
-          }
-
-          if (effectiveSource) {
-            setSelectedSource(effectiveSource);
-            setShowCategoryDropdown(true);
-            const sourceItem = ordered.find(
-              (s: ApiSite) => s.key === effectiveSource
-            );
-            if (sourceItem) {
-              setSelectedSourceName(sourceItem.name);
-            }
-          }
-        }
+        if (!response.ok) throw new Error(data.error || '加载视频源失败');
+        if (controller.signal.aborted) return;
+        // 本地顺序优先：后台刚改完排序时服务端可能尚未同步，这里立即按本地顺序显示
+        const sites = applyLocalSourceOrder(
+          (Array.isArray(data.sources) ? data.sources : []) as ApiSite[]
+        );
+        setApiSites(sites);
+        const saved = restoreSourceCategoryFromStorage();
+        const hasSource = (key: string) =>
+          !!key && sites.some((site: ApiSite) => site.key === key);
+        // 观影返回的快照源优先，其次是上次记住的源，最后回退到第一个源
+        setSelectedSource((previous) => {
+          if (hasSource(previous)) return previous;
+          if (hasSource(saved.source)) return saved.source;
+          return sites[0]?.key || '';
+        });
       } catch (error) {
-        console.error('[源站寻片] 加载源失败:', error);
+        if (controller.signal.aborted) return;
+        setApiSites([]);
+        setSelectedSource('');
+        setError(error instanceof Error ? error.message : '加载视频源失败');
       } finally {
-        setIsLoadingSources(false);
+        if (!controller.signal.aborted) setIsLoadingSources(false);
       }
     };
-
     fetchApiSites();
-  }, [restoreChecked]);
+    return () => controller.abort();
+  }, [restoreChecked, sourceType, isSpecialVersion]);
 
   // 后台在另一个标签页改完排序后，本地顺序会写入 localStorage。
   // 这里监听变化并立即重排当前列表，避免必须刷新页面才看到新顺序。
@@ -339,54 +358,76 @@ function SourceSearchPageClient() {
     };
   }, []);
 
-  // 当选择的源变化时，加载分类列表
   useEffect(() => {
     if (!restoreChecked || !selectedSource) return;
-
-    // 恢复场景下分类与列表都来自快照，无需重新拉取
     if (skipCategoryFetchRef.current) {
       skipCategoryFetchRef.current = false;
-      setIsInitialized(true);
       return;
     }
-
+    const controller = new AbortController();
     const fetchCategories = async () => {
       setIsLoadingCategories(true);
+      setIsLoadingVideos(false);
+      setError(null);
       setCategories([]);
+      setSelectedParentCategory('');
+      setSelectedCategory('');
       setVideos([]);
       setCurrentPage(1);
       setHasMore(true);
-      
       try {
         const response = await fetch(
-          appendSpecialSourceParam(`/api/source-search/categories?source=${encodeURIComponent(selectedSource)}`)
+          appendSpecialSourceParam(
+            `/api/source-search/categories?source=${encodeURIComponent(
+              selectedSource
+            )}`
+          ),
+          { signal: controller.signal }
         );
         const data = await response.json();
-        if (data.categories && Array.isArray(data.categories)) {
-          setCategories(data.categories);
+        if (!response.ok) throw new Error(data.error || '加载分类失败');
+        if (controller.signal.aborted) return;
+        const list = Array.isArray(data.categories)
+          ? (data.categories as Category[])
+          : [];
+        setCategories(list);
 
-          // 恢复该源对应的分类
-          const saved = restoreSourceCategoryFromStorage(selectedSource);
-          const savedCategoryExists = data.categories.some((c: Category) => c.id === saved.category);
-
-          if (savedCategoryExists && saved.category) {
-            setSelectedCategory(saved.category);
-          } else if (data.categories.length > 0) {
-            setSelectedCategory(data.categories[0].id);
+        // 优先恢复该源上次选择的分级分类（本地记忆），否则按上游默认策略选择
+        const saved = restoreSourceCategoryFromStorage(selectedSource);
+        const savedNode = saved.category
+          ? list.find((item: Category) => item.id === saved.category)
+          : undefined;
+        if (savedNode) {
+          if (savedNode.pid) {
+            setSelectedParentCategory(savedNode.pid);
+            setSelectedCategory(savedNode.id);
+          } else {
+            // 记住的是一级分类：落到其第一个子分类（平铺源则直接用自身）
+            const children = getChildCategories(list, savedNode.id);
+            setSelectedParentCategory(savedNode.id);
+            setSelectedCategory(
+              children.length > 0 ? children[0].id : savedNode.id
+            );
           }
-
-          // 只有在分类加载并尝试恢复后，才标记为已初始化
-          setIsInitialized(true);
+        } else {
+          const { parent, category } = pickDefaultSelection(list);
+          setSelectedParentCategory(parent);
+          setSelectedCategory(category);
         }
+
+        // 只有在分类加载并尝试恢复后，才允许写入本地记忆
+        setIsInitialized(true);
       } catch (error) {
-        console.error('[源站寻片] 加载分类失败:', error);
+        if (!controller.signal.aborted) {
+          setError(error instanceof Error ? error.message : '加载分类失败');
+        }
       } finally {
-        setIsLoadingCategories(false);
+        if (!controller.signal.aborted) setIsLoadingCategories(false);
       }
     };
-
     fetchCategories();
-  }, [restoreChecked, selectedSource]);
+    return () => controller.abort();
+  }, [restoreChecked, selectedSource, isSpecialVersion]);
 
   // 当选择的分类变化时，保存到 localStorage
   useEffect(() => {
@@ -395,79 +436,108 @@ function SourceSearchPageClient() {
     }
   }, [selectedSource, selectedCategory, isInitialized]);
 
-  // 当选择的分类或页码变化时，加载视频列表（浏览模式）
+  // 分类浏览和单站搜索共用分页加载流程。
   useEffect(() => {
-    if (!restoreChecked || viewMode !== 'browse' || !selectedSource || !selectedCategory)
-      return;
-
-    // 恢复场景下列表已来自快照，跳过本次请求
+    if (!restoreChecked || !selectedSource) return;
+    if (viewMode === 'browse' ? !selectedCategory : !searchKeyword) return;
     if (skipVideoFetchRef.current) {
       skipVideoFetchRef.current = false;
       return;
     }
-
+    const controller = new AbortController();
     const fetchVideos = async () => {
       setIsLoadingVideos(true);
+      setError(null);
       try {
+        const query = new URLSearchParams({
+          source: selectedSource,
+          page: String(currentPage),
+        });
+        query.set(
+          viewMode === 'browse' ? 'categoryId' : 'keyword',
+          viewMode === 'browse' ? selectedCategory : searchKeyword
+        );
         const response = await fetch(
-          appendSpecialSourceParam(`/api/source-search/videos?source=${encodeURIComponent(selectedSource)}&categoryId=${encodeURIComponent(selectedCategory)}&page=${currentPage}`)
+          appendSpecialSourceParam(
+            `/api/source-search/${
+              viewMode === 'browse' ? 'videos' : 'search'
+            }?${query}`
+          ),
+          { signal: controller.signal }
         );
         const data = await response.json();
-        if (data.results && Array.isArray(data.results)) {
-          if (currentPage === 1) {
-            setVideos(data.results);
-          } else {
-            setVideos((prev) => [...prev, ...data.results]);
-          }
-          setHasMore(data.page < data.pageCount);
-        }
+        if (!response.ok) throw new Error(data.error || '加载视频失败');
+        if (controller.signal.aborted) return;
+        const results = Array.isArray(data.results) ? data.results : [];
+        setVideos((previous) =>
+          currentPage === 1 ? results : [...previous, ...results]
+        );
+        setHasMore(data.page < data.pageCount);
       } catch (error) {
-        console.error('Failed to load videos:', error);
+        if (!controller.signal.aborted) {
+          setError(error instanceof Error ? error.message : '加载视频失败');
+          setHasMore(false);
+        }
       } finally {
-        setIsLoadingVideos(false);
+        if (!controller.signal.aborted) setIsLoadingVideos(false);
       }
     };
-
     fetchVideos();
-  }, [restoreChecked, selectedSource, selectedCategory, currentPage, viewMode]);
+    return () => controller.abort();
+  }, [
+    restoreChecked,
+    selectedSource,
+    selectedCategory,
+    searchKeyword,
+    currentPage,
+    viewMode,
+    isSpecialVersion,
+  ]);
 
-  // 搜索视频函数（可在外部调用）
-  const searchVideos = useCallback(async () => {
-    if (!selectedSource || !searchKeyword) return;
-    setIsLoadingVideos(true);
-    try {
-      const response = await fetch(
-        appendSpecialSourceParam(`/api/source-search/search?source=${encodeURIComponent(selectedSource)}&keyword=${encodeURIComponent(searchKeyword)}&page=${currentPage}`)
-      );
-      const data = await response.json();
-      if (data.results && Array.isArray(data.results)) {
-        if (currentPage === 1) {
-          setVideos(data.results);
-        } else {
-          setVideos((prev) => [...prev, ...data.results]);
-        }
-        setHasMore(data.page < data.pageCount);
-      }
-    } catch (error) {
-      console.error('Failed to search videos:', error);
-    } finally {
-      setIsLoadingVideos(false);
-    }
-  }, [selectedSource, searchKeyword, currentPage]);
+  const handleSourceTypeChange = (value: string) => {
+    if (value === sourceType) return;
+    skipCategoryFetchRef.current = false;
+    skipVideoFetchRef.current = false;
+    setIsInitialized(false);
+    setSourceType(value as SourceType);
+    setApiSites([]);
+    setSelectedSource('');
+    setCategories([]);
+    setSelectedParentCategory('');
+    setSelectedCategory('');
+    setSourceFilter('');
+    setIsLoadingSources(true);
+    setIsLoadingCategories(false);
+    setIsLoadingVideos(false);
+    setError(null);
+    handleBackToBrowse();
+  };
 
-  // 当搜索关键词或页码变化时，执行搜索（搜索模式）
-  useEffect(() => {
-    if (!restoreChecked || viewMode !== 'search' || !selectedSource || !searchKeyword)
-      return;
+  // 切换一级分类（类型）时，落到该类型下第一个子分类并重置到第一页
+  const handleParentCategoryChange = (value: string) => {
+    setSelectedParentCategory(value);
+    setCurrentPage(1);
+    setVideos([]);
+    setHasMore(true);
+    const children = getChildCategories(categories, value);
+    setSelectedCategory(children.length > 0 ? children[0].id : value);
+  };
 
-    // 恢复场景下列表已来自快照，跳过本次请求
-    if (skipVideoFetchRef.current) {
-      skipVideoFetchRef.current = false;
-      return;
-    }
+  // 切换分类时，重置到第一页
+  const handleCategoryChange = (value: string) => {
+    setSelectedCategory(value);
+    setCurrentPage(1);
+    setVideos([]);
+    setHasMore(true);
+  };
 
-    searchVideos();
-  }, [restoreChecked, viewMode, selectedSource, searchKeyword, searchVideos, currentPage]);
+  // 处理源选择：切换源时先关闭本地记忆写入，避免把旧分类记到新源上
+  const handleSourceChange = (value: string) => {
+    if (value === selectedSource && viewMode === 'browse') return;
+    setIsInitialized(false);
+    setSelectedSource(value);
+    handleBackToBrowse();
+  };
 
   // 处理搜索提交
   const handleSearch = (e: React.FormEvent) => {
@@ -478,7 +548,6 @@ function SourceSearchPageClient() {
       setCurrentPage(1);
       setVideos([]);
       setHasMore(true);
-      setShowCategoryDropdown(false);
     }
   };
 
@@ -490,32 +559,6 @@ function SourceSearchPageClient() {
     setCurrentPage(1);
     setVideos([]);
     setHasMore(true);
-    setShowCategoryDropdown(true);
-  };
-
-  // 处理源选择
-  const handleSourceChange = (value: string, name: string) => {
-    // 立即重置初始化状态和分类，防止在加载新源分类前误保存旧分类
-    setIsInitialized(false);
-    setSelectedCategory('');
-    
-    setSelectedSource(value);
-    setSelectedSourceName(name);
-    setShowCategoryDropdown(true);
-
-    // 如果当前是搜索模式，保留搜索关键词在新源搜索
-    if (viewMode === 'search' && searchKeyword) {
-      setVideos([]);
-      setHasMore(true);
-      setCurrentPage(1);
-      // 触发搜索
-      setTimeout(() => {
-        searchVideos();
-      }, 100);
-    } else {
-      // 浏览模式下才清空搜索
-      handleBackToBrowse();
-    }
   };
 
   // Intersection Observer for infinite scroll
@@ -568,6 +611,15 @@ function SourceSearchPageClient() {
     }
   };
 
+  // 根据分类列表推导两级结构；平铺源回退为单行分类
+  const isHierarchical = isHierarchicalCategories(categories);
+  const parentCategories = isHierarchical
+    ? getParentCategories(categories)
+    : [];
+  const subCategories =
+    isHierarchical && selectedParentCategory
+      ? getChildCategories(categories, selectedParentCategory)
+      : [];
   // 按名称过滤视频源
   const sourceFilterKeyword = sourceFilter.trim().toLowerCase();
   const filteredApiSites = sourceFilterKeyword
@@ -579,16 +631,16 @@ function SourceSearchPageClient() {
   return (
     <PageLayout activePath='/source-search'>
       {/* 装饰性背景效果 */}
-      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 -left-40 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 -right-40 w-96 h-96 bg-purple-500/15 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 left-1/3 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl" />
+      <div className='fixed inset-0 -z-10 overflow-hidden pointer-events-none'>
+        <div className='absolute top-0 -left-40 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl' />
+        <div className='absolute top-1/3 -right-40 w-96 h-96 bg-purple-500/15 rounded-full blur-3xl' />
+        <div className='absolute -bottom-40 left-1/3 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl' />
       </div>
 
       <div className='px-4 sm:px-10 py-6 sm:py-10 overflow-visible mb-10 relative'>
-        {/* 页面标题 - 移到左上角 */}
+        {/* 页面标题 */}
         <div className='mb-6'>
-<h1 className='flex items-center gap-2 text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-1'>
+          <h1 className='flex items-center gap-2 text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-1'>
             源站寻片
             {isSpecialVersion && (
               <span className='rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'>
@@ -596,7 +648,7 @@ function SourceSearchPageClient() {
               </span>
             )}
           </h1>
-<p className='text-sm text-gray-500 dark:text-gray-400'>
+          <p className='text-sm text-gray-500 dark:text-gray-400'>
             {isSpecialVersion
               ? '仅浏览与搜索特殊源的内容'
               : '根据可用视频源浏览分类内容，畅享海量视频'}
@@ -606,9 +658,9 @@ function SourceSearchPageClient() {
         {/* 搜索框 */}
         <div className='mb-6'>
           <form onSubmit={handleSearch}>
-            <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-blue-500/20 rounded-xl blur-xl group-hover:blur-2xl transition-all duration-500 opacity-50" />
-              <div className="relative flex items-center">
+            <div className='relative group'>
+              <div className='absolute inset-0 bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-blue-500/20 rounded-xl blur-xl group-hover:blur-2xl transition-all duration-500 opacity-50' />
+              <div className='relative flex items-center'>
                 <input
                   type='text'
                   value={searchInputValue}
@@ -618,6 +670,7 @@ function SourceSearchPageClient() {
                 />
                 <button
                   type='submit'
+                  aria-label='搜索视频'
                   className='absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95'
                 >
                   <Search size={18} />
@@ -631,14 +684,17 @@ function SourceSearchPageClient() {
         {viewMode === 'search' && searchKeyword && (
           <div className='mb-6'>
             <div className='flex items-center justify-between bg-indigo-50/80 dark:bg-indigo-900/30 border border-indigo-200/50 dark:border-indigo-800/30 rounded-xl px-4 py-3'>
-              <div className="flex items-center gap-2">
-                <SearchX className="h-4 w-4 text-indigo-500" />
+              <div className='flex items-center gap-2'>
+                <SearchX className='h-4 w-4 text-indigo-500' />
                 <span className='text-sm text-gray-700 dark:text-gray-300'>
-                  搜索结果: <span className='font-semibold text-indigo-600 dark:text-indigo-400'>{searchKeyword}</span>
+                  搜索结果:{' '}
+                  <span className='font-semibold text-indigo-600 dark:text-indigo-400'>
+                    {searchKeyword}
+                  </span>
                 </span>
               </div>
               <button
-                type="button"
+                type='button'
                 onClick={handleBackToBrowse}
                 className='text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium'
               >
@@ -648,196 +704,274 @@ function SourceSearchPageClient() {
           </div>
         )}
 
-        {/* 源选择 + 分类 */}
-        <div className='mb-8'>
-          <div className='bg-white/60 dark:bg-gray-800/40 rounded-2xl p-4 sm:p-6 border border-gray-200/30 dark:border-gray-700/30 backdrop-blur-sm'>
-            {/* 源选择器：带过滤搜索框，列表左对齐 */}
-            <div className='mb-3'>
-              <div className='flex items-center justify-between gap-3 mb-3'>
-                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300'>
+        {/* 源选择和分类选择 */}
+        <div className='max-w-4xl mx-auto mb-8 space-y-6'>
+          {error && (
+            <p role='alert' className='text-sm text-red-600 dark:text-red-400'>
+              {error}
+            </p>
+          )}
+          {/* 源选择 CapsuleSwitch */}
+          <div className='relative'>
+            <div className='flex items-center justify-between gap-3 mb-3'>
+              <div className='flex shrink-0 items-center gap-2'>
+                <label className='block whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300'>
                   选择视频源
                 </label>
-                {/* 过滤视频源：伸缩搜索框 */}
                 <div
-                  className={`flex items-center h-9 bg-gray-50/80 dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700 rounded-lg shadow-sm transition-all duration-300 ease-in-out overflow-hidden ${
-                    isSourceFilterExpanded ? 'w-44 sm:w-56' : 'w-9'
-                  }`}
+                  className='flex items-center gap-1'
+                  role='group'
+                  aria-label='视频源类型'
                 >
-                  <button
-                    type='button'
-                    aria-label='过滤视频源'
-                    onClick={() => {
-                      setIsSourceFilterExpanded(true);
-                      sourceFilterInputRef.current?.focus();
-                    }}
-                    className='flex-none w-9 h-9 flex items-center justify-center text-blue-500 hover:text-blue-600 transition-colors focus:outline-none focus-visible:outline-none'
-                  >
-                    <Search size={18} />
-                  </button>
-                  <input
-                    ref={sourceFilterInputRef}
-                    type='text'
-                    value={sourceFilter}
-                    onChange={(e) => setSourceFilter(e.target.value)}
-                    onFocus={() => setIsSourceFilterExpanded(true)}
-                    // 内容为空失焦时收起搜索框
-                    onBlur={() => {
-                      if (!sourceFilter.trim()) setIsSourceFilterExpanded(false);
-                    }}
-                    placeholder='过滤视频源...'
-                    tabIndex={isSourceFilterExpanded ? 0 : -1}
-                    className={`w-full h-9 pr-3 text-sm bg-transparent border-0 focus:outline-none focus:ring-0 text-gray-700 dark:text-gray-300 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-opacity duration-300 ${
-                      isSourceFilterExpanded
-                        ? 'opacity-100'
-                        : 'opacity-0 pointer-events-none'
-                    }`}
-                  />
+                  {[
+                    { label: '普通源', value: 'normal', icon: Globe },
+                    { label: 'TVBox 源', value: 'tvbox', icon: Tv },
+                  ].map(({ label, value, icon: Icon }) => (
+                    <button
+                      key={value}
+                      type='button'
+                      aria-label={label}
+                      title={label}
+                      aria-pressed={sourceType === value}
+                      onClick={() => handleSourceTypeChange(value)}
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                        sourceType === value
+                          ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400'
+                          : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'
+                      }`}
+                    >
+                      <Icon size={18} aria-hidden='true' />
+                    </button>
+                  ))}
                 </div>
               </div>
-              {isLoadingSources && apiSites.length === 0 ? (
+              {/* 过滤视频源：伸缩搜索框 */}
+              <div
+                className={`flex items-center h-9 bg-gray-50/80 dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700 rounded-lg shadow-sm transition-all duration-300 ease-in-out overflow-hidden ${
+                  isSourceFilterExpanded ? 'w-44 sm:w-56' : 'w-9'
+                }`}
+              >
+                <button
+                  type='button'
+                  aria-label='过滤视频源'
+                  onClick={() => {
+                    setIsSourceFilterExpanded(true);
+                    sourceFilterInputRef.current?.focus();
+                  }}
+                  className='flex-none w-9 h-9 flex items-center justify-center text-blue-500 hover:text-blue-600 transition-colors focus:outline-none focus-visible:outline-none'
+                >
+                  <Search size={18} />
+                </button>
+                <input
+                  ref={sourceFilterInputRef}
+                  type='text'
+                  value={sourceFilter}
+                  onChange={(e) => setSourceFilter(e.target.value)}
+                  onFocus={() => setIsSourceFilterExpanded(true)}
+                  // 内容为空失焦时收起搜索框
+                  onBlur={() => {
+                    if (!sourceFilter.trim()) setIsSourceFilterExpanded(false);
+                  }}
+                  placeholder='过滤视频源...'
+                  tabIndex={isSourceFilterExpanded ? 0 : -1}
+                  className={`min-w-0 w-full h-9 pr-3 text-sm bg-transparent border-0 focus:outline-none focus:ring-0 text-gray-700 dark:text-gray-300 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-opacity duration-300 ${
+                    isSourceFilterExpanded
+                      ? 'opacity-100'
+                      : 'opacity-0 pointer-events-none'
+                  }`}
+                />
+              </div>
+            </div>
+            {isLoadingSources && apiSites.length === 0 ? (
+              <div className='flex items-center justify-center h-12 bg-gray-50/80 rounded-lg border border-gray-200/50 dark:bg-gray-800 dark:border-gray-700'>
+                <Loader2 className='h-5 w-5 animate-spin text-gray-400' />
+                <span className='ml-2 text-sm text-gray-500 dark:text-gray-400'>
+                  加载视频源中...
+                </span>
+              </div>
+            ) : apiSites.length === 0 ? (
+              <div className='flex items-center justify-center h-12 bg-gray-50/80 rounded-lg border border-gray-200/50 dark:bg-gray-800 dark:border-gray-700'>
+                <span className='text-sm text-gray-500 dark:text-gray-400'>
+                  暂无可用源
+                </span>
+              </div>
+            ) : filteredApiSites.length === 0 ? (
+              <div className='flex items-center justify-center h-12 bg-gray-50/80 rounded-lg border border-gray-200/50 dark:bg-gray-800 dark:border-gray-700'>
+                <span className='text-sm text-gray-500 dark:text-gray-400'>
+                  没有匹配的视频源
+                </span>
+              </div>
+            ) : (
+              <div className='flex'>
+                <CapsuleSwitch
+                  options={filteredApiSites.map((site) => ({
+                    label: site.name,
+                    value: site.key,
+                  }))}
+                  active={selectedSource}
+                  onChange={handleSourceChange}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* 分类选择：两级源为「类型 → 分类」联动，平铺源仅显示分类 */}
+          {selectedSource && viewMode === 'browse' && (
+            <div className='relative space-y-6'>
+              {isLoadingCategories && categories.length === 0 ? (
                 <div className='flex items-center justify-center h-12 bg-gray-50/80 rounded-lg border border-gray-200/50 dark:bg-gray-800 dark:border-gray-700'>
                   <Loader2 className='h-5 w-5 animate-spin text-gray-400' />
                   <span className='ml-2 text-sm text-gray-500 dark:text-gray-400'>
-                    加载视频源中...
+                    加载分类中...
                   </span>
-                </div>
-              ) : apiSites.length === 0 ? (
-                <div className='flex items-center justify-center h-12 bg-gray-50/80 rounded-lg border border-gray-200/50 dark:bg-gray-800 dark:border-gray-700'>
-                  <span className='text-sm text-gray-500 dark:text-gray-400'>
-                    暂无可用源
-                  </span>
-                </div>
-              ) : filteredApiSites.length === 0 ? (
-                <div className='flex items-center justify-center h-12 bg-gray-50/80 rounded-lg border border-gray-200/50 dark:bg-gray-800 dark:border-gray-700'>
-                  <span className='text-sm text-gray-500 dark:text-gray-400'>
-                    没有匹配的视频源
-                  </span>
-                </div>
-              ) : (
-                <div className='flex'>
-                  <CapsuleSwitch
-                    options={filteredApiSites.map((site) => ({
-                      label: site.name,
-                      value: site.key,
-                    }))}
-                    active={selectedSource}
-                    onChange={(value) => {
-                      const site = apiSites.find((s) => s.key === value);
-                      handleSourceChange(value, site?.name || '');
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* 分类选择器 */}
-            <div>
-              {isLoadingCategories ? (
-                <div className="flex items-center justify-center h-10">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                    <span className="text-sm text-gray-500 dark:text-gray-400">加载分类中...</span>
-                  </div>
                 </div>
               ) : categories.length === 0 ? (
-                <div className="flex items-center justify-center h-10">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">暂无可用分类</span>
+                <div className='flex items-center justify-center h-12 bg-gray-50/80 rounded-lg border border-gray-200/50 dark:bg-gray-800 dark:border-gray-700'>
+                  <span className='text-sm text-gray-500 dark:text-gray-400'>
+                    暂无分类
+                  </span>
                 </div>
+              ) : isHierarchical ? (
+                <>
+                  <div>
+                    <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3'>
+                      选择类型
+                    </label>
+                    <div className='flex'>
+                      <CapsuleSwitch
+                        options={parentCategories.map((category) => ({
+                          label: category.name,
+                          value: category.id,
+                        }))}
+                        active={selectedParentCategory}
+                        onChange={handleParentCategoryChange}
+                      />
+                    </div>
+                  </div>
+                  {subCategories.length > 0 && (
+                    <div>
+                      <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3'>
+                        选择分类
+                      </label>
+                      <div className='flex'>
+                        <CapsuleSwitch
+                          options={subCategories.map((category) => ({
+                            label: category.name,
+                            value: category.id,
+                          }))}
+                          active={selectedCategory}
+                          onChange={handleCategoryChange}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
-                <CapsuleSwitch
-                  options={categories.map((category) => ({
-                    label: category.name,
-                    value: category.id,
-                  }))}
-                  active={selectedCategory}
-                  onChange={(categoryId) => {
-                    // 重置分页状态，确保切换分类后能正常加载
-                    setCurrentPage(1);
-                    setHasMore(true);
-                    setVideos([]);
-                    setSelectedCategory(categoryId);
-                  }}
-                />
+                <div>
+                  <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3'>
+                    选择分类
+                  </label>
+                  <div className='flex'>
+                    <CapsuleSwitch
+                      options={categories.map((category) => ({
+                        label: category.name,
+                        value: category.id,
+                      }))}
+                      active={selectedCategory}
+                      onChange={handleCategoryChange}
+                    />
+                  </div>
+                </div>
               )}
             </div>
-          </div>
+          )}
         </div>
 
         {/* 视频列表 */}
-        {selectedSource && (viewMode === 'search' ? searchKeyword : selectedCategory) && (
-          <div className='max-w-[95%] mx-auto mt-8'>
-            {/* 标题区域 */}
-            <div className="flex items-center gap-3 mb-6">
-              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-indigo-300/50 to-transparent dark:via-indigo-700/50" />
-              <h2 className='text-xl font-bold text-gray-800 dark:text-gray-200 px-4'>
-                {viewMode === 'search' ? '搜索结果' : '视频列表'}
-              </h2>
-              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-indigo-300/50 to-transparent dark:via-indigo-700/50" />
-            </div>
-
-            {isLoadingVideos && currentPage === 1 ? (
-              <VideoSkeleton />
-            ) : videos.length === 0 ? (
-              <div className='flex flex-col items-center justify-center py-16 bg-white/40 dark:bg-gray-800/40 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-xl'>
-                <SearchX className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
-                <p className='text-lg text-gray-500 dark:text-gray-400 mb-2'>暂无视频</p>
-                <p className='text-sm text-gray-400 dark:text-gray-500'>试试其他分类或搜索关键词</p>
+        {selectedSource &&
+          (viewMode === 'search' ? searchKeyword : selectedCategory) && (
+            <div className='max-w-[95%] mx-auto mt-8'>
+              <div className='mb-4'>
+                {/* 标题区域：两侧渐隐分隔线 */}
+                <div className='flex items-center gap-3 mb-6'>
+                  <div className='h-px flex-1 bg-gradient-to-r from-transparent via-indigo-300/50 to-transparent dark:via-indigo-700/50' />
+                  <h2 className='text-xl font-bold text-gray-800 dark:text-gray-200 px-4'>
+                    {viewMode === 'search' ? '搜索结果' : '视频列表'}
+                  </h2>
+                  <div className='h-px flex-1 bg-gradient-to-r from-transparent via-indigo-300/50 to-transparent dark:via-indigo-700/50' />
+                </div>
               </div>
-            ) : (
-              <>
-                <div className='grid grid-cols-3 gap-x-2 gap-y-14 sm:gap-y-20 px-0 sm:px-2 sm:grid-cols-[repeat(auto-fill,_minmax(11rem,_1fr))] sm:gap-x-8'>
-                  {videos.map((item) => (
-                    <div
-                      key={`${item.source}-${item.id}`}
-                      className='w-full transform transition-all duration-300 hover:scale-[1.02]'
-                    >
-                      <VideoCard
-                        id={item.id}
-                        title={item.title}
-                        poster={item.poster}
-                        episodes={item.episodes.length}
-                        source={item.source}
-                        source_name={item.source_name}
-                        douban_id={item.douban_id}
-                        year={item.year}
-                        from='source-search'
-                        type={item.episodes.length > 1 ? 'tv' : 'movie'}
-                        isAnime={isAnimeCategoryText(
-                          item.type_name,
-                          item.class
-                        )}
-                        typeName={item.type_name || item.class}
-                        cmsData={{
-                          desc: item.desc,
-                          episodes: item.episodes,
-                          episodes_titles: item.episodes_titles,
-                        }}
-                        onBeforeNavigate={saveSnapshot}
-                      />
-                    </div>
-                  ))}
-                </div>
 
-                {/* Infinite scroll trigger */}
-                <div ref={loadMoreRef} className='flex justify-center items-center py-10'>
-                  {isLoadingVideos && (
-                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                      <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
-                      <span className="text-sm">加载更多...</span>
-                    </div>
-                  )}
-                  {!hasMore && videos.length > 0 && (
-                    <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
-                      <div className="h-px w-12 bg-gradient-to-r from-transparent via-gray-300/50 to-transparent dark:via-gray-700/50" />
-                      <span>没有更多了</span>
-                      <div className="h-px w-12 bg-gradient-to-r from-transparent via-gray-300/50 to-transparent dark:via-gray-700/50" />
-                    </div>
-                  )}
+              {isLoadingVideos && currentPage === 1 ? (
+                <VideoSkeleton />
+              ) : videos.length === 0 ? (
+                <div className='flex flex-col items-center justify-center py-16 bg-white/40 dark:bg-gray-800/40 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-xl'>
+                  <SearchX className='h-16 w-16 text-gray-300 dark:text-gray-600 mb-4' />
+                  <p className='text-lg text-gray-500 dark:text-gray-400 mb-2'>
+                    暂无视频
+                  </p>
+                  <p className='text-sm text-gray-400 dark:text-gray-500'>
+                    试试其他分类或搜索关键词
+                  </p>
                 </div>
-              </>
-            )}
-          </div>
-        )}
+              ) : (
+                <>
+                  <div className='grid grid-cols-3 gap-x-2 gap-y-14 sm:gap-y-20 px-0 sm:px-2 sm:grid-cols-[repeat(auto-fill,_minmax(11rem,_1fr))] sm:gap-x-8'>
+                    {videos.map((item) => (
+                      <div key={`${item.source}-${item.id}`} className='w-full'>
+                        <VideoCard
+                          id={item.id}
+                          title={item.title}
+                          poster={item.poster}
+                          episodes={item.vod_total || item.episodes.length}
+                          source={item.source}
+                          source_name={item.source_name}
+                          douban_id={item.douban_id}
+                          year={item.year}
+                          from='source-search'
+                          type={
+                            (item.vod_total || item.episodes.length) > 1
+                              ? 'tv'
+                              : 'movie'
+                          }
+                          isAnime={isAnimeCategoryText(
+                            item.type_name,
+                            item.class
+                          )}
+                          typeName={item.type_name || item.class}
+                          cmsData={
+                            isTVBoxBridgeSource(item.source)
+                              ? undefined
+                              : {
+                                  desc: item.desc,
+                                  episodes: item.episodes,
+                                  episodes_titles: item.episodes_titles,
+                                }
+                          }
+                          onBeforeNavigate={saveSnapshot}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Infinite scroll trigger */}
+                  <div
+                    ref={loadMoreRef}
+                    className='flex justify-center items-center py-8'
+                  >
+                    {isLoadingVideos && (
+                      <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500'></div>
+                    )}
+                    {!hasMore && videos.length > 0 && (
+                      <span className='text-sm text-gray-500 dark:text-gray-400'>
+                        没有更多了
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
       </div>
 
       {/* 置顶（返回顶部）悬浮按钮 */}

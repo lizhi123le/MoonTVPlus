@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS play_records (
   id TEXT, -- 影片ID（用于播放跳转）
   is_anime INTEGER DEFAULT 0, -- 是否动漫
   is_duanju INTEGER DEFAULT 0, -- 是否短剧
+  line TEXT, -- TVBox 线路标识（多线路源记忆）
   PRIMARY KEY (username, key),
   FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
 );
@@ -83,6 +84,7 @@ CREATE TABLE IF NOT EXISTS favorites (
   origin TEXT CHECK(origin IN ('vod', 'live')),
   is_completed INTEGER DEFAULT 0,
   vod_remarks TEXT,
+  is_invalid INTEGER DEFAULT 0, -- 收藏失效标记（源上已下架/搜不到）
   PRIMARY KEY (username, key),
   FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
 );

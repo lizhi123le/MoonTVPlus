@@ -13,6 +13,48 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "227.1.0",
+    date: "2026-11-22",
+    added: [
+    "<span style='color: #F7BA0B'>【重磅】</span>支持tvbox订阅源",
+    "增加收藏失效检测"
+    ],
+    changed: [
+    "Webtv界面美化",
+    "移除客户端去广告功能",
+    "漫画搜索界面改版，多源聚合结果显示",
+    "更换bangumi镜像地址"
+    ],
+    fixed: [
+    "修复时刻表失效"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
+    ]
+  },
+  {
+    version: "227.0.1",
+    date: "2026-10-28",
+    added: [
+      // 无新增内容
+    ],
+    changed: [
+    "超分在不支持的环境显示不支持"
+    ],
+    fixed: [
+    "修复电视直播源无法使用http协议"
+    ],
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
+    ]
+  },
+  {
     version: "227.0.0",
     date: "2026-10-27",
     added: [
@@ -34,8 +76,12 @@ export const changelog: ChangelogEntry[] = [
     "修复换源列表某些情况下源重复",
     "加固超长数字id丢失精度问题"
     ],
-    security: [],
-    breaking: []
+    security: [
+      // 无安全修复内容
+    ],
+    breaking: [
+      // 无破坏性变更
+    ]
   },
   {
     version: "226.1.0",
